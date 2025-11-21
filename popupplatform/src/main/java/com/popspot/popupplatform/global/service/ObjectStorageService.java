@@ -1,4 +1,4 @@
-package com.popspot.popupplatform.service.global;
+package com.popspot.popupplatform.global.service;
 
 import com.popspot.popupplatform.dto.global.UploadResult;
 import org.springframework.web.multipart.MultipartFile;
