@@ -1,3 +1,4 @@
+// src/main/java/com/popspot/popupplatform/global/utils/JwtTokenProvider.java
 package com.popspot.popupplatform.global.utils;
 
 import io.jsonwebtoken.*;
@@ -28,36 +29,60 @@ public class JwtTokenProvider {
         this.refreshValidityMs = refreshValiditySec * 1000;
     }
 
+    /* ===================== Access / Refresh ===================== */
+
     public String createAccessToken(String subject, Map<String, Object> claims) {
+        long now = System.currentTimeMillis();
         return Jwts.builder()
                 .setSubject(subject)
                 .addClaims(claims)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + accessValidityMs))
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + accessValidityMs))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public String createRefreshToken(String subject) {
+    public String createRefreshToken(String subject, Map<String, Object> claims) {
+        long now = System.currentTimeMillis();
         return Jwts.builder()
                 .setSubject(subject)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + refreshValidityMs))
+                .addClaims(claims)
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + refreshValidityMs))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public Jws<Claims> parse(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+    public Claims parseAccessToken(String token) {
+        return parse(token).getBody();
     }
 
-    public String createSignupToken(String provider, String providerId) {
-        return Jwts.builder()
+    /* ===================== 소셜 회원가입용 signupToken ===================== */
+
+    /**
+     * 소셜 회원가입 전용 토큰
+     * - purpose = "signup"
+     * - provider / providerId / 이메일/이름 등 최소 정보 포함
+     * - 만료 시간은 10분 고정 (프론트에서 짧게만 사용)
+     */
+    public String createSignupToken(String provider,
+                                    String providerId,
+                                    Map<String, Object> profileClaims) {
+        long now = System.currentTimeMillis();
+
+        JwtBuilder builder = Jwts.builder()
+                .setSubject("social-signup")
                 .claim("purpose", "signup")
                 .claim("provider", provider)
                 .claim("providerId", providerId)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + Duration.ofMinutes(10).toMillis()))
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + Duration.ofMinutes(10).toMillis()));
+
+        if (profileClaims != null) {
+            builder.addClaims(profileClaims);
+        }
+
+        return builder
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -68,5 +93,20 @@ public class JwtTokenProvider {
             throw new JwtException("Invalid purpose");
         }
         return c;
+    }
+
+    /* ===================== 공통 파서 ===================== */
+
+    private Jws<Claims> parse(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
+        } catch (ExpiredJwtException e) {
+            throw e;
+        } catch (JwtException e) {
+            throw e;
+        }
     }
 }

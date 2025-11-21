@@ -41,8 +41,11 @@ dependencies {
     implementation 'software.amazon.awssdk:auth:2.25.62'
     implementation 'software.amazon.awssdk:regions:2.25.62'
 
+    // (CoolSMS / Nurigo SDK)
+    implementation 'net.nurigo:sdk:4.3.2'
+
 	compileOnly 'org.projectlombok:lombok'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
