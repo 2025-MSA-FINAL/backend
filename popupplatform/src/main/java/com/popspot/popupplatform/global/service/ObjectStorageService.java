@@ -1,9 +1,9 @@
 package com.popspot.popupplatform.global.service;
 
-import com.popspot.popupplatform.dto.global.UploadResult;
+import com.popspot.popupplatform.dto.global.UploadResultDto;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface ObjectStorageService {
-    UploadResult upload(String keyPrefix, MultipartFile file);
+    UploadResultDto upload(String keyPrefix, MultipartFile file);
     void deleteByKey(String key);
 }
