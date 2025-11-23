@@ -1,6 +1,6 @@
 package com.popspot.popupplatform.global.service;
 
-import com.popspot.popupplatform.dto.global.UploadResult;
+import com.popspot.popupplatform.dto.global.UploadResultDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -27,7 +27,7 @@ public class S3StorageService implements ObjectStorageService {
     @Value("${aws.s3.public-base-url:}") private String publicBaseUrl;
 
     @Override
-    public UploadResult upload(String keyPrefix, MultipartFile file) {
+    public UploadResultDto upload(String keyPrefix, MultipartFile file) {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("file is empty");
 
         String original = file.getOriginalFilename();
@@ -56,7 +56,7 @@ public class S3StorageService implements ObjectStorageService {
         }
 
         String url = buildPublicUrl(key);
-        return new UploadResult(url, key);
+        return new UploadResultDto(url, key);
     }
 
     @Override

@@ -1,6 +1,7 @@
 // src/main/java/com/popspot/popupplatform/mapper/UserMapper.java
 package com.popspot.popupplatform.mapper.user;
 
+import com.popspot.popupplatform.dto.global.JwtUserDto;
 import com.popspot.popupplatform.dto.user.LoginUserDto;
 import com.popspot.popupplatform.dto.user.UserDto;
 import org.apache.ibatis.annotations.Mapper;
@@ -35,6 +36,11 @@ public interface UserMapper {
      */
     Optional<LoginUserDto> findGeneralUserByLoginId(@Param("loginId") String loginId);
 
+
+    /**
+     * userId 기준으로 로그인용 계정 조회 (JWT 인증에서 사용)
+     */
+    Optional<JwtUserDto> findJwtUserByUserId(@Param("userId") Long userId);
     // ==========================
     // 중복 체크용 메서드들 추가
     // ==========================
@@ -53,5 +59,4 @@ public interface UserMapper {
      * 닉네임 중복 개수 조회 (USER.user_nickname 기준)
      */
     int countByNickname(@Param("nickname") String nickname);
-    String findProfileImageByUserId(@Param("userId") Long userId);
 }

@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class UploadResult {
+public class UploadResultDto {
     private String url;
     private String key;
 }
