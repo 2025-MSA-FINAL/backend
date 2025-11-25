@@ -1,0 +1,170 @@
+<!-- src/main/resources/mappers/UserMapper.xml -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.user.UserMapper">
+
+    <!--
+        소셜 계정으로 조회
+        USER + USER_SOCIAL 조인
+     -->
+    <select id="findByProviderAndProviderId"
+            resultType="com.popspot.popupplatform.dto.user.UserDto">
+        SELECT
+        u.user_id        AS userId,
+        u.user_name      AS name,
+        u.user_nickname  AS nickname,
+        u.user_phonenumber AS phone,
+        u.user_gender    AS gender,
+        u.user_birthyear AS birthYear,
+        u.user_photo     AS profileImage,
+        u.user_email     AS email,
+        u.user_status    AS status,
+        u.user_role      AS role,
+        s.oauth_provider AS provider,
+        s.oauth_id       AS providerId
+        FROM USER u
+        JOIN USER_SOCIAL s
+        ON u.user_id = s.user_id
+        WHERE s.oauth_provider = #{provider}
+        AND s.oauth_id       = #{providerId}
+        LIMIT 1
+    </select>
+
+    <!-- USER 생성 (소셜/일반 공통 프로필 부분) -->
+    <insert id="insertUser"
+            parameterType="com.popspot.popupplatform.dto.user.UserDto"
+            useGeneratedKeys="true"
+            keyProperty="userId">
+        INSERT INTO USER
+        (
+        user_name,
+        user_nickname,
+        user_phonenumber,
+        user_gender,
+        user_birthyear,
+        user_photo,
+        user_email,
+        user_status,
+        user_role
+        )
+        VALUES
+        (
+        #{name},
+        #{nickname},
+        #{phone},
+        #{gender},
+        #{birthYear},
+        #{profileImage},
+        #{email},
+        #{status},
+        #{role}
+        )
+    </insert>
+
+    <!-- USER_SOCIAL 생성: 소셜 계정 매핑 -->
+    <insert id="insertUserSocial"
+            parameterType="com.popspot.popupplatform.dto.user.UserDto">
+        INSERT INTO USER_SOCIAL
+        (
+        user_id,
+        oauth_id,
+        oauth_provider
+        )
+        VALUES
+        (
+        #{userId},
+        #{providerId},
+        #{provider}
+        )
+    </insert>
+
+    <!-- USER_GENERAL 생성: 소셜 계정 매핑 -->
+    <insert id="insertUserGeneral"
+            parameterType="com.popspot.popupplatform.dto.user.UserDto">
+        INSERT INTO USER_GENERAL
+        (
+        user_id,
+        login_id,
+        login_pwd
+        )
+        VALUES
+        (
+        #{userId},
+        #{loginId},
+        #{loginPwd}
+        )
+    </insert>
+
+    <!-- 일반 로그인용 계정 조회: USER_GENERAL + USER 조인 -->
+    <select id="findGeneralUserByLoginId"
+            resultType="com.popspot.popupplatform.dto.user.LoginUserDto">
+        SELECT
+        g.user_id     AS userId,
+        g.login_id    AS loginId,
+        g.login_pwd   AS password,
+        u.user_role   AS role,
+        u.user_status AS status
+        FROM USER_GENERAL g
+        JOIN USER u
+        ON g.user_id = u.user_id
+        WHERE g.login_id = #{loginId}
+        LIMIT 1
+    </select>
+
+    <select id="findJwtUserByUserId"
+            resultType="com.popspot.popupplatform.dto.global.JwtUserDto">
+        SELECT
+        u.user_id     AS userId,
+        u.user_role   AS role,
+        u.user_status AS status
+        FROM USER u
+        WHERE u.user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <!-- userId(PK)로 회원 상세 조회 -->
+    <select id="findByUserId"
+            resultType="com.popspot.popupplatform.dto.user.UserDto">
+        SELECT
+        u.user_id          AS userId,
+        u.user_name        AS name,
+        u.user_nickname    AS nickname,
+        u.user_phonenumber AS phone,
+        u.user_gender      AS gender,
+        u.user_birthyear   AS birthYear,
+        u.user_photo       AS profileImage,
+        u.user_email       AS email,
+        u.user_status      AS status,
+        u.user_role        AS role
+        FROM USER u
+        WHERE u.user_id = #{userId}
+    </select>
+
+    <!-- ==========================
+        중복 체크용 쿼리들 추가
+        ========================== -->
+
+    <!-- 이메일 중복 개수 (USER.user_email) -->
+    <select id="countByEmail" resultType="int">
+        SELECT COUNT(1)
+        FROM USER
+        WHERE user_email = #{email}
+    </select>
+
+    <!-- 로그인 아이디 중복 개수 (USER_GENERAL.login_id) -->
+    <select id="countByLoginId" resultType="int">
+        SELECT COUNT(1)
+        FROM USER_GENERAL
+        WHERE login_id = #{loginId}
+    </select>
+
+    <!-- 닉네임 중복 개수 (USER.user_nickname) -->
+    <select id="countByNickname" resultType="int">
+        SELECT COUNT(1)
+        FROM USER
+        WHERE user_nickname = #{nickname}
+    </select>
+
+
+
+</mapper>
