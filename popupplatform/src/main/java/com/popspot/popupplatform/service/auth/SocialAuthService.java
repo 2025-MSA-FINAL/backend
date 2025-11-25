@@ -2,6 +2,7 @@
 package com.popspot.popupplatform.service.auth;
 
 import com.popspot.popupplatform.dto.user.UserDto;
+import com.popspot.popupplatform.dto.user.enums.UserRole;
 import com.popspot.popupplatform.dto.user.enums.UserStatus;
 import com.popspot.popupplatform.dto.user.request.SocialSignupRequest;
 import com.popspot.popupplatform.mapper.user.UserMapper;
@@ -63,7 +64,7 @@ public class SocialAuthService {
         }
 
         dto.setStatus(UserStatus.ACTIVE.name());
-        dto.setRole("USER");
+        dto.setRole(UserRole.USER.name());
 
         // 1) USER insert
         userMapper.insertUser(dto);   // dto.userId 세팅됨
