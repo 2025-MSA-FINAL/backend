@@ -46,6 +46,12 @@ public interface UserMapper {
     // ==========================
 
     /**
+     * userId(PK)로 USER 조회
+     * - 네비게이션 바 / 마이페이지에서 현재 로그인한 회원 정보 가져올 때 사용
+     */
+    Optional<UserDto> findByUserId(@Param("userId") Long userId);
+
+    /**
      * EMAIL 중복 개수 조회 (USER.user_email 기준)
      */
     int countByEmail(@Param("email") String email);
