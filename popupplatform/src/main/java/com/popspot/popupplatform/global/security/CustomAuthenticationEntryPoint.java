@@ -32,7 +32,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
             errorCode = (BaseErrorCode) attr;
         } else {
             // JwtAuthenticationFilter에서 아무 코드도 안 심어줬다면 토큰이 아예 없는 케이스로 처리
-            errorCode = AuthErrorCode.NO_AUTH_TOKEN;
+            errorCode = AuthErrorCode.UNKNOWN_AUTH_ERROR;
         }
 
         ErrorResponse body = new ErrorResponse(errorCode.getCode(), errorCode.getMessage());
