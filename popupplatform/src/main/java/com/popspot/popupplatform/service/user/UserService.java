@@ -1,5 +1,6 @@
 package com.popspot.popupplatform.service.user;
 
+import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.dto.user.LoginUserDto;
 import com.popspot.popupplatform.dto.user.UserDto;
 import com.popspot.popupplatform.dto.user.request.ChangePasswordRequest;
@@ -147,6 +148,17 @@ public class UserService {
     public void deleteUser(Long userId) {
         int updated = userMapper.softDeleteUser(userId);
         if (updated != 1) {
+            throw new CustomException(UserErrorCode.USER_NOT_FOUND);
+        }
+    }
+
+    public void updateProfile(Long userId, UploadResultDto dto) {
+        int updated = userMapper.updateProfileImage(
+                userId,
+                dto.getUrl()
+        );
+
+        if (updated == 0) {
             throw new CustomException(UserErrorCode.USER_NOT_FOUND);
         }
     }

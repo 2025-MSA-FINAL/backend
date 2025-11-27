@@ -236,4 +236,12 @@
         WHERE user_id   = #{userId}
     </update>
 
+    <!-- 프로필 이미지 수정 -->
+    <update id="updateProfileImage">
+        UPDATE USER
+        SET user_photo     = #{profileImageUrl}
+        WHERE user_id      = #{userId}
+        AND user_status  = 'ACTIVE'
+    </update>
+
 </mapper>

@@ -1,5 +1,6 @@
 package com.popspot.popupplatform.controller.user;
 
+import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.dto.user.request.ChangePasswordRequest;
 import com.popspot.popupplatform.dto.user.request.UpdateEmailRequest;
 import com.popspot.popupplatform.dto.user.request.UpdateNicknameRequest;
@@ -84,5 +85,14 @@ public class UserController {
     ) {
         userService.deleteUser(userDetails.getUserId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/me/profile")
+    public ResponseEntity<Void> updateProfile(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestBody UploadResultDto dto
+    ) {
+        userService.updateProfile(user.getUserId(), dto); // dto 안에 profileImageUrl, profileImageKey 포함
+        return ResponseEntity.ok().build();
     }
 }
