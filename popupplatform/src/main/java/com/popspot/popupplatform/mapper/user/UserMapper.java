@@ -105,4 +105,7 @@ public interface UserMapper {
      * 닉네임 중복 개수 조회 (USER.user_nickname 기준)
      */
     int countByNickname(@Param("nickname") String nickname);
+
+    int updateProfileImage(@Param("userId") Long userId,
+                           @Param("profileImageUrl") String profileImageUrl);
 }
