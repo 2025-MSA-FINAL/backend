@@ -51,6 +51,46 @@ public interface UserMapper {
      */
     Optional<UserDto> findByUserId(@Param("userId") Long userId);
 
+
+    /**
+     * userId 로 로그인 계정 정보 조회 (비밀번호 변경용)
+     */
+    Optional<LoginUserDto> findGeneralUserByUserId(@Param("userId") Long userId);
+
+    /**
+     * 닉네임 변경
+     */
+    int updateNickname(@Param("userId") Long userId,
+                       @Param("nickname") String nickname);
+
+    /**
+     * 이메일 변경
+     */
+    int updateEmail(@Param("userId") Long userId,
+                    @Param("email") String email);
+
+    /**
+     * 휴대폰 번호 변경
+     */
+    int updatePhone(@Param("userId") Long userId,
+                    @Param("phone") String phone);
+
+    /**
+     * 비밀번호 변경 (USER_GENERAL.login_pwd)
+     */
+    int updatePassword(@Param("userId") Long userId,
+                       @Param("password") String encodedPassword);
+
+    /**
+     * 회원 탈퇴(소프트 삭제) – 상태만 DELETED 로 변경
+     */
+    int softDeleteUser(@Param("userId") Long userId);
+
+    /**
+     * 휴대폰 번호 중복 개수 조회
+     */
+    int countByPhone(@Param("phone") String phone);
+
     /**
      * EMAIL 중복 개수 조회 (USER.user_email 기준)
      */

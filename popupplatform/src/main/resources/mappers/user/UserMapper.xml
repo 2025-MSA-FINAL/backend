@@ -4,33 +4,33 @@
 <mapper namespace="com.popspot.popupplatform.mapper.user.UserMapper">
 
     <!--
-        소셜 계정으로 조회
-        USER + USER_SOCIAL 조인
+        소셜 계정으로 조회 (ACTIVE 회원만)
      -->
     <select id="findByProviderAndProviderId"
             resultType="com.popspot.popupplatform.dto.user.UserDto">
         SELECT
-        u.user_id        AS userId,
-        u.user_name      AS name,
-        u.user_nickname  AS nickname,
+        u.user_id          AS userId,
+        u.user_name        AS name,
+        u.user_nickname    AS nickname,
         u.user_phonenumber AS phone,
-        u.user_gender    AS gender,
-        u.user_birthyear AS birthYear,
-        u.user_photo     AS profileImage,
-        u.user_email     AS email,
-        u.user_status    AS status,
-        u.user_role      AS role,
-        s.oauth_provider AS provider,
-        s.oauth_id       AS providerId
+        u.user_gender      AS gender,
+        u.user_birthyear   AS birthYear,
+        u.user_photo       AS profileImage,
+        u.user_email       AS email,
+        u.user_status      AS status,
+        u.user_role        AS role,
+        s.oauth_provider   AS provider,
+        s.oauth_id         AS providerId
         FROM USER u
         JOIN USER_SOCIAL s
         ON u.user_id = s.user_id
         WHERE s.oauth_provider = #{provider}
         AND s.oauth_id       = #{providerId}
+        AND u.user_status    = 'ACTIVE'
         LIMIT 1
     </select>
 
-    <!-- USER 생성 (소셜/일반 공통 프로필 부분) -->
+    <!-- USER 생성 -->
     <insert id="insertUser"
             parameterType="com.popspot.popupplatform.dto.user.UserDto"
             useGeneratedKeys="true"
@@ -61,7 +61,7 @@
         )
     </insert>
 
-    <!-- USER_SOCIAL 생성: 소셜 계정 매핑 -->
+    <!-- USER_SOCIAL 생성 -->
     <insert id="insertUserSocial"
             parameterType="com.popspot.popupplatform.dto.user.UserDto">
         INSERT INTO USER_SOCIAL
@@ -78,7 +78,7 @@
         )
     </insert>
 
-    <!-- USER_GENERAL 생성: 소셜 계정 매핑 -->
+    <!-- USER_GENERAL 생성 -->
     <insert id="insertUserGeneral"
             parameterType="com.popspot.popupplatform.dto.user.UserDto">
         INSERT INTO USER_GENERAL
@@ -95,7 +95,9 @@
         )
     </insert>
 
-    <!-- 일반 로그인용 계정 조회: USER_GENERAL + USER 조인 -->
+    <!--
+        일반 로그인용 계정 조회 (ACTIVE 회원만 로그인 가능)
+     -->
     <select id="findGeneralUserByLoginId"
             resultType="com.popspot.popupplatform.dto.user.LoginUserDto">
         SELECT
@@ -107,10 +109,12 @@
         FROM USER_GENERAL g
         JOIN USER u
         ON g.user_id = u.user_id
-        WHERE g.login_id = #{loginId}
+        WHERE g.login_id   = #{loginId}
+        AND u.user_status = 'ACTIVE'
         LIMIT 1
     </select>
 
+    <!-- JWT 인증용 (상태 체크는 서비스/필터단에서 수행) -->
     <select id="findJwtUserByUserId"
             resultType="com.popspot.popupplatform.dto.global.JwtUserDto">
         SELECT
@@ -122,7 +126,7 @@
         LIMIT 1
     </select>
 
-    <!-- userId(PK)로 회원 상세 조회 -->
+    <!-- userId 로 USER 조회 -->
     <select id="findByUserId"
             resultType="com.popspot.popupplatform.dto.user.UserDto">
         SELECT
@@ -140,31 +144,96 @@
         WHERE u.user_id = #{userId}
     </select>
 
-    <!-- ==========================
-        중복 체크용 쿼리들 추가
-        ========================== -->
+    <!-- ======================================
+        ACTIVE 회원 대상 중복 체크
+        ====================================== -->
 
-    <!-- 이메일 중복 개수 (USER.user_email) -->
     <select id="countByEmail" resultType="int">
         SELECT COUNT(1)
         FROM USER
-        WHERE user_email = #{email}
+        WHERE user_email  = #{email}
+        AND user_status = 'ACTIVE'
     </select>
 
-    <!-- 로그인 아이디 중복 개수 (USER_GENERAL.login_id) -->
     <select id="countByLoginId" resultType="int">
         SELECT COUNT(1)
-        FROM USER_GENERAL
-        WHERE login_id = #{loginId}
+        FROM USER_GENERAL g
+        JOIN USER u
+        ON g.user_id = u.user_id
+        WHERE g.login_id   = #{loginId}
+        AND u.user_status = 'ACTIVE'
     </select>
 
-    <!-- 닉네임 중복 개수 (USER.user_nickname) -->
     <select id="countByNickname" resultType="int">
         SELECT COUNT(1)
         FROM USER
         WHERE user_nickname = #{nickname}
+        AND user_status   = 'ACTIVE'
     </select>
 
+    <select id="countByPhone" resultType="int">
+        SELECT COUNT(1)
+        FROM USER
+        WHERE user_phonenumber = #{phone}
+        AND user_status      = 'ACTIVE'
+    </select>
 
+    <!-- ======================================
+        회원 정보 수정 (ACTIVE 회원만 가능)
+        ====================================== -->
+
+    <update id="updateNickname">
+        UPDATE USER
+        SET user_nickname = #{nickname}
+        WHERE user_id     = #{userId}
+        AND user_status = 'ACTIVE'
+    </update>
+
+    <update id="updateEmail">
+        UPDATE USER
+        SET user_email = #{email}
+        WHERE user_id  = #{userId}
+        AND user_status = 'ACTIVE'
+    </update>
+
+    <update id="updatePhone">
+        UPDATE USER
+        SET user_phonenumber = #{phone}
+        WHERE user_id        = #{userId}
+        AND user_status    = 'ACTIVE'
+    </update>
+
+    <!--
+        비밀번호 변경용 조회
+        → 여기에도 ACTIVE 필터 추가
+     -->
+    <select id="findGeneralUserByUserId"
+            resultType="com.popspot.popupplatform.dto.user.LoginUserDto">
+        SELECT
+        ug.user_id        AS userId,
+        ug.login_id       AS loginId,
+        ug.login_password AS password,
+        u.user_role       AS role,
+        u.user_status     AS status
+        FROM USER_GENERAL ug
+        JOIN USER u ON ug.user_id = u.user_id
+        WHERE ug.user_id   = #{userId}
+        AND u.user_status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <!-- 비밀번호 변경 -->
+    <update id="updatePassword">
+        UPDATE USER_GENERAL
+        SET login_password = #{password}
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 소프트 삭제 -->
+    <update id="softDeleteUser">
+        UPDATE USER
+        SET user_status = 'DELETED'
+        WHERE user_id   = #{userId}
+    </update>
 
 </mapper>
