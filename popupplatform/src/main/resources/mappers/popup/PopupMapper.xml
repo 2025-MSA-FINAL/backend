@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    PopupMapper.xml
+      - POPUPSTORE 테이블에 팝업 기본 정보 INSERT
+      - HASHTAG 테이블에서 해시태그 ID 조회/INSERT
+      - POPUP_HASHTAG 테이블에 팝업-해시태그 매핑 INSERT
+
+    주의점
+      - insertPopup:
+          * useGeneratedKeys="true" / keyProperty="popId"
+          * DB에서 생성된 pop_id가 PopupStore.popId에 자동 세팅됨
+      - pop_price_type / pop_status:
+          * EnumTypeHandler를 통해 Enum.name() 문자열로 저장됨 (예: FREE, PAID, UPCOMING...)
+      - pop_moderation_status, pop_is_deleted, pop_view_count, pop_ai_summary:
+          * INSERT 시 기본값을 코드에서 직접 지정 (상태 초기화 역할)
+-->
+
+<mapper namespace="com.popspot.popupplatform.mapper.popup.PopupMapper">
+
+    <!--
+        1) 팝업 기본 정보 INSERT
+
+        - 파라미터: PopupStore 도메인 객체
+        - 동작:
+            * POPUPSTORE 테이블에 한 행 INSERT
+            * useGeneratedKeys:
+                - AUTO_INCREMENT pop_id 값을 DB가 생성
+                - 생성된 PK를 PopupStore.popId 필드에 자동으로 채워줌
+        - 초기값:
+            * pop_moderation_status : FALSE (관리자 승인 전 상태)
+            * pop_is_deleted        : FALSE (소프트 삭제 안된 상태)
+            * pop_view_count        : 0     (조회수 초기값)
+            * pop_ai_summary        : NULL  (AI 요약 아직 없음)
+    -->
+    <insert id="insertPopup"
+            useGeneratedKeys="true"
+            keyProperty="popId"
+            parameterType="com.popspot.popupplatform.domain.popup.PopupStore">
+        INSERT INTO POPUPSTORE (
+        pop_owner_id,
+        pop_name,
+        pop_description,
+        pop_thumbnail,
+        pop_location,
+        pop_start_date,
+        pop_end_date,
+        pop_is_reservation,
+        pop_price_type,
+        pop_price,
+        pop_status,
+        pop_insta_url,
+        pop_moderation_status,
+        pop_is_deleted,
+        pop_view_count,
+        pop_ai_summary
+        ) VALUES (
+        #{popOwnerId},
+        #{popName},
+        #{popDescription},
+        #{popThumbnail},
+        #{popLocation},
+        #{popStartDate},
+        #{popEndDate},
+        #{popIsReservation},
+        #{popPriceType},
+        #{popPrice},
+        #{popStatus},
+        #{popInstaUrl},
+        FALSE,
+        FALSE,
+        0,
+        NULL
+        )
+    </insert>
+
+    <!--
+        2) 해시태그 이름으로 hash_id 조회
+
+        - 파라미터: hashName (해시태그 문자열)
+        - 반환값: hash_id (Long)
+        - 용도:
+            * 이미 존재하는 해시태그인지 확인할 때 사용
+            * 결과가 없으면 서비스 레이어에서 insertHashtag 호출
+    -->
+    <select id="findHashtagIdByName" resultType="java.lang.Long">
+        SELECT hash_id
+        FROM HASHTAG
+        WHERE hash_name = #{hashName}
+    </select>
+
+    <!--
+        3) 해시태그 INSERT
+
+        - 파라미터: hashName
+        - 동작:
+            * HASHTAG 테이블에 새로운 해시태그 한 건 INSERT
+        - 주의:
+            * 현재는 생성된 hash_id를 반환하지 않음
+            * 필요하다면 useGeneratedKeys + Ha>shtag 도메인 객체로 바꾸는 것도 고려 가능
+    -->
+    <insert id="insertHashtag">
+        INSERT IGNORE INTO HASHTAG (hash_name)
+        VALUES (#{hashName})
+    </insert>
+
+    <!--
+        4) 팝업-해시태그 매핑 INSERT
+
+        - 파라미터:
+            * popId  : POPUPSTORE.pop_id
+            * hashId : HASHTAG.hash_id
+        - 동작:
+            * POPUP_HASHTAG 테이블에 (팝업, 해시태그) N:M 관계를 한 건 등록
+        - 사용 시나리오:
+            * 팝업 생성 후, DTO에 들어온 해시태그 리스트를 순회하면서
+              각 해시태그에 대해 POPUP_HASHTAG 행을 추가하는 용도
+    -->
+    <insert id="insertPopupHashtag">
+        INSERT INTO POPUP_HASHTAG (pop_id, hash_id)
+        VALUES (#{popId}, #{hashId})
+    </insert>
+
+    <!--
+        4) 팝업-이미지 매핑 INSERT
+    -->
+    <insert id="insertPopupImage">
+        INSERT INTO POPUP_IMG (pop_id, pi_url, pi_order)
+        VALUES (#{popId}, #{imageUrl}, #{order})
+    </insert>
+
+</mapper>
