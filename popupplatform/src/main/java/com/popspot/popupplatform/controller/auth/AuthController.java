@@ -71,7 +71,7 @@ public class AuthController {
 
         // 5) 공통 서비스로 쿠키 설정
         authCookieService.addLoginCookies(response, accessToken, refreshToken);
-
+        System.out.println(accessToken);
         return ResponseEntity.noContent().build();
     }
     @Operation(summary = "로그아웃", description = "현재 로그인된 사용자를 로그아웃 처리합니다.")
