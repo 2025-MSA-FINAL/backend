@@ -17,4 +17,9 @@
         WHERE gcr_id = #{gcrId}
         AND user_id = #{userId}
     </select>
+    <select id="countParticipants" parameterType="long" resultType="int">
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+    </select>
 </mapper>

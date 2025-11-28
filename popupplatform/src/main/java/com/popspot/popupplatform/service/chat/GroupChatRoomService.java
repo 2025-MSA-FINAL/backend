@@ -3,6 +3,7 @@ package com.popspot.popupplatform.service.chat;
 import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
+import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
@@ -19,6 +20,25 @@ import java.util.List;
 public class GroupChatRoomService {
     private final GroupChatRoomMapper roomMapper;
     private final ChatParticipantMapper participantMapper;
+
+    //공통검증메서드
+    private GroupChatRoom validateRoomOwnership(Long gcrId, Long userId) {
+        GroupChatRoom room = roomMapper.findById(gcrId);
+        //존재하지 않는 방 수정 불가 버그
+        if (room == null) {
+            throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
+        }
+        //삭제된 방 수정 불가 버그
+        if (Boolean.TRUE.equals(room.getGcrIsDeleted())) {
+            throw new CustomException(ChatErrorCode.ROOM_ALREADY_DELETED);
+        }
+        //수정시 방장 권한 확인
+        if (!room.getUserId().equals(userId)) {
+            throw new CustomException(ChatErrorCode.NOT_ROOM_OWNER);
+        }
+        return room;
+    }
+
 
     //채팅방생성정보 req, 채팅방생성유저(방장) userId
     @Transactional
@@ -76,5 +96,34 @@ public class GroupChatRoomService {
                 .build();
         //참여자저장
         participantMapper.insertParticipant(participant);
+    }
+
+    //수정할 채팅방 gcrId, 수정권한을 위한 방장ID userId, 채팅방수정정보 req
+    @Transactional
+    public void updateRoom(Long gcrId, Long userId, UpdateGroupChatRoomRequest req) {
+        GroupChatRoom room = validateRoomOwnership(gcrId, userId);
+        //최대 인원 수정시 현재 인원 이상 검증
+        if (req.getMaxUserCnt() != null) {
+            //채팅방 내 현재인원
+            int currentUserCnt = participantMapper.countParticipants(gcrId);
+            //수정인원이 현재인원보다 적을 시
+            if(req.getMaxUserCnt() < currentUserCnt) {
+                throw new CustomException(ChatErrorCode.MAX_USER_UNDERFLOW);
+            }
+            //정상반영
+            room.setGcrMaxUserCnt(req.getMaxUserCnt());
+        }
+
+        room.setGcrTitle(req.getTitle());
+        room.setGcrDescription(req.getDescription());
+        roomMapper.updateRoom(room);
+    }
+
+
+    //방장ID userId, 삭제할 채팅방 gcrId
+    @Transactional
+    public void deleteRoom(Long gcrId, Long userId) {
+        GroupChatRoom room = validateRoomOwnership(gcrId, userId);
+        roomMapper.deleteRoom(room);
     }
 }

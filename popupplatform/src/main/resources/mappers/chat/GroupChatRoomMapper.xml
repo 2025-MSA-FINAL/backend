@@ -54,4 +54,22 @@
 
         ORDER BY gcr.gcr_id DESC
     </select>
+    <select id="findById" parameterType="long" resultType="com.popspot.popupplatform.domain.chat.GroupChatRoom">
+        SELECT *
+        FROM GROUP_CHAT_ROOM
+        WHERE gcr_id = #{gcrId}
+    </select>
+    <update id="updateRoom" parameterType="com.popspot.popupplatform.domain.chat.GroupChatRoom">
+        UPDATE GROUP_CHAT_ROOM
+        SET
+        gcr_title = #{gcrTitle},
+        gcr_description = #{gcrDescription},
+        gcr_max_user_cnt = #{gcrMaxUserCnt}
+        WHERE gcr_id = #{gcrId}
+    </update>
+    <update id="deleteRoom" parameterType="long">
+        UPDATE GROUP_CHAT_ROOM
+        SET gcr_is_deleted = TRUE
+        WHERE gcr_id = #{gcrId}
+    </update>
 </mapper>

@@ -8,7 +8,8 @@ import org.apache.ibatis.annotations.Param;
 public interface ChatParticipantMapper {
     //채팅방참여자입장
     void insertParticipant(ChatParticipant participant);
-
     //Join시 중복참여체크
     Integer exists(@Param("gcrId") Long gcrId, @Param("userId") Long userId);
+    //현재참여자인원
+    Integer countParticipants(Long gcrId);
 }
