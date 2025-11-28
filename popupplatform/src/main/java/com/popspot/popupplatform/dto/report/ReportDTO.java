@@ -3,11 +3,12 @@ package com.popspot.popupplatform.dto.report;
 import lombok.Data;
 
 @Data
-public class ReportListDTO {
+public class ReportDTO {
     private Long repId;
     private String repType;
-    private String categoryName;
-    private String userNickname;
-    private String createdAt;
+    private Long repTargetId;
     private String repStatus;
+    private Long rcId;
+    private Long userId;
+    private String createdAt;
 }
