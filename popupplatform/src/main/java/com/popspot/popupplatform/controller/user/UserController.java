@@ -1,16 +1,15 @@
 package com.popspot.popupplatform.controller.user;
 
 import com.popspot.popupplatform.dto.global.UploadResultDto;
-import com.popspot.popupplatform.dto.user.request.ChangePasswordRequest;
-import com.popspot.popupplatform.dto.user.request.UpdateEmailRequest;
-import com.popspot.popupplatform.dto.user.request.UpdateNicknameRequest;
-import com.popspot.popupplatform.dto.user.request.UpdatePhoneRequest;
+import com.popspot.popupplatform.dto.user.request.*;
 import com.popspot.popupplatform.dto.user.response.CurrentUserResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
+import com.popspot.popupplatform.service.auth.PhoneVerificationService;
 import com.popspot.popupplatform.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final PhoneVerificationService phoneVerificationService;
 
     /**
      * 현재 로그인한 사용자 정보 조회
@@ -58,12 +58,27 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "휴대폰 번호 변경", description = "현재 로그인한 사용자의 휴대폰 번호를 변경합니다. (사전 문자 인증 필요)")
+    @Operation(
+            summary = "휴대폰 번호 변경",
+            description = "현재 로그인한 사용자의 휴대폰 번호를 변경합니다. (사전 문자 인증 필요)"
+    )
     @PutMapping("/me/phone")
     public ResponseEntity<Void> updatePhone(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody UpdatePhoneRequest request
     ) {
+        // 🔹 1) 문자 인증번호 검증
+        boolean verified = phoneVerificationService.verifyCode(
+                request.getPhone(),
+                request.getCode()
+        );
+
+        if (!verified) {
+            // 인증 실패 시 400 Bad Request 반환
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        // 🔹 2) 인증 성공하면 실제 휴대폰 번호 변경
         userService.updatePhone(userDetails.getUserId(), request);
         return ResponseEntity.ok().build();
     }
@@ -78,15 +93,7 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "회원 탈퇴", description = "현재 로그인한 사용자를 탈퇴 처리합니다.")
-    @DeleteMapping("/me")
-    public ResponseEntity<Void> deleteMe(
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        userService.deleteUser(userDetails.getUserId());
-        return ResponseEntity.noContent().build();
-    }
-
+    @Operation(summary = "프로필 사진 수정", description = "회원의 프로필 사진을 수정합니다")
     @PatchMapping("/me/profile")
     public ResponseEntity<Void> updateProfile(
             @AuthenticationPrincipal CustomUserDetails user,
@@ -94,5 +101,15 @@ public class UserController {
     ) {
         userService.updateProfile(user.getUserId(), dto); // dto 안에 profileImageUrl, profileImageKey 포함
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "비밀번호 확인", description = "비밀번호 변경용 비밀번호 확인")
+    @PostMapping("/me/password/check")
+    public ResponseEntity<Boolean> checkPassword(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestBody CheckValidPwdDto dto
+    ) {
+        userService.checkVaildPwd(user.getUserId(), dto);
+        return ResponseEntity.ok().body(true);
     }
 }

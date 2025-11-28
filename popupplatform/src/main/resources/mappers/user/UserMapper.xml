@@ -212,7 +212,7 @@
         SELECT
         ug.user_id        AS userId,
         ug.login_id       AS loginId,
-        ug.login_password AS password,
+        ug.login_pwd AS password,
         u.user_role       AS role,
         u.user_status     AS status
         FROM USER_GENERAL ug
@@ -225,7 +225,7 @@
     <!-- 비밀번호 변경 -->
     <update id="updatePassword">
         UPDATE USER_GENERAL
-        SET login_password = #{password}
+        SET login_pwd = #{password}
         WHERE user_id = #{userId}
     </update>
 

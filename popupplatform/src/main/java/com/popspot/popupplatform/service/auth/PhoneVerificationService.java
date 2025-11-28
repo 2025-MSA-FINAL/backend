@@ -82,21 +82,25 @@ public class PhoneVerificationService {
      * @return true: 성공, false: 실패
      */
     public boolean verifyCode(String phone, String code) {
+        System.out.println("aa");
         VerificationInfo info = store.get(phone);
         if (info == null) {
             return false;
         }
 
+        System.out.println("b");
         // 만료 여부 체크
         if (info.expiredAt().isBefore(Instant.now())) {
             store.remove(phone);
             return false;
         }
 
+        System.out.println("c");
         // 코드 일치 여부 체크
         if (!info.code().equals(code)) {
             return false;
         }
+        System.out.println("d");
 
         // ✅ 성공 시 Map에서 바로 제거해서 메모리 누수 방지
         store.remove(phone);
