@@ -3,15 +3,13 @@ package com.popspot.popupplatform.service.user;
 import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.dto.user.LoginUserDto;
 import com.popspot.popupplatform.dto.user.UserDto;
-import com.popspot.popupplatform.dto.user.request.ChangePasswordRequest;
-import com.popspot.popupplatform.dto.user.request.UpdateEmailRequest;
-import com.popspot.popupplatform.dto.user.request.UpdateNicknameRequest;
-import com.popspot.popupplatform.dto.user.request.UpdatePhoneRequest;
+import com.popspot.popupplatform.dto.user.request.*;
 import com.popspot.popupplatform.dto.user.response.CurrentUserResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
 import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +19,9 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${aws.s3.default-profile.url}")
+    private String defaultProfileUrl;
 
     /**
      * 현재 로그인한 사용자 정보 조회 (마이페이지 상단 / 네비바)
@@ -153,13 +154,24 @@ public class UserService {
     }
 
     public void updateProfile(Long userId, UploadResultDto dto) {
-        int updated = userMapper.updateProfileImage(
+        String url;
+        if(dto.getUrl()!=null) {
+            url=dto.getUrl();
+        }else{
+            url=defaultProfileUrl;
+        }
+        userMapper.updateProfileImage(
                 userId,
-                dto.getUrl()
+                url
         );
+    }
 
-        if (updated == 0) {
-            throw new CustomException(UserErrorCode.USER_NOT_FOUND);
+    public void checkVaildPwd(Long userId, CheckValidPwdDto dto) {
+        LoginUserDto loginUser = userMapper.findGeneralUserByUserId(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(dto.getPassword(), loginUser.getPassword())) {
+            throw new CustomException(UserErrorCode.INVALID_PASSWORD);
         }
     }
 }
