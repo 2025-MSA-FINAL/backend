@@ -40,4 +40,8 @@ out/
 *.yml
 *.properties
 
+.DS_Store
+.metadata/
+
+
 
