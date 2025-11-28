@@ -6,14 +6,17 @@ import com.popspot.popupplatform.dto.user.enums.UserStatus;
 import com.popspot.popupplatform.dto.user.request.LoginRequest;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
+import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.service.auth.AuthCookieService;
 import com.popspot.popupplatform.global.utils.JwtTokenProvider;
 import com.popspot.popupplatform.mapper.user.UserMapper;
+import com.popspot.popupplatform.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,6 +32,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final AuthCookieService authCookieService;
+    private final UserService userService;
 
     /**
      * 일반 로그인
@@ -82,6 +86,17 @@ public class AuthController {
         // AccessToken + RefreshToken 삭제
         authCookieService.clearAuthCookies(response);
 
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "현재 로그인한 사용자를 탈퇴 처리합니다.")
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<Void> deleteMe(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            HttpServletResponse response
+    ) {
+        authCookieService.clearAuthCookies(response);
+        userService.deleteUser(userDetails.getUserId());
         return ResponseEntity.noContent().build();
     }
 }

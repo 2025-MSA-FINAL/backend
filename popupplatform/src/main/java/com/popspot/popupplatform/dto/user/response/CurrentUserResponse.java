@@ -21,6 +21,7 @@ public class CurrentUserResponse {
     private String profileImage; // USER.user_photo
     private String email;
     private String phone;
+    private String gender;
 
     private String role;   // USER.user_role
     private String status; // USER.user_status
