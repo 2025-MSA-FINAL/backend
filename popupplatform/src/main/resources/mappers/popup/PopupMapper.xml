@@ -20,6 +20,28 @@
 
 <mapper namespace="com.popspot.popupplatform.mapper.popup.PopupMapper">
 
+    <!-- PopupStore 매핑용 resultMap -->
+    <resultMap id="PopupStoreResultMap" type="com.popspot.popupplatform.domain.popup.PopupStore">
+        <id     property="popId"              column="pop_id"/>
+        <result property="popOwnerId"         column="pop_owner_id"/>
+        <result property="popName"            column="pop_name"/>
+        <result property="popDescription"     column="pop_description"/>
+        <result property="popThumbnail"       column="pop_thumbnail"/>
+        <result property="popLocation"        column="pop_location"/>
+        <result property="popStartDate"       column="pop_start_date"/>
+        <result property="popEndDate"         column="pop_end_date"/>
+        <result property="popIsReservation"   column="pop_is_reservation"/>
+        <result property="popPriceType"       column="pop_price_type"/>
+        <result property="popPrice"           column="pop_price"/>
+        <result property="popStatus"          column="pop_status"/>
+        <result property="popInstaUrl"        column="pop_insta_url"/>
+        <result property="popModerationStatus" column="pop_moderation_status"/>
+        <result property="popIsDeleted"       column="pop_is_deleted"/>
+        <result property="popViewCount"       column="pop_view_count"/>
+        <result property="popAiSummary"       column="pop_ai_summary"/>
+    </resultMap>
+
+
     <!--
         1) 팝업 기본 정보 INSERT
 
@@ -130,5 +152,203 @@
         INSERT INTO POPUP_IMG (pop_id, pi_url, pi_order)
         VALUES (#{popId}, #{imageUrl}, #{order})
     </insert>
+
+
+    <!--
+        5) 팝업 존재 확인
+    -->
+    <select id="existsById" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM POPUPSTORE
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+    </select>
+
+
+    <!--
+        6) 팝업 목록 기본 조회
+     -->
+    <select id="selectPopupList"
+            resultMap="PopupStoreResultMap">
+        SELECT
+        pop_id,
+        pop_owner_id,
+        pop_name,
+        pop_description,
+        pop_thumbnail,
+        pop_location,
+        pop_start_date,
+        pop_end_date,
+        pop_is_reservation,
+        pop_price_type,
+        pop_price,
+        pop_status,
+        pop_insta_url,
+        pop_moderation_status,
+        pop_is_deleted,
+        pop_view_count,
+        pop_ai_summary
+        FROM POPUPSTORE ps
+        WHERE pop_is_deleted = FALSE
+        <!-- AND pop_moderation_status = TRUE -->
+
+        <!-- 이름 검색 -->
+        <if test="keyword != null and keyword != ''">
+            AND pop_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+
+        <!-- 지역 필터 -->
+        <if test="regions != null and regions.size() > 0">
+            AND (
+            <foreach collection="regions" item="region" separator=" OR ">
+                pop_location LIKE CONCAT('%', #{region}, '%')
+            </foreach>
+            )
+        </if>
+
+
+        <!-- 기간 필터: 겹치면 포함 -->
+        <!-- startDate, endDate 둘 다 있는 경우 -->
+        <if test="startDate != null and endDate != null">
+            AND pop_start_date &lt;= #{endDate}
+            AND pop_end_date   &gt;= #{startDate}
+        </if>
+
+        <!-- startDate만 있는 경우: 팝업 종료일이 startDate 이후인 것 -->
+        <if test="startDate != null and endDate == null">
+            AND pop_end_date &gt;= #{startDate}
+        </if>
+
+        <!-- endDate만 있는 경우: 팝업 시작일이 endDate 이전인 것 -->
+        <if test="endDate != null and startDate == null">
+            AND pop_start_date &lt;= #{endDate}
+        </if>
+
+        <!-- 현황(상태) 피러ㅌ -->
+        <if test="status != null and status != ''">
+            AND pop_status = #{status}
+        </if>
+
+        <!-- 가격 필터 -->
+        <if test="minPrice != null">
+            AND pop_price &gt;= #{minPrice}
+        </if>
+
+        <if test="maxPrice != null">
+            AND pop_price &lt;= #{maxPrice}
+        </if>
+
+
+        <!-- 커서 조건 -->
+        <if test="cursorId != null">
+            <choose>
+                <when test="sort == null or sort == '' or sort == 'DEADLINE'">
+                    AND (
+                    pop_end_date &gt; #{cursorEndDate}
+                    OR (pop_end_date = #{cursorEndDate} AND pop_id &lt; #{cursorId})
+                    )
+                </when>
+
+                <when test="sort == 'VIEW'">
+                    AND (
+                    pop_view_count &lt; #{cursorViewCount}
+                    OR (pop_view_count = #{cursorViewCount} AND pop_id &lt; #{cursorId})
+                    )
+                </when>
+
+                <when test="sort == 'POPULAR'">
+                    AND (
+                    pop_view_count &lt; #{cursorViewCount}
+                    OR (pop_view_count = #{cursorViewCount} AND pop_id &lt; #{cursorId})
+                    )
+                </when>
+
+                <otherwise>
+                    AND pop_id &lt; #{cursorId}
+                </otherwise>
+            </choose>
+        </if>
+
+        <!-- 정렬 옵션 -->
+        <choose>
+            <!-- 1) 마감임박순(DEADLINE, 기본값임) -->
+            <when test="sort == null or sort == '' or sort == 'DEADLINE'">
+                ORDER BY
+                CASE
+                WHEN pop_end_date >= NOW() THEN 0  -- 진행중/예정
+                ELSE 1                             -- 종료
+                END ASC,
+                pop_end_date ASC,
+                pop_id DESC
+            </when>
+
+            <!-- 2) 등록순 (CREATED) -->
+            <when test="sort == 'CREATED'">
+                ORDER BY pop_id DESC
+            </when>
+
+            <!-- 3) 조회수순 (VIEW) -->
+            <when test="sort == 'VIEW'">
+                ORDER BY
+                CASE
+                WHEN pop_end_date >= NOW() THEN 0
+                ELSE 1
+                END ASC,
+                pop_view_count DESC,
+                pop_id DESC
+            </when>
+
+            <!-- 4) 인기순 (POPULAR) -->
+            <when test="sort == 'POPULAR'">
+                ORDER BY
+                -- 1) 종료 안 된 팝업(UPCOMING/ONGOING) 우선
+                CASE
+                WHEN ps.pop_status = 'ENDED' THEN 1
+                ELSE 0
+                END ASC,
+
+                -- 2) 인기 점수: 최근 7일 조회수 + 찜*3
+                (
+                IFNULL((
+                SELECT COUNT(*)
+                FROM POPUP_VIEWED v
+                WHERE v.pop_id = ps.pop_id
+                AND v.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                ), 0)
+                +
+                3 * IFNULL((
+                SELECT COUNT(*)
+                FROM USER_WISHLIST w
+                WHERE w.pop_id = ps.pop_id
+                ), 0)
+                ) DESC,
+
+                -- 3) 동점일 때 최신 등록 우선
+                ps.pop_id DESC
+            </when>
+
+        </choose>
+
+        LIMIT #{limit}
+    </select>
+
+
+
+    <update id="updateStatusToOngoing">
+        UPDATE POPUPSTORE
+        SET pop_status = 'ONGOING'
+        WHERE pop_status = 'UPCOMING'
+        AND pop_start_date &lt;= #{now}
+        AND pop_is_deleted = FALSE
+    </update>
+
+    <update id="updateStatusToEnded">
+        UPDATE POPUPSTORE
+        SET pop_status = 'ENDED'
+        WHERE pop_status IN ('UPCOMING', 'ONGOING')
+        AND pop_end_date &lt;= #{now}
+        AND pop_is_deleted = FALSE
+    </update>
+
 
 </mapper>

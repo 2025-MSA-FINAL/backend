@@ -3,18 +3,34 @@ package com.popspot.popupplatform.service.popup;
 import com.popspot.popupplatform.domain.popup.PopupStore;
 import com.popspot.popupplatform.dto.global.JwtUserDto;
 import com.popspot.popupplatform.dto.popup.enums.PopupPriceType;
+import com.popspot.popupplatform.dto.popup.enums.PopupSortOption;
 import com.popspot.popupplatform.dto.popup.enums.PopupStatus;
 import com.popspot.popupplatform.dto.popup.request.PopupCreateRequest;
+import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
+import com.popspot.popupplatform.dto.popup.response.PopupListItemResponse;
+import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
 import com.popspot.popupplatform.global.exception.code.CommonErrorCode;
+import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
+import com.popspot.popupplatform.mapper.user.UserWishlistMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+
 
 @Slf4j
 @Service
@@ -23,11 +39,10 @@ public class PopupService {
 
     private final PopupMapper popupMapper;
     private final UserMapper userMapper;
-    // S3Service는 이제 여기서 안 씁니다! (컨트롤러나 별도 API에서 처리했으므로)
+    private final UserWishlistMapper userWishlistMapper;
 
     /**
-     * 팝업 스토어 등록 (순수 데이터 저장)
-     * - 이미지는 URL 형태로 전달받음
+     * 팝업 스토어 등록 
      */
     @Transactional
     public long registerPopup(PopupCreateRequest request, Long managerId) {
@@ -40,12 +55,21 @@ public class PopupService {
             throw new CustomException(AuthErrorCode.ACCESS_DENIED);
         }
 
-        // 1. 가격 타입 계산
+        // 0. 날짜 유효성 검사 (시작일 > 종료일이면 에러)
+        if (request.getPopEndDate().isBefore(request.getPopStartDate())) {
+            throw new CustomException(PopupErrorCode.INVALID_DATE_RANGE);
+        }
+
+        // 1. 가격, 현황 타입 계산
         Integer price = request.getPopPrice();
         PopupPriceType priceType = (price == null || price == 0)
                 ? PopupPriceType.FREE : PopupPriceType.PAID;
+        
+        PopupStatus initialStatus = LocalDateTime.now().isAfter(request.getPopStartDate())
+                ? PopupStatus.ONGOING  // 시작일 지났으면 '진행 중'
+                : PopupStatus.UPCOMING; // 아니면 '오픈 예정'
 
-        // 2. DTO -> Entity 변환 (URL은 DTO에서 바로 꺼냄)
+        // 2. DTO -> Entity 변환
         PopupStore popupStore = PopupStore.builder()
                 .popOwnerId(managerId)
                 .popName(request.getPopName())
@@ -57,7 +81,7 @@ public class PopupService {
                 .popIsReservation(request.getPopIsReservation())
                 .popPriceType(priceType)
                 .popPrice(price)
-                .popStatus(PopupStatus.UPCOMING)
+                .popStatus(initialStatus)
                 .popInstaUrl(request.getPopInstaUrl())
                 .build();
 
@@ -100,4 +124,182 @@ public class PopupService {
         if (trimmed.isEmpty()) return "";
         return trimmed.startsWith("#") ? trimmed.substring(1) : trimmed;
     }
+
+
+    /**
+     * 팝업 스토어 목록 (String Cursor 적용 버전)
+     */
+    @Transactional(readOnly = true)
+    public PopupListResponse getPopupList(PopupListRequest request, Long userId) {
+
+        // 1. size 계산
+        int size = request.getSafeSize();
+
+        // 2. 요청 커서 파싱 (String -> 값 분리)
+        String cursor = request.getCursor();
+
+        Long cursorId = null;
+        LocalDateTime cursorEndDate = null;
+        Long cursorViewCount = null;
+
+        // 변수명 충돌 방지를 위해 sortOption으로 변경
+        PopupSortOption sortOption = request.getSafeSort();
+
+        if (cursor != null && !cursor.isBlank()) {
+            try {
+                String[] parts = cursor.split("_");
+
+                // 정렬 타입에 따라 파싱 전략 다름
+                if (sortOption == PopupSortOption.DEADLINE) {
+                    // 형식: "2025-12-31T00:00:00_105"
+                    cursorEndDate = LocalDateTime.parse(parts[0]);
+                    cursorId = Long.parseLong(parts[1]);
+                } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
+                    // 형식: "500_105"
+                    cursorViewCount = Long.parseLong(parts[0]);
+                    cursorId = Long.parseLong(parts[1]);
+                } else {
+                    // 형식: "105" (기본 최신순)
+                    cursorId = Long.parseLong(parts[0]);
+                }
+            } catch (Exception e) {
+                // 커서 포맷이 이상하면 0페이지(처음)부터 조회
+                cursorId = null;
+                log.warn("Invalid cursor format: {}", cursor);
+            }
+        }
+
+        // 3. 필터 값 정리
+        LocalDate safeStartDate = request.getSafeStartDate();
+        LocalDate safeEndDate   = request.getSafeEndDate();
+        Integer safeMinPrice    = request.getSafeMinPrice();
+        Integer safeMaxPrice    = request.getSafeMaxPrice();
+
+        // 4. 정렬 옵션 (Enum -> String 변환)
+        String sortStr = (sortOption != null) ? sortOption.name() : null;
+
+        // 5. DB 조회
+        // (주의: PopupMapper Interface의 파라미터 순서와 정확히 일치해야 함)
+        List<PopupStore> popupStores = popupMapper.selectPopupList(
+                cursorId,
+                cursorEndDate,
+                cursorViewCount,
+                size + 1,
+                request.getKeyword(),
+                request.getRegions(),
+                safeStartDate,
+                safeEndDate,
+                request.getStatus(),
+                safeMinPrice,
+                safeMaxPrice,
+                sortStr
+    );
+
+        // 6. hasNext, nextCursor 생성 (Encoding: 값_ID 조합)
+        boolean hasNext = false;
+        String nextCursor = null; // Long 아님! String임!
+
+        if (popupStores.size() > size) {
+            hasNext = true;
+            PopupStore lastExtra = popupStores.remove(size); // +1 한 녀석 제거 및 확보
+
+            // 정렬 기준에 따라 다음 커서 문자열 조합
+            if (sortOption == PopupSortOption.DEADLINE) {
+                // 날짜 + "_" + ID
+                nextCursor = lastExtra.getPopEndDate().toString() + "_" + lastExtra.getPopId();
+            } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
+                // 조회수 + "_" + ID
+                nextCursor = lastExtra.getPopViewCount() + "_" + lastExtra.getPopId();
+            } else {
+                // ID만
+                nextCursor = String.valueOf(lastExtra.getPopId());
+            }
+        }
+
+        // 7. PopupStore -> PopupListItemResponse 변환 + isLiked 채우기
+        // (기존 코드 유지)
+        List<PopupListItemResponse> content;
+        Set<Long> likedIdSet = null;
+
+        if (userId != null && !popupStores.isEmpty()) {
+            List<Long> popupIds = popupStores.stream()
+                    .map(PopupStore::getPopId)
+                    .collect(Collectors.toList());
+            List<Long> likedPopupIds = userWishlistMapper.findLikedPopupIds(userId, popupIds);
+            likedIdSet = new HashSet<>(likedPopupIds);
+        }
+
+        Long finalUserId = userId;
+        Set<Long> finalLikedIdSet = likedIdSet;
+
+        content = popupStores.stream()
+                .map(store -> toPopupListItemResponse(store, finalUserId, finalLikedIdSet))
+                .collect(Collectors.toList());
+
+        // 8. 응답
+        return PopupListResponse.builder()
+                .content(content)
+                .nextCursor(nextCursor) // String 값 전달
+                .hasNext(hasNext)
+                .build();
+    }
+
+
+    /**
+     * 팝업 한 개 -> 응답 DTO로 변환
+     */
+    private PopupListItemResponse toPopupListItemResponse(PopupStore store,
+                                                          Long userId,
+                                                          Set<Long> likedIdSet) {
+
+        Boolean isLiked = null;  //비로그인은 null 유지
+
+        if (userId != null) {
+            //로그인 상태일 때만 true/false 세팅
+            boolean liked = (likedIdSet != null) && likedIdSet.contains(store.getPopId());
+            isLiked = liked;
+        }
+
+        return PopupListItemResponse.builder()
+                .popId(store.getPopId())
+                .popName(store.getPopName())
+                .popThumbnail(store.getPopThumbnail())
+                .popLocation(store.getPopLocation())
+                .popStartDate(store.getPopStartDate())
+                .popEndDate(store.getPopEndDate())
+                .popStatus(store.getPopStatus())
+                .popPriceType(store.getPopPriceType())
+                .popPrice(store.getPopPrice())
+                .popViewCount(store.getPopViewCount())
+                // TODO: 해시태그 조회/매핑
+                .hashtags(Collections.emptyList())
+                .isLiked(isLiked)
+                .build();
+    }
+
+    /**
+     * 찜 토글
+     */
+    @Transactional
+    public boolean toggleWishlist(Long popId, Long userId) {
+
+        //존재하지 않는 팝업이면 에러 발생
+        if (!popupMapper.existsById(popId)) {
+            throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
+        }
+
+        //이미 찜했는지 확인
+        int exists = userWishlistMapper.existsByUserIdAndPopId(userId, popId);
+
+        if (exists > 0) {
+            userWishlistMapper.deleteWishlist(userId, popId);
+            return false;   //찜 해제
+        } else {
+            userWishlistMapper.insertWishlist(userId, popId);
+            return true;    //찜
+        }
+    }
+
+
+
 }
