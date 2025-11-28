@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.controller.chat;
 
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
+import com.popspot.popupplatform.dto.chat.request.GroupChatJoinRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.service.chat.GroupChatRoomService;
@@ -19,6 +20,7 @@ import java.util.List;
 @Tag(name = "GroupChat", description = "그룹 채팅방 관련 API")
 public class GroupChatRoomController {
     private final GroupChatRoomService roomService;
+
     //그룹채팅방 생성 API
     @PostMapping("/create")
     @Operation(
@@ -36,7 +38,7 @@ public class GroupChatRoomController {
         return ResponseEntity.ok(newRoomId);
     }
 
-
+    //그룹채팅방 목록 조회 API
     @GetMapping("/list")
     @Operation(
             summary = "특정 팝업의 그룹 채팅방 목록 조회",
@@ -49,5 +51,20 @@ public class GroupChatRoomController {
         List<GroupChatRoomListResponse> roomList = roomService.getRoomsByPopId(popId);
         //조회된 채팅방 목록 응답
         return ResponseEntity.ok(roomList);
+    }
+
+    //그룹채팅방 참여 API
+    @PostMapping("/join")
+    @Operation(
+            summary = "그룹 채팅방 참여",
+            description = "유저가 그룹채팅방에 참여합니다."
+    )
+    public ResponseEntity<String> joinRoom(
+            @RequestBody GroupChatJoinRequest req, //채팅방참여요청정보 req - 그룹채팅방ID
+            @AuthenticationPrincipal CustomUserDetails user //현재 로그인한 사용자정보 user
+    ) {
+        //서비스에서 채팅방 참여 처리
+        roomService.joinRoom(req.getGcrId(), user.getUserId());
+        return ResponseEntity.ok("참여 완료");
     }
 }

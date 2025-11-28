@@ -4,6 +4,8 @@ import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
+import com.popspot.popupplatform.global.exception.CustomException;
+import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.mapper.chat.GroupChatRoomMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GroupChatRoomService {
     private final GroupChatRoomMapper roomMapper;
-    private final ChatParticipantMapper ParticipantMapper;
+    private final ChatParticipantMapper participantMapper;
 
     //채팅방생성정보 req, 채팅방생성유저(방장) userId
     @Transactional
@@ -44,7 +46,7 @@ public class GroupChatRoomService {
                 .userId(userId)
                 .cmId(0L)
                 .build();
-        ParticipantMapper.insertParticipant(cp);
+        participantMapper.insertParticipant(cp);
 
         //생성된 채팅방 객체 ID 반환
         return room.getGcrId();
@@ -54,5 +56,25 @@ public class GroupChatRoomService {
     @Transactional(readOnly = true)
     public List<GroupChatRoomListResponse> getRoomsByPopId(Long popId) {
         return roomMapper.findRoomsByPopId(popId);
+    }
+
+    //참여할 채팅방 gcrId, 참여할 유저 userId
+    @Transactional
+    public void joinRoom(Long gcrId, Long userId) {
+        //참여중인지 확인
+        Integer exists = participantMapper.exists(gcrId, userId);
+        //만약 참여중이라면 안내문구
+        if (exists != null && exists > 0) {
+            throw new CustomException(ChatErrorCode.ALREADY_JOINED);
+        }
+
+        //참여자 엔티티 생성
+        ChatParticipant participant = ChatParticipant.builder()
+                .gcrId(gcrId)
+                .userId(userId)
+                .cmId(0L)
+                .build();
+        //참여자저장
+        participantMapper.insertParticipant(participant);
     }
 }

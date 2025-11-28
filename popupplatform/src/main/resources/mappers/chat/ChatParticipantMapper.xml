@@ -11,4 +11,10 @@
         #{gcrId}, #{userId}, #{cmId}
         );
     </insert>
+    <select id="exists" resultType="int">
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+        AND user_id = #{userId}
+    </select>
 </mapper>
