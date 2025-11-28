@@ -93,15 +93,6 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "회원 탈퇴", description = "현재 로그인한 사용자를 탈퇴 처리합니다.")
-    @DeleteMapping("/me")
-    public ResponseEntity<Void> deleteMe(
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        userService.deleteUser(userDetails.getUserId());
-        return ResponseEntity.noContent().build();
-    }
-
     @Operation(summary = "프로필 사진 수정", description = "회원의 프로필 사진을 수정합니다")
     @PatchMapping("/me/profile")
     public ResponseEntity<Void> updateProfile(
