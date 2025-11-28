@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatParticipantMapper">
+    <insert id="insertParticipant"
+            parameterType="com.popspot.popupplatform.domain.chat.ChatParticipant">
+        INSERT INTO CHAT_PARTICIPANT (
+        gcr_id, user_id, cm_id
+        ) VALUES (
+        #{gcrId}, #{userId}, #{cmId}
+        );
+    </insert>
+</mapper>
