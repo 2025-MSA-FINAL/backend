@@ -80,11 +80,24 @@ public class GroupChatRoomService {
     //참여할 채팅방 gcrId, 참여할 유저 userId
     @Transactional
     public void joinRoom(Long gcrId, Long userId) {
+        GroupChatRoom room = roomMapper.findById(gcrId);
+        //존재하지 않는 방 수정 불가 버그
+        if (room == null) {
+            throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
+        }
+        //삭제된 방 수정 불가 버그
+        if (Boolean.TRUE.equals(room.getGcrIsDeleted())) {
+            throw new CustomException(ChatErrorCode.ROOM_ALREADY_DELETED);
+        }
         //참여중인지 확인
         Integer exists = participantMapper.exists(gcrId, userId);
-        //만약 참여중이라면 안내문구
         if (exists != null && exists > 0) {
             throw new CustomException(ChatErrorCode.ALREADY_JOINED);
+        }
+        //정원초과 확인
+        int currentUserCnt = participantMapper.countParticipants(gcrId);
+        if (currentUserCnt >= room.getGcrMaxUserCnt()) {
+            throw new CustomException(ChatErrorCode.ROOM_FULL);
         }
         //참여자 엔티티 생성
         ChatParticipant participant = ChatParticipant.builder()
