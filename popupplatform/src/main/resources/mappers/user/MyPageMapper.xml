@@ -47,6 +47,7 @@
         p.pop_name          AS popupName,
         p.pop_thumbnail     AS popupThumbnail,
         p.pop_location      AS popupLocation,
+        p.pop_price         AS popPrice,
         p.pop_start_date    AS startDate,
         p.pop_end_date      AS endDate,
         p.pop_status        AS popupStatus
@@ -67,13 +68,13 @@
 
     <delete id="deleteAllWishList">
         delete uw
-        from user_WISHLIST uw
+        from USER_WISHLIST uw
         where user_id = #{userId}
     </delete>
 
     <delete id="deleteCloseWishList">
         delete uw
-        from user_WISHLIST uw
+        from USER_WISHLIST uw
         JOIN POPUPSTORE p ON uw.pop_id = p.pop_id
         WHERE uw.user_id = #{userId}
         and p.pop_status = #{popStatus}
