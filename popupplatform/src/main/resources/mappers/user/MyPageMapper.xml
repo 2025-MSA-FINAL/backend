@@ -1,0 +1,81 @@
+<!-- src/main/resources/mapper/MyPageMapper.xml -->
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.user.MyPageMapper">
+
+    <!-- ==========================
+         예약 리스트 페이징
+         ========================== -->
+    <select id="findReservationsByUser"
+            parameterType="map"
+            resultType="com.popspot.popupplatform.dto.user.ReservationListItemDto">
+        SELECT
+        ur.ur_id           AS reservationId,
+        p.pop_id           AS popupId,
+        p.pop_name         AS popupName,
+        p.pop_thumbnail    AS popupThumbnail,
+        p.pop_location     AS popupLocation,
+        ur.ur_date_time    AS reserveDateTime,
+        ur.ur_user_cnt     AS reserveUserCount,
+        ur.ur_status       AS reserveStatus,
+        p.pop_price        AS price
+        FROM USER_RESERVATION ur
+        JOIN POPUPSTORE p ON ur.pop_id = p.pop_id
+        WHERE ur.user_id = #{userId}
+        ORDER BY ur.ur_date_time DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countReservationsByUser"
+            parameterType="long"
+            resultType="long">
+        SELECT COUNT(*)
+        FROM USER_RESERVATION
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- ==========================
+         찜 리스트 페이징
+         ========================== -->
+    <select id="findWishlistByUser"
+            parameterType="map"
+            resultType="com.popspot.popupplatform.dto.user.WishlistItemDto">
+        SELECT
+        p.pop_id            AS popupId,
+        p.pop_name          AS popupName,
+        p.pop_thumbnail     AS popupThumbnail,
+        p.pop_location      AS popupLocation,
+        p.pop_start_date    AS startDate,
+        p.pop_end_date      AS endDate,
+        p.pop_status        AS popupStatus
+        FROM USER_WISHLIST uw
+        JOIN POPUPSTORE p ON uw.pop_id = p.pop_id
+        WHERE uw.user_id = #{userId}
+        ORDER BY uw.created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countWishlistByUser"
+            parameterType="long"
+            resultType="long">
+        SELECT COUNT(*)
+        FROM USER_WISHLIST
+        WHERE user_id = #{userId}
+    </select>
+
+    <delete id="deleteAllWishList">
+        delete uw
+        from user_WISHLIST uw
+        where user_id = #{userId}
+    </delete>
+
+    <delete id="deleteCloseWishList">
+        delete uw
+        from user_WISHLIST uw
+        JOIN POPUPSTORE p ON uw.pop_id = p.pop_id
+        WHERE uw.user_id = #{userId}
+        and p.pop_status = #{popStatus}
+    </delete>
+</mapper>
