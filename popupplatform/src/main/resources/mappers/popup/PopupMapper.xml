@@ -226,7 +226,7 @@
 
         <!-- 현황(상태) 피러ㅌ -->
         <if test="status != null and status != ''">
-            AND pop_status = #{status}
+            AND FIND_IN_SET(pop_status, #{status}) > 0
         </if>
 
         <!-- 가격 필터 -->
