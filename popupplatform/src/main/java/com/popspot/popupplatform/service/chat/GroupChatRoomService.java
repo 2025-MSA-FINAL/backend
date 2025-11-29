@@ -148,4 +148,24 @@ public class GroupChatRoomService {
         }
         return participantMapper.findParticipants(gcrId);
     }
+    //채팅방 나가기
+    //나갈 채팅방 gcrId, 나갈 유저 userId
+    @Transactional
+    public void leaveRoom(Long gcrId, Long userId) {
+        GroupChatRoom room = roomMapper.findById(gcrId);
+        //존재하지 않는 방 불가 버그
+        if (room == null) {
+            throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
+        }
+        //방장이 나갈 경우 불가능
+        if (room.getUserId().equals(userId)) {
+            throw new CustomException(ChatErrorCode.OWNER_CANNOT_LEAVE);
+        }
+        //참여 여부 체크 후 참여하지 않았을 경우 버그
+        Integer exists = participantMapper.exists(gcrId, userId);
+        if (exists == null || exists == 0) {
+            throw new CustomException(ChatErrorCode.NOT_JOINED_ROOM);
+        }
+        participantMapper.deleteParticipant(gcrId, userId);
+    }
 }

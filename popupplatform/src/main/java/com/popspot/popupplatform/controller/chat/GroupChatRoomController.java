@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import retrofit2.http.Path;
 
 import java.util.List;
 
@@ -129,5 +130,20 @@ public class GroupChatRoomController {
         //서비스에서 참여자 목록 조회
         List<GroupChatParticipantResponse> participants = roomService.getParticipants(gcrId);
         return ResponseEntity.ok(participants);
+    }
+
+    //그룹채팅방 나가기 API
+    @DeleteMapping("/leave/{gcrId}")
+    @Operation(
+            summary = "그룹 채팅방 나가기",
+            description = "현재 로그인한 사용자가 해당 그룹 채팅방에서 나갑니다. 방장은 나갈 수 없습니다."
+    )
+    public ResponseEntity<String> leaveRoom (
+            @PathVariable Long gcrId,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        //서비스에서 참여자 나가기 처리
+        roomService.leaveRoom(gcrId, user.getUserId());
+        return ResponseEntity.ok("채팅방 나가기 완료");
     }
 }

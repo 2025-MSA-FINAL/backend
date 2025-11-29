@@ -38,4 +38,9 @@
         (u.user_id = g.user_id) DESC,
         u.user_nickname ASC
     </select>
+    <delete id="deleteParticipant">
+        DELETE FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+        AND user_id = #{userId}
+    </delete>
 </mapper>

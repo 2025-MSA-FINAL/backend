@@ -17,4 +17,6 @@ public interface ChatParticipantMapper {
     Integer countParticipants(Long gcrId);
     //채팅방 참여자목록
     List<GroupChatParticipantResponse> findParticipants(Long gcrId);
+    //채팅방 나가기
+    void deleteParticipant(@Param("gcrId") Long gcrId, @Param("userId") Long userId);
 }
