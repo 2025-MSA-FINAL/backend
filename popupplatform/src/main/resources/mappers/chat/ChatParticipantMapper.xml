@@ -22,4 +22,20 @@
         FROM CHAT_PARTICIPANT
         WHERE gcr_id = #{gcrId}
     </select>
+    <select id="findParticipants"
+            parameterType="long"
+            resultType="com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse">
+        SELECT
+        u.user_id AS userId,
+        u.user_name AS userName,
+        u.user_nickname AS nickname,
+        u.user_photo AS photoUrl
+        FROM CHAT_PARTICIPANT cp
+        JOIN USER u ON cp.user_id = u.user_id
+        JOIN GROUP_CHAT_ROOM g ON g.gcr_id = cp.gcr_id
+        WHERE cp.gcr_id = #{gcrId}
+        ORDER BY
+        (u.user_id = g.user_id) DESC,
+        u.user_nickname ASC
+    </select>
 </mapper>

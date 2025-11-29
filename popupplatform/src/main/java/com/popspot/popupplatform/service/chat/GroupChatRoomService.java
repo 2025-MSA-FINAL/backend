@@ -4,6 +4,7 @@ import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
+import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
@@ -131,5 +132,20 @@ public class GroupChatRoomService {
             throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
         }
         return detail;
+    }
+    //채팅방 참여자 목록 조회
+    //조회할 그룹채팅방 gcrId
+    @Transactional(readOnly = true)
+    public List<GroupChatParticipantResponse> getParticipants(Long gcrId) {
+        GroupChatRoom room = roomMapper.findById(gcrId);
+        //존재하지 않는 방 불가 버그
+        if (room == null) {
+            throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
+        }
+        //삭제된 방 불가 버그
+        if (Boolean.TRUE.equals(room.getGcrIsDeleted())) {
+            throw new CustomException(ChatErrorCode.ROOM_ALREADY_DELETED);
+        }
+        return participantMapper.findParticipants(gcrId);
     }
 }

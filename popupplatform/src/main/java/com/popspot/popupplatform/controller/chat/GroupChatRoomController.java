@@ -3,6 +3,7 @@ package com.popspot.popupplatform.controller.chat;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.request.GroupChatJoinRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
+import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
@@ -114,5 +115,19 @@ public class GroupChatRoomController {
         //서비스에서 채팅방 상세조회
         GroupChatRoomDetailResponse detail = roomService.getRoomDetail(gcrId);
         return ResponseEntity.ok(detail);
+    }
+
+    //그룹채팅방 참여자 목록 조회 API
+    @GetMapping("/{gcrId}/participants")
+    @Operation(
+            summary = "그룹 채팅방 참여자 목록 조회",
+            description = "해당 그룹 채팅방에 참여 중인 사용자들의 목록을 반환합니다."
+    )
+    public ResponseEntity<List<GroupChatParticipantResponse>> getParticipants (
+            @PathVariable Long gcrId
+    ) {
+        //서비스에서 참여자 목록 조회
+        List<GroupChatParticipantResponse> participants = roomService.getParticipants(gcrId);
+        return ResponseEntity.ok(participants);
     }
 }
