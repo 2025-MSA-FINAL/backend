@@ -57,6 +57,7 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/api/files/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/popups", "/api/popups/**").permitAll()
                         .requestMatchers(
                                 "/api/users/me"
                         ).authenticated()

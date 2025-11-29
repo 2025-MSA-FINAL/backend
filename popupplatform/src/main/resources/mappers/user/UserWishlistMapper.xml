@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.user.UserWishlistMapper">
+
+    <!-- 이미 찜했는지 여부 -->
+    <select id="existsByUserIdAndPopId" resultType="int">
+        SELECT COUNT(*)
+        FROM USER_WISHLIST
+        WHERE user_id = #{userId}
+        AND pop_id = #{popId}
+    </select>
+
+    <!-- 찜 추가 -->
+    <insert id="insertWishlist">
+        INSERT INTO USER_WISHLIST (user_id, pop_id)
+        VALUES (#{userId}, #{popId})
+    </insert>
+
+    <!-- 찜 삭제 -->
+    <delete id="deleteWishlist">
+        DELETE FROM USER_WISHLIST
+        WHERE user_id = #{userId}
+        AND pop_id = #{popId}
+    </delete>
+
+    <!-- 주어진 팝업들 중에서 찜한 pop_id 리스트 -->
+    <select id="findLikedPopupIds" resultType="long">
+        SELECT pop_id
+        FROM USER_WISHLIST
+        WHERE user_id = #{userId}
+        AND pop_id IN
+        <foreach item="id" collection="popupIds" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>
