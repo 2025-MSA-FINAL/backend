@@ -45,6 +45,7 @@ public class AuthController {
             @RequestBody LoginRequest request,
             HttpServletResponse response
     ) {
+
         // 1) 계정 조회
         LoginUserDto user = userMapper.findGeneralUserByLoginId(request.getLoginId())
                 .orElse(null);
