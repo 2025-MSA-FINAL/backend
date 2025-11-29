@@ -10,6 +10,7 @@ import com.popspot.popupplatform.service.auth.NaverOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -51,6 +52,13 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger"
                         ).permitAll()
+                        .requestMatchers(
+                                "/api/auth/phone/**",
+                                "/api/auth/**",
+                                "/oauth2/**",
+                                "/api/files/**"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/popups", "/api/popups/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/phone/**",
                                 "/api/auth/**",
