@@ -4,6 +4,7 @@ import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
+import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
@@ -38,12 +39,10 @@ public class GroupChatRoomService {
         }
         return room;
     }
-
-
+    //채팅방 생성
     //채팅방생성정보 req, 채팅방생성유저(방장) userId
     @Transactional
     public Long createRoom(CreateGroupChatRoomRequest req, Long userId) {
-
         //채팅방 객체 생성
         GroupChatRoom room = GroupChatRoom.builder()
                 .popId(req.getPopId())
@@ -71,13 +70,12 @@ public class GroupChatRoomService {
         //생성된 채팅방 객체 ID 반환
         return room.getGcrId();
     }
-
     //팝업 스토어 ID로 채팅방 목록 조회
     @Transactional(readOnly = true)
     public List<GroupChatRoomListResponse> getRoomsByPopId(Long popId) {
         return roomMapper.findRoomsByPopId(popId);
     }
-
+    //채팅방 참여
     //참여할 채팅방 gcrId, 참여할 유저 userId
     @Transactional
     public void joinRoom(Long gcrId, Long userId) {
@@ -87,7 +85,6 @@ public class GroupChatRoomService {
         if (exists != null && exists > 0) {
             throw new CustomException(ChatErrorCode.ALREADY_JOINED);
         }
-
         //참여자 엔티티 생성
         ChatParticipant participant = ChatParticipant.builder()
                 .gcrId(gcrId)
@@ -97,7 +94,7 @@ public class GroupChatRoomService {
         //참여자저장
         participantMapper.insertParticipant(participant);
     }
-
+    //채팅방 수정
     //수정할 채팅방 gcrId, 수정권한을 위한 방장ID userId, 채팅방수정정보 req
     @Transactional
     public void updateRoom(Long gcrId, Long userId, UpdateGroupChatRoomRequest req) {
@@ -113,17 +110,26 @@ public class GroupChatRoomService {
             //정상반영
             room.setGcrMaxUserCnt(req.getMaxUserCnt());
         }
-
         room.setGcrTitle(req.getTitle());
         room.setGcrDescription(req.getDescription());
         roomMapper.updateRoom(room);
     }
-
-
+    //채팅방 삭제
     //방장ID userId, 삭제할 채팅방 gcrId
     @Transactional
     public void deleteRoom(Long gcrId, Long userId) {
         GroupChatRoom room = validateRoomOwnership(gcrId, userId);
         roomMapper.deleteRoom(room);
+    }
+    //채팅방 상세조회
+    //조회할 그룹채팅방 gcrId
+    @Transactional(readOnly = true)
+    public GroupChatRoomDetailResponse getRoomDetail(Long gcrId) {
+        GroupChatRoomDetailResponse detail = roomMapper.findRoomDetail(gcrId);
+        //조회할 채팅방이 없다면
+        if(detail==null) {
+            throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
+        }
+        return detail;
     }
 }

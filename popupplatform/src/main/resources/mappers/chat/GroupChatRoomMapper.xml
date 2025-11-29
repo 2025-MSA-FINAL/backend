@@ -72,4 +72,27 @@
         SET gcr_is_deleted = TRUE
         WHERE gcr_id = #{gcrId}
     </update>
+    <select id="findRoomDetail"
+            parameterType="long"
+            resultType="com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse">
+
+        SELECT
+        g.gcr_id           AS gcrId,
+        g.pop_id           AS popId,
+        g.user_id          AS ownerId,
+        g.gcr_title        AS title,
+        g.gcr_description  AS description,
+        g.gcr_max_user_cnt AS maxUserCnt,
+        g.gcr_limit_gender AS limitGender,
+        g.gcr_min_age      AS minAge,
+        g.gcr_max_age      AS maxAge,
+        (
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT cp
+        WHERE cp.gcr_id = g.gcr_id
+        ) AS currentUserCnt
+        FROM GROUP_CHAT_ROOM g
+        WHERE g.gcr_id = #{gcrId}
+        LIMIT 1
+    </select>
 </mapper>
