@@ -57,6 +57,9 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/api/files/**"
                         ).permitAll()
+                        .requestMatchers(
+                                "/api/users/me"
+                        ).authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
