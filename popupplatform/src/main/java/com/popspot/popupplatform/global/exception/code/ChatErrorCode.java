@@ -11,7 +11,8 @@ public enum ChatErrorCode implements BaseErrorCode {
     MAX_USER_UNDERFLOW("CHAT_006", "현재 인원보다 작은 최대 인원으로 수정할 수 없습니다.", HttpStatus.BAD_REQUEST),
     NOT_JOINED_ROOM("CHAT_007", "참여 중이 아닌 채팅방입니다.", HttpStatus.BAD_REQUEST),
     OWNER_CANNOT_LEAVE("CHAT_008", "방장은 채팅방을 나갈 수 없습니다.", HttpStatus.FORBIDDEN),
-    MIN_USER_COUNT_INVALID("CHAT_009", "그룹 채팅방은 최소 3명 이상이어야 합니다.", HttpStatus.BAD_REQUEST);
+    MIN_USER_COUNT_INVALID("CHAT_009", "그룹 채팅방은 최소 3명 이상이어야 합니다.", HttpStatus.BAD_REQUEST),
+    PRIVATE_ROOM_NOT_FOUND("CHAT_010", "1:1 채팅방을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

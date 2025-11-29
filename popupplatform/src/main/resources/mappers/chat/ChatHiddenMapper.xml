@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatHiddenMapper">
+    <resultMap id="ChatHiddenResult" type="com.popspot.popupplatform.domain.chat.ChatHidden">
+        <id property="chId" column="ch_id"/>
+        <result property="chType" column="ch_type"/>
+        <result property="chRoomId" column="ch_room_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="chIsHidden" column="ch_is_hidden"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    <select id="findHidden" resultMap="ChatHiddenResult">
+        SELECT
+        ch_id,
+        ch_type,
+        ch_room_id,
+        user_id,
+        ch_is_hidden,
+        created_at,
+        updated_at
+        FROM CHAT_HIDDEN
+        WHERE ch_type = #{chType}
+        AND ch_room_id = #{chRoomId}
+        AND user_id = #{userId}
+        LIMIT 1
+    </select>
+    <update id="updateHiddenFlag">
+        UPDATE CHAT_HIDDEN
+        SET ch_is_hidden = #{chIsHidden},
+        updated_at = CURRENT_TIMESTAMP
+        WHERE ch_type = #{chType}
+        AND ch_room_id = #{chRoomId}
+        AND user_id = #{userId}
+    </update>
+    <insert id="insertHidden"
+            parameterType="com.popspot.popupplatform.domain.chat.ChatHidden"
+            useGeneratedKeys="true" keyProperty="chId">
+        INSERT INTO CHAT_HIDDEN (
+        ch_type,
+        ch_room_id,
+        user_id,
+        ch_is_hidden,
+        created_at,
+        updated_at
+        )
+        VALUES (
+        #{chType},
+        #{chRoomId},
+        #{userId},
+        #{chIsHidden},
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+        )
+    </insert>
+</mapper>
