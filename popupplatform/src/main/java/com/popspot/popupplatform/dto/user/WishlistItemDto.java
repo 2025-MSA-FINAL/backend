@@ -11,6 +11,7 @@ public class WishlistItemDto {
     private String popupName;       // POPUPSTORE.pop_name
     private String popupThumbnail;  // POPUPSTORE.pop_thumbnail
     private String popupLocation;   // POPUPSTORE.pop_location
+    private Long popPrice;
 
     private LocalDateTime startDate;   // POPUPSTORE.pop_start_date
     private LocalDateTime endDate;     // POPUPSTORE.pop_end_date
