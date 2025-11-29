@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.chat.GroupChatRoomMapper">
+    <insert id="insertRoom"
+            useGeneratedKeys="true"
+            keyProperty="gcrId"
+            parameterType="com.popspot.popupplatform.domain.chat.GroupChatRoom">
+        INSERT INTO GROUP_CHAT_ROOM (
+        pop_id, user_id, cm_id,
+        gcr_title,
+        gcr_description,
+        gcr_max_user_cnt,
+        gcr_limit_gender,
+        gcr_min_age,
+        gcr_max_age,
+        gcr_is_deleted
+        ) VALUES (
+        #{popId},
+        #{userId},
+        0,
+        #{gcrTitle},
+        #{gcrDescription},
+        #{gcrMaxUserCnt},
+        #{gcrLimitGender},
+        #{gcrMinAge},
+        #{gcrMaxAge},
+        FALSE
+        );
+    </insert>
+    <select id="findRoomsByPopId"
+            parameterType="long"
+            resultType="com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse">
+
+        SELECT
+        gcr.gcr_id      AS gcrId,
+        gcr.gcr_title   AS title,
+        gcr.gcr_description AS description,
+        gcr.gcr_max_user_cnt AS maxUserCnt,
+
+        (
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT cp
+        WHERE cp.gcr_id = gcr.gcr_id
+        ) AS currentUserCnt,
+
+        gcr.gcr_limit_gender AS limitGender,
+        gcr.gcr_min_age      AS minAge,
+        gcr.gcr_max_age      AS maxAge
+
+        FROM GROUP_CHAT_ROOM gcr
+        WHERE gcr.pop_id = #{popId}
+        AND gcr.gcr_is_deleted = FALSE
+
+        ORDER BY gcr.gcr_id DESC
+    </select>
+    <select id="findById" parameterType="long" resultType="com.popspot.popupplatform.domain.chat.GroupChatRoom">
+        SELECT *
+        FROM GROUP_CHAT_ROOM
+        WHERE gcr_id = #{gcrId}
+    </select>
+    <update id="updateRoom" parameterType="com.popspot.popupplatform.domain.chat.GroupChatRoom">
+        UPDATE GROUP_CHAT_ROOM
+        SET
+        gcr_title = #{gcrTitle},
+        gcr_description = #{gcrDescription},
+        gcr_max_user_cnt = #{gcrMaxUserCnt}
+        WHERE gcr_id = #{gcrId}
+    </update>
+    <update id="deleteRoom" parameterType="long">
+        UPDATE GROUP_CHAT_ROOM
+        SET gcr_is_deleted = TRUE
+        WHERE gcr_id = #{gcrId}
+    </update>
+    <select id="findRoomDetail"
+            parameterType="long"
+            resultType="com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse">
+
+        SELECT
+        g.gcr_id           AS gcrId,
+        g.pop_id           AS popId,
+        g.user_id          AS ownerId,
+        g.gcr_title        AS title,
+        g.gcr_description  AS description,
+        g.gcr_max_user_cnt AS maxUserCnt,
+        g.gcr_limit_gender AS limitGender,
+        g.gcr_min_age      AS minAge,
+        g.gcr_max_age      AS maxAge,
+        (
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT cp
+        WHERE cp.gcr_id = g.gcr_id
+        ) AS currentUserCnt
+        FROM GROUP_CHAT_ROOM g
+        WHERE g.gcr_id = #{gcrId}
+        LIMIT 1
+    </select>
+</mapper>
