@@ -1,9 +1,12 @@
+// src/main/java/com/popspot/popupplatform/controller/user/MyPageController.java
 package com.popspot.popupplatform.controller.user;
 
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 import com.popspot.popupplatform.dto.user.ReservationListItemDto;
 import com.popspot.popupplatform.dto.user.WishlistItemDto;
+import com.popspot.popupplatform.dto.user.enums.ReservationStatusFilter;
+import com.popspot.popupplatform.dto.user.enums.WishlistStatusFilter;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.service.user.MyPageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,10 +28,12 @@ public class MyPageController {
     @GetMapping("/reservations")
     public ResponseEntity<PageDTO<ReservationListItemDto>> getMyReservations(
             @AuthenticationPrincipal CustomUserDetails user,
-            @ModelAttribute PageRequestDTO pageRequest   // ?page=0&size=5 이런 식
+            @ModelAttribute PageRequestDTO pageRequest,   // ?page=0&size=6&sortDir=DESC
+            @RequestParam(name = "status", defaultValue = "ALL")
+            ReservationStatusFilter status
     ) {
         PageDTO<ReservationListItemDto> result =
-                myPageService.getMyReservations(user.getUserId(), pageRequest);
+                myPageService.getMyReservations(user.getUserId(), pageRequest, status);
         return ResponseEntity.ok(result);
     }
 
@@ -36,10 +41,12 @@ public class MyPageController {
     @GetMapping("/wishlist")
     public ResponseEntity<PageDTO<WishlistItemDto>> getMyWishlist(
             @AuthenticationPrincipal CustomUserDetails user,
-            @ModelAttribute PageRequestDTO pageRequest
+            @ModelAttribute PageRequestDTO pageRequest,   // ?page=0&size=6&sortDir=DESC
+            @RequestParam(name = "status", defaultValue = "ALL")
+            WishlistStatusFilter status
     ) {
         PageDTO<WishlistItemDto> result =
-                myPageService.getMyWishlist(user.getUserId(), pageRequest);
+                myPageService.getMyWishlist(user.getUserId(), pageRequest, status);
         return ResponseEntity.ok(result);
     }
 

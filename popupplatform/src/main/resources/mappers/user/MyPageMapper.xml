@@ -24,16 +24,39 @@
         FROM USER_RESERVATION ur
         JOIN POPUPSTORE p ON ur.pop_id = p.pop_id
         WHERE ur.user_id = #{userId}
-        ORDER BY ur.ur_date_time DESC
+        <!-- ✅ 예약 상태 필터: Enum 이름 기준 (ALL / CONFIRMED / CANCELLED) -->
+        <if test="reserveStatusFilter == 'CONFIRMED'">
+            AND ur.ur_status = 1
+        </if>
+        <if test="reserveStatusFilter == 'CANCELLED'">
+            AND ur.ur_status = 0
+        </if>
+        <!-- ✅ 정렬: sortDir(ASC/DESC)에 따라 -->
+        ORDER BY
+        <choose>
+            <when test="sortDir == 'ASC'">
+                ur.ur_date_time ASC
+            </when>
+            <otherwise>
+                ur.ur_date_time DESC
+            </otherwise>
+        </choose>
         LIMIT #{size} OFFSET #{offset}
     </select>
 
     <select id="countReservationsByUser"
-            parameterType="long"
+            parameterType="map"
             resultType="long">
         SELECT COUNT(*)
-        FROM USER_RESERVATION
-        WHERE user_id = #{userId}
+        FROM USER_RESERVATION ur
+        WHERE ur.user_id = #{userId}
+        <!-- ✅ count에도 동일한 필터 적용 -->
+        <if test="reserveStatusFilter == 'CONFIRMED'">
+            AND ur.ur_status = 1
+        </if>
+        <if test="reserveStatusFilter == 'CANCELLED'">
+            AND ur.ur_status = 0
+        </if>
     </select>
 
     <!-- ==========================
@@ -54,29 +77,64 @@
         FROM USER_WISHLIST uw
         JOIN POPUPSTORE p ON uw.pop_id = p.pop_id
         WHERE uw.user_id = #{userId}
-        ORDER BY uw.created_at DESC
+        <!-- ✅ 찜 상태 필터: Enum 이름 기준 (ALL / UPCOMING / ONGOING / ENDED) -->
+        <if test="popupStatusFilter == 'UPCOMING'">
+            AND p.pop_status = 'UPCOMING'
+        </if>
+        <if test="popupStatusFilter == 'ENDED'">
+            AND p.pop_status = 'ENDED'
+        </if>
+        <if test="popupStatusFilter == 'ONGOING'">
+            AND p.pop_status != 'UPCOMING'
+            AND p.pop_status != 'ENDED'
+        </if>
+        <!-- ✅ 정렬: sortDir(ASC/DESC)에 따라 -->
+        ORDER BY
+        <choose>
+            <when test="sortDir == 'ASC'">
+                uw.created_at ASC
+            </when>
+            <otherwise>
+                uw.created_at DESC
+            </otherwise>
+        </choose>
         LIMIT #{size} OFFSET #{offset}
     </select>
 
     <select id="countWishlistByUser"
-            parameterType="long"
+            parameterType="map"
             resultType="long">
         SELECT COUNT(*)
-        FROM USER_WISHLIST
-        WHERE user_id = #{userId}
+        FROM USER_WISHLIST uw
+        JOIN POPUPSTORE p ON uw.pop_id = p.pop_id
+        WHERE uw.user_id = #{userId}
+        <!-- ✅ count에도 동일한 필터 적용 -->
+        <if test="popupStatusFilter == 'UPCOMING'">
+            AND p.pop_status = 'UPCOMING'
+        </if>
+        <if test="popupStatusFilter == 'ENDED'">
+            AND p.pop_status = 'ENDED'
+        </if>
+        <if test="popupStatusFilter == 'ONGOING'">
+            AND p.pop_status != 'UPCOMING'
+            AND p.pop_status != 'ENDED'
+        </if>
     </select>
 
+    <!-- ==========================
+         찜 전체 삭제 / 종료된 찜 삭제
+         ========================== -->
     <delete id="deleteAllWishList">
-        delete uw
-        from USER_WISHLIST uw
-        where user_id = #{userId}
+        DELETE uw
+        FROM USER_WISHLIST uw
+        WHERE uw.user_id = #{userId}
     </delete>
 
     <delete id="deleteCloseWishList">
-        delete uw
-        from USER_WISHLIST uw
+        DELETE uw
+        FROM USER_WISHLIST uw
         JOIN POPUPSTORE p ON uw.pop_id = p.pop_id
         WHERE uw.user_id = #{userId}
-        and p.pop_status = #{popStatus}
+        AND p.pop_status = #{popStatus}
     </delete>
 </mapper>
