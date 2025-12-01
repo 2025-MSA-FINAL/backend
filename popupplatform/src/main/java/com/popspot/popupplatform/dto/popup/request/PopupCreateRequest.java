@@ -33,7 +33,6 @@ public class PopupCreateRequest {
     //날짜 및 시간 정보
     @Schema(description = "시작 일시", example = "2025-01-01T10:00:00")
     @NotNull(message = "시작 일시는 필수입니다.")
-    @FutureOrPresent(message = "시작 일시는 현재 또는 미래여야 합니다.")
     private LocalDateTime popStartDate;
 
     @Schema(description = "종료 일시", example = "2025-01-02T20:00:00")
@@ -71,12 +70,4 @@ public class PopupCreateRequest {
                     String
             > hashtags;
 
-    //커스텀 검증 로직
-    @AssertTrue(message = "종료 일시는 시작 일시보다 이후여야 합니다.")
-    private boolean isValidDateRange() {
-        if (popStartDate == null || popEndDate == null) {
-            return true;
-        }
-        return popEndDate.isAfter(popStartDate);
-    }
 }
