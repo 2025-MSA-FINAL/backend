@@ -7,6 +7,7 @@ import com.popspot.popupplatform.dto.popup.enums.PopupSortOption;
 import com.popspot.popupplatform.dto.popup.enums.PopupStatus;
 import com.popspot.popupplatform.dto.popup.request.PopupCreateRequest;
 import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
+import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListItemResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
@@ -197,22 +198,25 @@ public class PopupService {
 
         // 6. hasNext, nextCursor 생성 (Encoding: 값_ID 조합)
         boolean hasNext = false;
-        String nextCursor = null; // Long 아님! String임!
+        String nextCursor = null;
 
         if (popupStores.size() > size) {
             hasNext = true;
-            PopupStore lastExtra = popupStores.remove(size); // +1 한 녀석 제거 및 확보
+            popupStores.remove(size);
 
-            // 정렬 기준에 따라 다음 커서 문자열 조합
+            //제거되고 남은 "현재 페이지의 진짜 마지막 아이템"을 기준으로 커서를 생성해야 함
+            PopupStore lastItem = popupStores.get(popupStores.size() - 1);
+
+            //정렬 기준에 따라 다음 커서 문자열 조합 (lastItem 사용!)
             if (sortOption == PopupSortOption.DEADLINE) {
                 // 날짜 + "_" + ID
-                nextCursor = lastExtra.getPopEndDate().toString() + "_" + lastExtra.getPopId();
+                nextCursor = lastItem.getPopEndDate().toString() + "_" + lastItem.getPopId();
             } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
                 // 조회수 + "_" + ID
-                nextCursor = lastExtra.getPopViewCount() + "_" + lastExtra.getPopId();
+                nextCursor = lastItem.getPopViewCount() + "_" + lastItem.getPopId();
             } else {
                 // ID만
-                nextCursor = String.valueOf(lastExtra.getPopId());
+                nextCursor = String.valueOf(lastItem.getPopId());
             }
         }
 
@@ -298,6 +302,55 @@ public class PopupService {
             userWishlistMapper.insertWishlist(userId, popId);
             return true;    //찜
         }
+    }
+
+
+    /**
+     * 팝업 상세 조회
+     */
+    @Transactional
+    public PopupDetailResponse getPopupDetail(Long popupId, Long userId) {
+
+        // 1. 조회수 증가 (삭제된 팝업이면 여기서 0 row update -> 아래 조회에서 걸러짐)
+        popupMapper.updateViewCount(popupId);
+
+        // 2. 기본 정보 조회 (없으면 404 에러)
+        PopupStore popup = popupMapper.selectPopupDetail(popupId)
+                .orElseThrow(() -> new CustomException(PopupErrorCode.POPUP_NOT_FOUND));
+
+        // 3. 상세 이미지 & 해시태그 조회
+        List<String> images = popupMapper.selectPopupImages(popupId);
+        List<String> hashtags = popupMapper.selectPopupHashtags(popupId);
+
+        // 4. 로그인 유저 찜 여부 확인 (재사용)
+        Boolean isLiked = null;
+        if (userId != null) {
+            // 0보다 크면 찜한 상태
+            int count = userWishlistMapper.existsByUserIdAndPopId(userId, popupId);
+            isLiked = (count > 0);
+        }
+
+        // 5. DTO 조립 및 반환
+        return PopupDetailResponse.builder()
+                .popId(popup.getPopId())
+                .popOwnerId(popup.getPopOwnerId())
+                .popName(popup.getPopName())
+                .popDescription(popup.getPopDescription())
+                .popThumbnail(popup.getPopThumbnail())
+                .popLocation(popup.getPopLocation()) // [PB-80] 지도용 주소
+                .popStartDate(popup.getPopStartDate())
+                .popEndDate(popup.getPopEndDate())
+                .popInstaUrl(popup.getPopInstaUrl())
+                .popIsReservation(popup.getPopIsReservation())
+                .popPriceType(popup.getPopPriceType())
+                .popPrice(popup.getPopPrice())
+                .popStatus(popup.getPopStatus())
+                .popViewCount(popup.getPopViewCount()) // 증가된 조회수 반영됨 (같은 트랜잭션)
+                .popAiSummary(popup.getPopAiSummary()) // [PB-76] AI 요약
+                .images(images)     // 상세 이미지 리스트
+                .hashtags(hashtags) // 해시태그 리스트
+                .isLiked(isLiked)   // 찜 여부
+                .build();
     }
 
 
