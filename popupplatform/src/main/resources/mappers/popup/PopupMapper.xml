@@ -274,10 +274,6 @@
             <!-- 1) 마감임박순(DEADLINE, 기본값임) -->
             <when test="sort == null or sort == '' or sort == 'DEADLINE'">
                 ORDER BY
-                CASE
-                WHEN pop_end_date >= NOW() THEN 0  -- 진행중/예정
-                ELSE 1                             -- 종료
-                END ASC,
                 pop_end_date ASC,
                 pop_id DESC
             </when>
@@ -349,6 +345,40 @@
         AND pop_end_date &lt;= #{now}
         AND pop_is_deleted = FALSE
     </update>
+
+    <update id="updateViewCount">
+        UPDATE POPUPSTORE
+        SET pop_view_count = pop_view_count + 1
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+    </update>
+
+    <select id="selectPopupDetail" resultMap="PopupStoreResultMap">
+        SELECT
+        pop_id, pop_owner_id, pop_name, pop_description,
+        pop_thumbnail, pop_location, pop_start_date, pop_end_date,
+        pop_is_reservation, pop_price_type, pop_price, pop_status,
+        pop_insta_url, pop_moderation_status, pop_is_deleted,
+        pop_view_count, pop_ai_summary
+        FROM POPUPSTORE
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+    </select>
+
+    <select id="selectPopupImages" resultType="string">
+        SELECT pi_url
+        FROM POPUP_IMG
+        WHERE pop_id = #{popId}
+        ORDER BY pi_order ASC
+    </select>
+
+    <select id="selectPopupHashtags" resultType="string">
+        SELECT h.hash_name
+        FROM HASHTAG h
+        JOIN POPUP_HASHTAG ph ON h.hash_id = ph.hash_id
+        WHERE ph.pop_id = #{popId}
+        ORDER BY h.hash_name ASC
+    </select>
 
 
 </mapper>
