@@ -1,24 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.popspot.popupplatform.mapper.chat.ChatHiddenMapper">
-    <resultMap id="ChatHiddenResult" type="com.popspot.popupplatform.domain.chat.ChatHidden">
-        <id property="chId" column="ch_id"/>
-        <result property="chType" column="ch_type"/>
-        <result property="chRoomId" column="ch_room_id"/>
-        <result property="userId" column="user_id"/>
-        <result property="chIsHidden" column="ch_is_hidden"/>
-        <result property="createdAt" column="created_at"/>
-        <result property="updatedAt" column="updated_at"/>
-    </resultMap>
-    <select id="findHidden" resultMap="ChatHiddenResult">
+    <select id="findHidden" resultType="com.popspot.popupplatform.domain.chat.ChatHidden">
         SELECT
-        ch_id,
-        ch_type,
-        ch_room_id,
-        user_id,
-        ch_is_hidden,
-        created_at,
-        updated_at
+        ch_id AS chId,
+        ch_type AS chType,
+        ch_room_id AS chRoomId,
+        user_id AS userId,
+        ch_is_hidden AS chIsHidden,
+        created_at AS createdAt,
+        updated_at AS updatedAt
         FROM CHAT_HIDDEN
         WHERE ch_type = #{chType}
         AND ch_room_id = #{chRoomId}

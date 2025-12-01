@@ -3,7 +3,6 @@ package com.popspot.popupplatform.mapper.chat;
 import com.popspot.popupplatform.domain.chat.ChatHidden;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.springframework.security.core.parameters.P;
 
 @Mapper
 public interface ChatHiddenMapper {

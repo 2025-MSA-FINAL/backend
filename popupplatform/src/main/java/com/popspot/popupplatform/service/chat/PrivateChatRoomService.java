@@ -1,7 +1,5 @@
 package com.popspot.popupplatform.service.chat;
 
-
-import com.popspot.popupplatform.domain.chat.ChatHidden;
 import com.popspot.popupplatform.domain.chat.PrivateChatRoom;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
