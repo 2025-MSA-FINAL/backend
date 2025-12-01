@@ -60,11 +60,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/popups", "/api/popups/**").permitAll()
                         .requestMatchers(
-                                "/api/auth/phone/**",
-                                "/api/auth/**",
-                                "/oauth2/**",
-                                "/api/files/**"
-                        ).permitAll()
+                                "/api/users/me"
+                        ).authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

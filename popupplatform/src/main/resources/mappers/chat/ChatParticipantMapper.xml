@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatParticipantMapper">
+    <insert id="insertParticipant"
+            parameterType="com.popspot.popupplatform.domain.chat.ChatParticipant">
+        INSERT INTO CHAT_PARTICIPANT (
+        gcr_id, user_id, cm_id
+        ) VALUES (
+        #{gcrId}, #{userId}, #{cmId}
+        );
+    </insert>
+    <select id="exists" resultType="int">
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+        AND user_id = #{userId}
+    </select>
+    <select id="countParticipants" parameterType="long" resultType="int">
+        SELECT COUNT(*)
+        FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+    </select>
+    <select id="findParticipants"
+            parameterType="long"
+            resultType="com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse">
+        SELECT
+        u.user_id AS userId,
+        u.user_name AS userName,
+        u.user_nickname AS nickname,
+        u.user_photo AS photoUrl
+        FROM CHAT_PARTICIPANT cp
+        JOIN USER u ON cp.user_id = u.user_id
+        JOIN GROUP_CHAT_ROOM g ON g.gcr_id = cp.gcr_id
+        WHERE cp.gcr_id = #{gcrId}
+        ORDER BY
+        (u.user_id = g.user_id) DESC,
+        u.user_nickname ASC
+    </select>
+    <delete id="deleteParticipant">
+        DELETE FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+        AND user_id = #{userId}
+    </delete>
+</mapper>
