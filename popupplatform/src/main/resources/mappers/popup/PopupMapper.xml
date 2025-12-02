@@ -94,7 +94,7 @@
         FALSE,
         FALSE,
         0,
-        NULL
+        #{popAiSummary}
         )
     </insert>
 
@@ -146,7 +146,7 @@
     </insert>
 
     <!--
-        4) 팝업-이미지 매핑 INSERT
+        5) 팝업-이미지 매핑 INSERT
     -->
     <insert id="insertPopupImage">
         INSERT INTO POPUP_IMG (pop_id, pi_url, pi_order)
@@ -155,7 +155,7 @@
 
 
     <!--
-        5) 팝업 존재 확인
+        6) 팝업 존재 확인
     -->
     <select id="existsById" resultType="boolean">
         SELECT COUNT(*) > 0
@@ -166,7 +166,7 @@
 
 
     <!--
-        6) 팝업 목록 기본 조회
+        7) 팝업 목록 기본 조회
      -->
     <select id="selectPopupList"
             resultMap="PopupStoreResultMap">
@@ -348,11 +348,15 @@
 
     <update id="updateViewCount">
         UPDATE POPUPSTORE
-        SET pop_view_count = pop_view_count + 1
+        SET pop_view_count = IFNULL(pop_view_count, 0) + 1
         WHERE pop_id = #{popId}
         AND pop_is_deleted = FALSE
     </update>
 
+
+    <!--
+        8) 팝업 단건 상세 조회
+    -->
     <select id="selectPopupDetail" resultMap="PopupStoreResultMap">
         SELECT
         pop_id, pop_owner_id, pop_name, pop_description,
@@ -365,6 +369,9 @@
         AND pop_is_deleted = FALSE
     </select>
 
+    <!--
+        9) 팝업 상세 이미지 리스트 조회
+    -->
     <select id="selectPopupImages" resultType="string">
         SELECT pi_url
         FROM POPUP_IMG
@@ -372,6 +379,9 @@
         ORDER BY pi_order ASC
     </select>
 
+    <!--
+        10) 팝업 해시태그 리스트 조회
+    -->
     <select id="selectPopupHashtags" resultType="string">
         SELECT h.hash_name
         FROM HASHTAG h
@@ -380,5 +390,23 @@
         ORDER BY h.hash_name ASC
     </select>
 
+    <!--
+        11) 팝업 예약 시작 시간 조회
+    -->
+    <select id="selectReservationStartTime" resultType="java.time.LocalDateTime">
+        SELECT pr_start_time
+        FROM POPUP_RESERVATION
+        WHERE pop_id = #{popId}
+    </select>
 
+
+    <!-- 팝업 AI 요약 업데이트 -->
+    <update id="updatePopupAiSummary">
+        UPDATE POPUPSTORE
+        SET
+        pop_ai_summary = #{summary},
+        updated_at     = CURRENT_TIMESTAMP
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+    </update>
 </mapper>

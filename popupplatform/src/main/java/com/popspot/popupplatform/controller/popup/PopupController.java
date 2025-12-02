@@ -2,6 +2,7 @@ package com.popspot.popupplatform.controller.popup;
 
 import com.popspot.popupplatform.dto.popup.request.PopupCreateRequest;
 import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
+import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupWishlistToggleResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
@@ -9,7 +10,11 @@ import com.popspot.popupplatform.service.popup.PopupService;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -131,6 +136,46 @@ public class PopupController {
         // 4. 200 OK + 현재 찜 여부 응답
         return ResponseEntity.ok(new PopupWishlistToggleResponse(isLiked));
     }
+
+
+    @Operation(
+            summary = "팝업 상세 조회",
+            description = "팝업 ID로 상세 정보를 조회합니다. (조회수 증가 포함)"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "상세 조회 성공",
+                    content = @Content(schema = @Schema(implementation = PopupDetailResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "존재하지 않는 팝업 ID"
+            )
+    })
+    @GetMapping("/{popupId}")
+    public ResponseEntity<PopupDetailResponse> getPopupDetail(
+
+            @Parameter(description = "조회할 팝업 ID", required = true)
+            @PathVariable Long popupId,
+
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        // 1. 유저 ID 추출 (비로그인 허용 -> null)
+        Long userId = null;
+        if (userDetails != null) {
+            userId = Long.parseLong(userDetails.getUsername());
+        }
+
+        log.info("팝업 상세 조회 요청: popupId={}, userId={}", popupId, userId);
+
+        // 2. 서비스 호출
+        PopupDetailResponse response = popupService.getPopupDetail(popupId, userId);
+
+        // 3. 응답
+        return ResponseEntity.ok(response);
+    }
+
 
 
 }

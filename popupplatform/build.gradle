@@ -22,6 +22,7 @@ configurations {
 
 repositories {
 	mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
 }
 
 dependencies {
@@ -44,7 +45,10 @@ dependencies {
     // (CoolSMS / Nurigo SDK)
     implementation 'net.nurigo:sdk:4.3.2'
 
-	compileOnly 'org.projectlombok:lombok'
+    //Spring AI OpenAI 연동 모듈 추가
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai:1.0.0'
+
+    compileOnly 'org.projectlombok:lombok'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'

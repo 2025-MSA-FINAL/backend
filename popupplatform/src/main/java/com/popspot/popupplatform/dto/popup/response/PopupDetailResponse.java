@@ -78,4 +78,11 @@ public class PopupDetailResponse {
     @Schema(description = "로그인 유저 찜 여부 (비로그인: null)", example = "true")
     private Boolean isLiked;
 
+    // --- 예약 정보 ---
+    @Schema(description = "예약 시작 가능 일시", example = "2025-11-17T14:00:00")
+    private LocalDateTime reservationStartTime;
+
+    @Schema(description = "예약 상태 (UPCOMING/OPEN/CLOSED 등)", example = "UPCOMING")
+    private String reservationStatus;
+
 }
