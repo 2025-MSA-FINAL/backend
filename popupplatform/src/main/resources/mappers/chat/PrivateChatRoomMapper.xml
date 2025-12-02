@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.chat.PrivateChatRoomMapper">
+    <insert id="insertRoom" parameterType="com.popspot.popupplatform.domain.chat.PrivateChatRoom"
+            useGeneratedKeys="true" keyProperty="pcrId">
+        INSERT INTO PRIVATE_CHAT_ROOM (
+        user_id,
+        user_id2,
+        pcr_is_deleted,
+        created_at,
+        updated_at
+        )
+        VALUES (
+        #{userId},
+        #{userId2},
+        FALSE,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+        )
+    </insert>
+    <select id="findById" resultType="com.popspot.popupplatform.domain.chat.PrivateChatRoom">
+        SELECT
+        pcr_id AS pcrId,
+        user_id AS userId,
+        user_id2 AS userId2,
+        pcr_is_deleted AS pcrIsDeleted,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+        FROM PRIVATE_CHAT_ROOM
+        WHERE pcr_id = #{pcrId}
+    </select>
+    <update id="deleteRoom" parameterType="com.popspot.popupplatform.domain.chat.PrivateChatRoom">
+        UPDATE PRIVATE_CHAT_ROOM
+        SET
+        pcr_is_deleted = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pcr_id = #{pcrId}
+    </update>
+    <select id="findActiveRoomByUsers"
+            resultType="com.popspot.popupplatform.domain.chat.PrivateChatRoom">
+        SELECT
+        pcr_id         AS pcrId,
+        user_id        AS userId,
+        user_id2       AS userId2,
+        pcr_is_deleted AS pcrIsDeleted,
+        created_at     AS createdAt,
+        updated_at     AS updatedAt
+        FROM PRIVATE_CHAT_ROOM
+        WHERE pcr_is_deleted = FALSE
+        AND (
+        (user_id = #{userId1} AND user_id2 = #{userId2})
+        OR (user_id = #{userId2} AND user_id2 = #{userId1})
+        )
+        LIMIT 1
+    </select>
+    <select id="findPrivateRoomsForUser"
+            resultType="com.popspot.popupplatform.dto.chat.response.ChatRoomSummaryResponse">
+        SELECT
+        'PRIVATE' AS roomType,
+        p.pcr_id AS roomId,
+        -- roomName = 상대방 닉네임
+        u.user_nickname AS roomName,
+        -- 상대방 userId
+        CASE
+        WHEN p.user_id = #{userId} THEN p.user_id2
+        ELSE p.user_id
+        END AS otherUserId,
+        p.created_at AS createdAt
+        FROM PRIVATE_CHAT_ROOM p
+        -- 상대방 닉네임 join
+        JOIN USER u
+        ON u.user_id = CASE
+        WHEN p.user_id = #{userId} THEN p.user_id2
+        ELSE p.user_id
+        END
+        -- 삭제 여부 조인
+        LEFT JOIN PRIVATE_CHAT_ROOM_DELETE d
+        ON d.pcr_id = p.pcr_id
+        AND d.user_id = #{userId}
+        -- 숨김 여부 조인
+        LEFT JOIN CHAT_ROOM_HIDDEN h
+        ON h.crh_type = 'PRIVATE'
+        AND h.crh_room_id = p.pcr_id
+        AND h.user_id = #{userId}
+
+        WHERE p.pcr_is_deleted = FALSE
+        AND (d.pcrd_is_deleted IS NULL OR d.pcrd_is_deleted = FALSE)
+        AND (h.crh_is_hidden IS NULL OR h.crh_is_hidden = FALSE)
+        AND (p.user_id = #{userId} OR p.user_id2 = #{userId})
+
+        ORDER BY p.created_at DESC
+    </select>
+</mapper>

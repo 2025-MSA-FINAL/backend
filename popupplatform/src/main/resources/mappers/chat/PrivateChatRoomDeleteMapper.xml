@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.PrivateChatRoomDeleteMapper">
+    <select id="findDeleteRecord" resultType="com.popspot.popupplatform.domain.chat.PrivateChatRoomDelete">
+        SELECT
+        pcrd_id        AS pcrdId,
+        pcr_id         AS pcrId,
+        user_id        AS userId,
+        pcrd_is_deleted AS pcrdIsDeleted,
+        last_deleted_at AS lastDeletedAt,
+        created_at     AS createdAt,
+        updated_at     AS updatedAt
+        FROM PRIVATE_CHAT_ROOM_DELETE
+        WHERE pcr_id = #{pcrId}
+        AND user_id = #{userId}
+        LIMIT 1
+    </select>
+    <insert id="insertDeleteRecord" parameterType="com.popspot.popupplatform.domain.chat.PrivateChatRoomDelete" useGeneratedKeys="true" keyProperty="pcrdId">
+        INSERT INTO PRIVATE_CHAT_ROOM_DELETE (
+        pcr_id,
+        user_id,
+        pcrd_is_deleted,
+        last_deleted_at,
+        created_at,
+        updated_at
+        ) VALUES (
+        #{pcrId},
+        #{userId},
+        #{pcrdIsDeleted},
+        #{lastDeletedAt},
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+        )
+    </insert>
+    <update id="updateDeleteFlag">
+        UPDATE PRIVATE_CHAT_ROOM_DELETE
+        SET
+        pcrd_is_deleted = #{isDeleted},
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pcr_id = #{pcrId}
+        AND user_id = #{userId}
+    </update>
+    <update id="updateLastDeletedAt">
+        UPDATE PRIVATE_CHAT_ROOM_DELETE
+        SET
+        last_deleted_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pcr_id = #{pcrId}
+        AND user_id = #{userId}
+    </update>
+</mapper>
