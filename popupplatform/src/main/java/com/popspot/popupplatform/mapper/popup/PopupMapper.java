@@ -68,5 +68,13 @@ public interface PopupMapper {
     //팝업 해시태그 리스트 조회
     List<String> selectPopupHashtags(@Param("popId") Long popId);
 
+    //팝업 예약 시작 시간 조회
+    LocalDateTime selectReservationStartTime(@Param("popId") Long popId);
+
+    //AI 요약 업데이트 (비동기 처리가 끝난 후 실행)
+    void updatePopupAiSummary(@Param("popId") Long popId,
+                              @Param("summary") String summary);
+
+
 
 }
