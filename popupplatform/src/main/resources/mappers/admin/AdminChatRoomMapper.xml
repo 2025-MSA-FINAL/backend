@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.admin.AdminChatRoomMapper">
+
+    <select id="getChatRoomStats" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomStatsDTO">
+        SELECT
+        COUNT(*) AS totalChatRooms,
+        SUM(CASE WHEN gcr.gcr_is_deleted = FALSE THEN 1 ELSE 0 END) AS activeChatRooms,
+        SUM(CASE WHEN (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) = 0 THEN 1 ELSE 0 END) AS inactiveChatRooms,
+        (SELECT COUNT(DISTINCT rep_target_id) FROM REPORT WHERE rep_type = 'chat' AND rep_status != 'rejected') AS reportedChatRooms
+        FROM GROUP_CHAT_ROOM gcr
+    </select>
+
+    <select id="getChatRoomList" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
+        SELECT
+        gcr.gcr_id AS chatId,
+        ps.pop_name AS chatName,
+        gcr.pop_id AS popId,
+        gcr.user_id AS hostUserId,
+        u.user_name AS hostUserName,
+        u.user_nickname AS hostNickname,
+        (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
+        gcr.gcr_max_user_cnt AS maxParticipants,
+        (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
+        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
+        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
+        gcr.gcr_is_deleted AS chatIsDeleted,
+        gcr.created_at AS createdAt
+        FROM GROUP_CHAT_ROOM gcr
+        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
+        LEFT JOIN USER u ON gcr.user_id = u.user_id
+        WHERE 1=1
+        <if test="isDeleted != null">
+            AND gcr.gcr_is_deleted = #{isDeleted}
+        </if>
+        ORDER BY gcr.created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="getChatRoomCount" resultType="long">
+        SELECT COUNT(*) FROM GROUP_CHAT_ROOM WHERE 1=1
+        <if test="isDeleted != null">AND gcr_is_deleted = #{isDeleted}</if>
+    </select>
+
+    <select id="getChatRoomDetail" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
+        SELECT
+        gcr.gcr_id AS chatId, ps.pop_name AS chatName, gcr.pop_id AS popId,
+        gcr.user_id AS hostUserId, u.user_name AS hostUserName, u.user_nickname AS hostNickname,
+        (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
+        gcr.gcr_max_user_cnt AS maxParticipants,
+        (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
+        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
+        gcr.gcr_is_deleted AS chatIsDeleted, gcr.created_at AS createdAt
+        FROM GROUP_CHAT_ROOM gcr
+        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
+        LEFT JOIN USER u ON gcr.user_id = u.user_id
+        WHERE gcr.gcr_id = #{chatId}
+    </select>
+
+    <update id="deleteChatRoom">
+        UPDATE GROUP_CHAT_ROOM SET gcr_is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP WHERE gcr_id = #{chatId}
+    </update>
+
+    <select id="searchChatRooms" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
+        SELECT
+        gcr.gcr_id AS chatId, ps.pop_name AS chatName, gcr.pop_id AS popId,
+        gcr.user_id AS hostUserId, u.user_name AS hostUserName, u.user_nickname AS hostNickname,
+        (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
+        gcr.gcr_max_user_cnt AS maxParticipants,
+        (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
+        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
+        gcr.gcr_is_deleted AS chatIsDeleted, gcr.created_at AS createdAt
+        FROM GROUP_CHAT_ROOM gcr
+        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
+        LEFT JOIN USER u ON gcr.user_id = u.user_id
+        WHERE gcr.gcr_is_deleted = FALSE
+        AND (ps.pop_name LIKE CONCAT('%', #{keyword}, '%')
+        OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
+        OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY gcr.created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countSearchChatRooms" resultType="long">
+        SELECT COUNT(*) FROM GROUP_CHAT_ROOM gcr
+        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
+        LEFT JOIN USER u ON gcr.user_id = u.user_id
+        WHERE gcr.gcr_is_deleted = FALSE
+        AND (ps.pop_name LIKE CONCAT('%', #{keyword}, '%')
+        OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
+        OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+</mapper>
