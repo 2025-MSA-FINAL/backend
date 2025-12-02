@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.ReportMapper">
+
+    <!-- 기존 ResultMap -->
+    <resultMap id="ReportListResultMap" type="com.popspot.popupplatform.dto.report.ReportListDTO">
+        <id property="repId" column="rep_id"/>
+        <result property="repType" column="rep_type"/>
+        <result property="categoryName" column="rc_name"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="repStatus" column="rep_status"/>
+    </resultMap>
+
+    <resultMap id="ReportDetailResultMap" type="com.popspot.popupplatform.dto.report.ReportDetailDTO">
+        <id property="repId" column="rep_id"/>
+        <result property="repType" column="rep_type"/>
+        <result property="repTargetId" column="rep_target_id"/>
+        <result property="repStatus" column="rep_status"/>
+        <result property="categoryName" column="rc_name"/>
+        <result property="userId" column="user_id"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- 기존 쿼리 -->
+    <select id="findAllReports" resultMap="ReportListResultMap">
+        SELECT
+        r.rep_id,
+        r.rep_type,
+        rc.rc_name,
+        u.user_nickname,
+        r.created_at,
+        r.rep_status
+        FROM REPORT r
+        LEFT JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
+        LEFT JOIN USER u ON r.user_id = u.user_id
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="findReportById" resultMap="ReportDetailResultMap">
+        SELECT
+        r.rep_id,
+        r.rep_type,
+        r.rep_target_id,
+        r.rep_status,
+        rc.rc_name,
+        r.user_id,
+        u.user_nickname,
+        u.user_email,
+        r.created_at
+        FROM REPORT r
+        LEFT JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
+        LEFT JOIN USER u ON r.user_id = u.user_id
+        WHERE r.rep_id = #{repId}
+    </select>
+
+    <select id="findReportImages" resultType="string">
+        SELECT ri_url
+        FROM REPORT_IMAGE
+        WHERE rep_id = #{repId}
+        ORDER BY ri_id
+    </select>
+
+    <update id="updateReportStatus">
+        UPDATE REPORT
+        SET rep_status = #{status},
+        updated_at = CURRENT_TIMESTAMP
+        WHERE rep_id = #{repId}
+    </update>
+
+    <select id="countByStatus" resultType="long">
+        SELECT COUNT(*)
+        FROM REPORT
+        WHERE rep_status = #{status}
+    </select>
+
+    <!-- 페이지네이션 추가 쿼리 -->
+    <select id="findAllReportsWithPagination" resultMap="ReportListResultMap">
+        SELECT
+        r.rep_id,
+        r.rep_type,
+        rc.rc_name,
+        u.user_nickname,
+        r.created_at,
+        r.rep_status
+        FROM REPORT r
+        LEFT JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
+        LEFT JOIN USER u ON r.user_id = u.user_id
+        ORDER BY
+        <choose>
+            <when test="sortBy == 'repType'">r.rep_type</when>
+            <when test="sortBy == 'repStatus'">r.rep_status</when>
+            <when test="sortBy == 'userNickname'">u.user_nickname</when>
+            <otherwise>r.created_at</otherwise>
+        </choose>
+        ${sortDir}
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countAllReports" resultType="long">
+        SELECT COUNT(*) FROM REPORT
+    </select>
+
+    <select id="findReportsByStatus" resultMap="ReportListResultMap">
+        SELECT
+        r.rep_id,
+        r.rep_type,
+        rc.rc_name,
+        u.user_nickname,
+        r.created_at,
+        r.rep_status
+        FROM REPORT r
+        LEFT JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
+        LEFT JOIN USER u ON r.user_id = u.user_id
+        WHERE r.rep_status = #{status}
+        ORDER BY
+        <choose>
+            <when test="pageRequest.sortBy == 'repType'">r.rep_type</when>
+            <when test="pageRequest.sortBy == 'repStatus'">r.rep_status</when>
+            <when test="pageRequest.sortBy == 'userNickname'">u.user_nickname</when>
+            <otherwise>r.created_at</otherwise>
+        </choose>
+        ${pageRequest.sortDir}
+        LIMIT #{pageRequest.size} OFFSET #{pageRequest.offset}
+    </select>
+
+    <select id="countReportsByStatus" resultType="long">
+        SELECT COUNT(*) FROM REPORT
+        WHERE rep_status = #{status}
+    </select>
+
+    <!-- 검색 쿼리 -->
+    <select id="searchReports" resultMap="ReportListResultMap">
+        SELECT
+        r.rep_id,
+        r.rep_type,
+        rc.rc_name,
+        u.user_nickname,
+        r.created_at,
+        r.rep_status
+        FROM REPORT r
+        LEFT JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
+        LEFT JOIN USER u ON r.user_id = u.user_id
+        WHERE (r.rep_type LIKE CONCAT('%', #{keyword}, '%')
+        OR rc.rc_name LIKE CONCAT('%', #{keyword}, '%')
+        OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY
+        <choose>
+            <when test="pageRequest.sortBy == 'repType'">r.rep_type</when>
+            <when test="pageRequest.sortBy == 'repStatus'">r.rep_status</when>
+            <when test="pageRequest.sortBy == 'userNickname'">u.user_nickname</when>
+            <otherwise>r.created_at</otherwise>
+        </choose>
+        ${pageRequest.sortDir}
+        LIMIT #{pageRequest.size} OFFSET #{pageRequest.offset}
+    </select>
+
+    <select id="countSearchReports" resultType="long">
+        SELECT COUNT(*) FROM REPORT r
+        LEFT JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
+        LEFT JOIN USER u ON r.user_id = u.user_id
+        WHERE (r.rep_type LIKE CONCAT('%', #{keyword}, '%')
+        OR rc.rc_name LIKE CONCAT('%', #{keyword}, '%')
+        OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+
+</mapper>
