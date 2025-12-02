@@ -1,9 +1,11 @@
 package com.popspot.popupplatform.mapper.chat;
 
-import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.domain.chat.PrivateChatRoom;
+import com.popspot.popupplatform.dto.chat.response.ChatRoomSummaryResponse;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 @Mapper
 public interface PrivateChatRoomMapper {
@@ -16,4 +18,6 @@ public interface PrivateChatRoomMapper {
       @Param("userId1") Long userId1,
       @Param("userId2") Long userId2
     );
+    //내가참여한1:1채팅방목록조회
+    List<ChatRoomSummaryResponse> findPrivateRoomsForUser(@Param("userId") Long userId);
 }
