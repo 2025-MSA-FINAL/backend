@@ -11,14 +11,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ChatHidden {
-    private Long chId; //채팅방숨김ID
-    private String chType; //숨김설정한 RoomType ("PRIVATE" or "GROUP")
-    private Long chRoomId; //숨김 설정한 RoomId (pcr_id or gcr_id)
+public class ChatRoomHidden {
+    private Long crhId; //채팅방숨김ID
+    private String crhType; //숨김설정한 RoomType ("PRIVATE" or "GROUP")
+    private Long crhRoomId; //숨김 설정한 RoomId (pcr_id or gcr_id)
     private Long userId; //숨김 설정한 유저ID
-    private Boolean chIsHidden; //채팅방숨김여부
-    private Boolean chIsDeleted; // 삭제 여부 (나만 삭제)
-    private LocalDateTime lastDeletedAt; // 내가 삭제한 시점
+    private Boolean crhIsHidden; //채팅방숨김여부
     private LocalDateTime createdAt; //채팅방생성일
     private LocalDateTime updatedAt; //채팅방수정일
 }

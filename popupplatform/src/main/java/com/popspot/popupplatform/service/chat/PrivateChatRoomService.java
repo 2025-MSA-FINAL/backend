@@ -3,7 +3,6 @@ package com.popspot.popupplatform.service.chat;
 import com.popspot.popupplatform.domain.chat.PrivateChatRoom;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
-import com.popspot.popupplatform.mapper.chat.ChatHiddenMapper;
 import com.popspot.popupplatform.mapper.chat.PrivateChatRoomMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PrivateChatRoomService {
     private final PrivateChatRoomMapper privateChatRoomMapper;
+    private final ChatRoomHiddenService chatRoomHiddenService;
 
     private static final String TYPE_PRIVATE = "PRIVATE";
 
@@ -38,7 +38,4 @@ public class PrivateChatRoomService {
         }
         return newRoom.getPcrId();
     }
-    //1:1채팅삭제
-    //채팅방번호pcrId, 채팅방
-    //자신에게도 채팅 가능
 }
