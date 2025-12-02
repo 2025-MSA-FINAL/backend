@@ -44,6 +44,10 @@ public class GroupChatRoomService {
     //채팅방생성정보 req, 채팅방생성유저(방장) userId
     @Transactional
     public Long createRoom(CreateGroupChatRoomRequest req, Long userId) {
+        //최소인원체크(1:1채팅방은 별도기능이기에 3명이상이어야함)
+        if(req.getMaxUserCnt()<3) {
+            throw new CustomException(ChatErrorCode.MIN_USER_COUNT_INVALID);
+        }
         //채팅방 객체 생성
         GroupChatRoom room = GroupChatRoom.builder()
                 .popId(req.getPopId())
