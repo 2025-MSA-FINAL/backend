@@ -1,86 +1,79 @@
 package com.popspot.popupplatform.controller.admin;
 
-import com.popspot.popupplatform.dto.admin.UserListDTO;
+import com.popspot.popupplatform.dto.admin.AdminUserDTO;
+import com.popspot.popupplatform.service.admin.AdminUserService;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
-import com.popspot.popupplatform.service.admin.AdminUserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
+@Slf4j
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@Tag(name = "Admin User Management", description = "관리자 유저/매니저 관리 API")
 public class AdminUserController {
 
-    private final AdminUserService userService;
+    private final AdminUserService adminUserService;
 
-    /**
-     * 일반 유저 목록 조회 (페이지네이션)
-     * GET /api/admin/users?page=0&size=10&sortBy=createdAt&sortDir=desc
-     */
-    @GetMapping
-    public ResponseEntity<PageDTO<UserListDTO>> getUserList(PageRequestDTO pageRequest) {
-        PageDTO<UserListDTO> users = userService.getUserList(pageRequest);
+    @GetMapping("/users")
+    @Operation(summary = "유저 목록 조회", description = "USER 역할을 가진 유저 목록을 조회합니다")
+    public ResponseEntity<PageDTO<AdminUserDTO>> getUserList(
+            @RequestParam(defaultValue = "ACTIVE") String status,
+            @ModelAttribute PageRequestDTO pageRequest
+    ) {
+        log.info("GET /api/admin/users - status: {}, page: {}, size: {}",
+                status, pageRequest.getPage(), pageRequest.getSize());
+
+        PageDTO<AdminUserDTO> users = adminUserService.getUserList(status, pageRequest);
+
         return ResponseEntity.ok(users);
     }
 
-    /**
-     * 매니저 목록 조회 (페이지네이션)
-     * GET /api/admin/users/managers?page=0&size=10&sortBy=createdAt&sortDir=desc
-     */
     @GetMapping("/managers")
-    public ResponseEntity<PageDTO<UserListDTO>> getManagerList(PageRequestDTO pageRequest) {
-        PageDTO<UserListDTO> managers = userService.getManagerList(pageRequest);
+    @Operation(summary = "매니저 목록 조회", description = "MANAGER 역할을 가진 유저 목록을 조회합니다")
+    public ResponseEntity<PageDTO<AdminUserDTO>> getManagerList(
+            @RequestParam(defaultValue = "ACTIVE") String status,
+            @ModelAttribute PageRequestDTO pageRequest
+    ) {
+        log.info("GET /api/admin/managers - status: {}, page: {}, size: {}",
+                status, pageRequest.getPage(), pageRequest.getSize());
+
+        PageDTO<AdminUserDTO> managers = adminUserService.getManagerList(status, pageRequest);
+
         return ResponseEntity.ok(managers);
     }
 
-    /**
-     * 유저 상세 조회
-     * GET /api/admin/users/{userId}
-     */
-    @GetMapping("/{userId}")
-    public ResponseEntity<UserListDTO> getUserDetail(@PathVariable Long userId) {
-        UserListDTO user = userService.getUserDetail(userId);
-        if (user == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(user);
-    }
 
-    /**
-     * 유저 상태 변경 (활성/정지/삭제)
-     * PUT /api/admin/users/{userId}/status?status=active
-     */
-    @PutMapping("/{userId}/status")
-    public ResponseEntity<String> updateUserStatus(
+    @PutMapping("/users/{userId}/status")
+    @Operation(summary = "유저 상태 변경", description = "유저의 상태를 변경합니다 (ACTIVE/DELETED)")
+    public ResponseEntity<Void> updateUserStatus(
             @PathVariable Long userId,
-            @RequestParam String status) {
-        boolean success = userService.updateUserStatus(userId, status);
-        return success ? ResponseEntity.ok("updated") : ResponseEntity.badRequest().body("fail");
+            @RequestParam String status
+    ) {
+        log.info("PUT /api/admin/users/{}/status - status: {}", userId, status);
+
+        adminUserService.updateUserStatus(userId, status);
+
+        return ResponseEntity.ok().build();
     }
 
-    /**
-     * 유저 권한 변경 (user/manager/admin)
-     * PUT /api/admin/users/{userId}/role?role=manager
-     */
-    @PutMapping("/{userId}/role")
-    public ResponseEntity<String> updateUserRole(
+
+    @PutMapping("/users/{userId}/role")
+    @Operation(summary = "유저 권한 변경", description = "유저의 권한을 변경합니다 (USER/MANAGER)")
+    public ResponseEntity<Void> updateUserRole(
             @PathVariable Long userId,
-            @RequestParam String role) {
-        boolean success = userService.updateUserRole(userId, role);
-        return success ? ResponseEntity.ok("updated") : ResponseEntity.badRequest().body("fail");
-    }
+            @RequestParam String role
+    ) {
+        log.info("PUT /api/admin/users/{}/role - role: {}", userId, role);
 
-    /**
-     * 유저 검색 (이름, 닉네임, 이메일)
-     * GET /api/admin/users/search?keyword=홍길동&page=0&size=10
-     */
-    @GetMapping("/search")
-    public ResponseEntity<PageDTO<UserListDTO>> searchUsers(
-            @RequestParam String keyword,
-            PageRequestDTO pageRequest) {
-        PageDTO<UserListDTO> users = userService.searchUsers(keyword, pageRequest);
-        return ResponseEntity.ok(users);
+        adminUserService.updateUserRole(userId, role);
+
+        return ResponseEntity.ok().build();
     }
 }
