@@ -18,6 +18,24 @@
         CURRENT_TIMESTAMP
         )
     </insert>
+    <select id="findById" resultType="com.popspot.popupplatform.domain.chat.PrivateChatRoom">
+        SELECT
+        pcr_id AS pcrId,
+        user_id AS userId,
+        user_id2 AS userId2,
+        pcr_is_deleted AS pcrIsDeleted,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+        FROM PRIVATE_CHAT_ROOM
+        WHERE pcr_id = #{pcrId}
+    </select>
+    <update id="deleteRoom" parameterType="com.popspot.popupplatform.domain.chat.PrivateChatRoom">
+        UPDATE PRIVATE_CHAT_ROOM
+        SET
+        pcr_is_deleted = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pcr_id = #{pcrId}
+    </update>
     <select id="findActiveRoomByUsers"
             resultType="com.popspot.popupplatform.domain.chat.PrivateChatRoom">
         SELECT

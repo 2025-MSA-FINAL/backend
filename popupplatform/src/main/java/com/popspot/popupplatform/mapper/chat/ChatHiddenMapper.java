@@ -21,4 +21,17 @@ public interface ChatHiddenMapper {
     );
     //숨김상태저장
     void insertHidden (ChatHidden chatHidden);
+    //삭제상태수정
+    void updateDeleteInfo(
+            @Param("chType") String chType,
+            @Param("chRoomId") Long chRoomId,
+            @Param("userId") Long userId,
+            @Param("chIsDeleted") Boolean chIsDeleted
+    );
+    //삭제시간수정
+    void updateLastDeletedAt(
+            @Param("chType") String chType,
+            @Param("chRoomId") Long chRoomId,
+            @Param("useId") Long userId
+    );
 }

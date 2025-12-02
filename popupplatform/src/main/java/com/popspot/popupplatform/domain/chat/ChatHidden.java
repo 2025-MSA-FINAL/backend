@@ -17,7 +17,8 @@ public class ChatHidden {
     private Long chRoomId; //숨김 설정한 RoomId (pcr_id or gcr_id)
     private Long userId; //숨김 설정한 유저ID
     private Boolean chIsHidden; //채팅방숨김여부
-
+    private Boolean chIsDeleted; // 삭제 여부 (나만 삭제)
+    private LocalDateTime lastDeletedAt; // 내가 삭제한 시점
     private LocalDateTime createdAt; //채팅방생성일
     private LocalDateTime updatedAt; //채팅방수정일
 }
