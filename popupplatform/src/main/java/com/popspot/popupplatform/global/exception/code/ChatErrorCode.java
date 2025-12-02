@@ -13,7 +13,8 @@ public enum ChatErrorCode implements BaseErrorCode {
     OWNER_CANNOT_LEAVE("CHAT_008", "방장은 채팅방을 나갈 수 없습니다.", HttpStatus.FORBIDDEN),
     MIN_USER_COUNT_INVALID("CHAT_009", "그룹 채팅방은 최소 3명 이상이어야 합니다.", HttpStatus.BAD_REQUEST),
     PRIVATE_ROOM_NOT_FOUND("CHAT_010", "1:1 채팅방을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    HIDDEN_RECORD_NOT_FOUND("CHAT_011", "숨김 기록이 존재하지 않습니다.", HttpStatus.BAD_REQUEST);
+    HIDDEN_RECORD_NOT_FOUND("CHAT_011", "숨김 기록이 존재하지 않습니다.", HttpStatus.BAD_REQUEST),
+    PRIVATE_ROOM_ALREADY_DELETED("CHAT_012", "이미 삭제된 1:1 채팅방입니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

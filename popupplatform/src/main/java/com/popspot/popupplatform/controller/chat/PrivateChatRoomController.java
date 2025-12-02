@@ -37,4 +37,23 @@ public class PrivateChatRoomController {
         Long roomId = privateChatRoomService.startPrivateChat(user.getUserId(),req.getTargetUserId());
         return ResponseEntity.ok(roomId);
     }
+    //1:1 채팅방 삭제 API
+    @PostMapping("/delete")
+    @Operation(
+            summary = "1:1 채팅방 삭제(나만)",
+            description = """
+            1:1 채팅방을 '나만' 삭제합니다.
+            상대방의 기록은 유지되며,
+            새로운 메시지가 오면 채팅방이 다시 복구됩니다.
+            단, 내가 삭제한 시점 이전 메시지는 다시 보이지 않습니다.
+            """
+    )
+    public ResponseEntity<String> deletePrivateRoom(
+            @RequestParam Long pcrId, //채팅삭제요청 1:1채팅방ID
+            @AuthenticationPrincipal CustomUserDetails user //현재로그인한사용자정보 user
+    ) {
+        //서비스에서 채팅방삭제
+        privateChatRoomService.deletePrivateRoom(user.getUserId(), pcrId);
+        return ResponseEntity.ok("1:1 채팅방 삭제완료");
+    }
 }
