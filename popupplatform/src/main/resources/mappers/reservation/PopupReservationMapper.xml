@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.PopupReservationMapper">
+
+    <!-- 단위 시간 + 운영 기간 + 최대 인원 저장 -->
+    <insert id="insertPopupReservation">
+        INSERT INTO POPUP_RESERVATION
+        (pop_id, pr_start_time, pr_end_time, pr_max_user_cnt, pr_entry_time_unit)
+        VALUES
+        (#{popId}, #{prStartTime}, #{prEndTime}, #{prMaxUserCnt}, #{prEntryTimeUnit})
+        ON DUPLICATE KEY UPDATE
+        pr_start_time = VALUES(pr_start_time),
+        pr_end_time = VALUES(pr_end_time),
+        pr_max_user_cnt = VALUES(pr_max_user_cnt),
+        pr_entry_time_unit = VALUES(pr_entry_time_unit)
+    </insert>
+
+    <!-- 조회용(필요할 경우) -->
+    <select id="findByPopId" resultType="com.popspot.popupplatform.domain.reservation.PopupReservation">
+        SELECT *
+        FROM POPUP_RESERVATION
+        WHERE pop_id = #{popId}
+    </select>
+
+</mapper>
