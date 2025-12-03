@@ -49,7 +49,7 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-model-openai:1.0.0'
 
     compileOnly 'org.projectlombok:lombok'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -60,4 +60,13 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == "io.swagger.core.v3") {
+            // springdoc 2.8.14가 사용하는 swagger-api 버전
+            details.useVersion("2.2.38")
+        }
+    }
 }
