@@ -101,4 +101,25 @@ public class ManagerPopupService {
         //업데이트 실행
         managerPopupMapper.updatePopup(popId, managerId, request);
     }
+
+    /**
+     * 4. 팝업 삭제 (Soft Delete)
+     */
+    @Transactional
+    public void deletePopup(Long managerId, Long popId) {
+        //매니저 권한 체크
+        JwtUserDto user = userMapper.findJwtUserByUserId(managerId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!"MANAGER".equals(user.getRole())) {
+            throw new CustomException(AuthErrorCode.ACCESS_DENIED);
+        }
+
+        //삭제 실행 (Soft Delete)
+        int updatedRows = managerPopupMapper.deletePopup(popId, managerId);
+
+        if (updatedRows == 0) {
+            throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
+        }
+    }
 }

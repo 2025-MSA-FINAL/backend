@@ -35,12 +35,16 @@ public interface ManagerPopupMapper {
 
     /**
      * 4. 팝업 기본 정보 수정
-     * 반환값: 수정된 행의 개수 (1=성공, 0=실패/내팝업아님)
      */
     int updatePopup(
             @Param("popId") Long popId,
             @Param("managerId") Long managerId,
             @Param("request") com.popspot.popupplatform.dto.popup.request.ManagerPopupUpdateRequest request
     );
+
+    /**
+     * 5. 팝업 삭제 (Soft Delete)
+     */
+    int deletePopup(@Param("popId") Long popId, @Param("managerId") Long managerId);
 
 }

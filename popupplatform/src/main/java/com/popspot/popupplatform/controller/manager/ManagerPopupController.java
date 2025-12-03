@@ -53,4 +53,16 @@ public class ManagerPopupController {
         managerPopupService.updatePopupBasicInfo(user.getUserId(), popId, request);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(summary = "팝업 삭제", description = "팝업을 삭제 처리합니다. (Soft Delete)")
+    @DeleteMapping("/{popId}")
+    public ResponseEntity<Void> deletePopup(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @Parameter(description = "팝업 ID") @PathVariable("popId") Long popId
+    ) {
+        managerPopupService.deletePopup(user.getUserId(), popId);
+        return ResponseEntity.ok().build();
+    }
+
+
 }

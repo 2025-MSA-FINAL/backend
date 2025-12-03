@@ -89,5 +89,14 @@
     </update>
 
 
+    <update id="deletePopup">
+        UPDATE POPUPSTORE
+        SET pop_is_deleted = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </update>
+
 
 </mapper>
