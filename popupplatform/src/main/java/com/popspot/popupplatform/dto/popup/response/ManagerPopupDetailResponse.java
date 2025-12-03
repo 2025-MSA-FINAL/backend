@@ -44,4 +44,7 @@ public class ManagerPopupDetailResponse {
 
     @Schema(description = "현재 상태 (UPCOMING, ONGOING, ENDED)")
     private String popStatus;
+
+    @Schema(description = "인스타그램 URL")
+    private String popInstaUrl;
 }

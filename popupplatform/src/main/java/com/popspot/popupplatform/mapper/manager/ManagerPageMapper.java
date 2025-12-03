@@ -23,8 +23,8 @@ public interface ManagerPageMapper {
             @Param("userId") Long userId,
             @Param("offset") int offset,
             @Param("size") int size,
-            @Param("status") String status, // ALL, UPCOMING, ONGOING, ENDED
-            @Param("sortDir") String sortDir
+            @Param("status") String status,
+            @Param("sort") String sort
     );
 
     /**

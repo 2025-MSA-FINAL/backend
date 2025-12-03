@@ -5,7 +5,6 @@ import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
 import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupWishlistToggleResponse;
-import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.service.popup.PopupService;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
@@ -45,7 +44,7 @@ public class PopupController {
     @Operation(summary = "팝업 스토어 등록", description = "이미지 업로드 API에서 받은 URL을 포함하여 팝업을 등록합니다. (매니저 권한 필요)")
     @ApiResponse(responseCode = "201", description = "팝업 등록 성공")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> createPopup(
+    public ResponseEntity<Long> createPopup(
 
 
             @RequestBody @Valid PopupCreateRequest request,
@@ -62,11 +61,13 @@ public class PopupController {
 
         log.info("팝업 등록 요청: managerId={}, title={}", managerId, request.getPopName());
 
-        // 3. 서비스 호출 (파일 파라미터 없이 DTO와 매니저ID만 전달)
+        // 3. 서비스 호출
         Long popupId = popupService.registerPopup(request, managerId);
 
-        // 4. 201 Created 응답 + Location 헤더
-        return ResponseEntity.created(URI.create("/api/popups/" + popupId)).build();
+        // 4. 201 Created 응답 + Location 헤더 + Body에 ID 포함
+        return ResponseEntity
+                .created(URI.create("/api/popups/" + popupId))
+                .body(popupId);
     }
 
 

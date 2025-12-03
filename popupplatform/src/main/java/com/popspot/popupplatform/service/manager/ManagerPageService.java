@@ -37,23 +37,24 @@ public class ManagerPageService {
     }
 
     /**
-     * 2. 내가 등록한 팝업 목록 조회 (페이지네이션)
+     * 2. 내가 등록한 팝업 목록 조회
      */
     public PageDTO<PopupListItemResponse> getMyPopups(Long userId, PageRequestDTO pageRequest, String status) {
         int page = Math.max(pageRequest.getPage(), 0);
         int size = Math.max(pageRequest.getSize(), 1);
         int offset = page * size;
-        String sortDir = pageRequest.getSortDir();
 
-        // status가 null이거나 비어있으면 "ALL"로 처리
+        // 프론트에서 보낸 정렬 기준 (DEADLINE, CREATED, VIEW 등)
+        // 안 보내면 기본값 'CREATED'(최신순) 또는 'DEADLINE'(마감임박순)으로 설정
+        String sort = (pageRequest.getSortBy() == null || pageRequest.getSortBy().isEmpty())
+                ? "CREATED" : pageRequest.getSortBy();
+
         String effectiveStatus = (status == null || status.isEmpty()) ? "ALL" : status;
 
-        // 목록 조회
         List<PopupListItemResponse> content = managerPageMapper.findMyPopups(
-                userId, offset, size, effectiveStatus, sortDir
+                userId, offset, size, effectiveStatus, sort
         );
 
-        // 전체 개수 조회 (페이지 계산용)
         long total = managerPageMapper.countMyPopups(userId, effectiveStatus);
 
         return new PageDTO<>(content, page, size, total);

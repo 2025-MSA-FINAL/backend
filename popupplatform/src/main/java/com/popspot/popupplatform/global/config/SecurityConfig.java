@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 "/api/files/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/popups", "/api/popups/**").permitAll()
+                        .requestMatchers("/api/managers/**").hasRole("MANAGER")
                         .requestMatchers(
                                 "/api/users/me"
                         ).authenticated()

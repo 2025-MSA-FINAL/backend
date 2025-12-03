@@ -2,6 +2,7 @@ package com.popspot.popupplatform.controller.manager;
 
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
+import com.popspot.popupplatform.dto.popup.request.ManagerPopupUpdateRequest;
 import com.popspot.popupplatform.dto.popup.response.ManagerPopupDetailResponse;
 import com.popspot.popupplatform.dto.user.response.ManagerReservationResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
@@ -22,6 +23,7 @@ public class ManagerPopupController {
 
     private final ManagerPopupService managerPopupService;
 
+
     @Operation(summary = "매니저용 팝업 상세 조회", description = "자신이 등록한 팝업만 조회 가능합니다.")
     @GetMapping("/{popId}")
     public ResponseEntity<ManagerPopupDetailResponse> getPopupDetail(
@@ -40,4 +42,27 @@ public class ManagerPopupController {
     ) {
         return ResponseEntity.ok(managerPopupService.getReservations(user.getUserId(), popId, pageRequest));
     }
+
+    @Operation(summary = "팝업 기본 정보 수정", description = "제목, 설명, 가격 등 기본 정보를 수정합니다. (본인 팝업만 가능)")
+    @PatchMapping("/{popId}")
+    public ResponseEntity<Void> updatePopup(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @Parameter(description = "팝업 ID") @PathVariable("popId") Long popId,
+            @RequestBody ManagerPopupUpdateRequest request
+    ) {
+        managerPopupService.updatePopupBasicInfo(user.getUserId(), popId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "팝업 삭제", description = "팝업을 삭제 처리합니다. (Soft Delete)")
+    @DeleteMapping("/{popId}")
+    public ResponseEntity<Void> deletePopup(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @Parameter(description = "팝업 ID") @PathVariable("popId") Long popId
+    ) {
+        managerPopupService.deletePopup(user.getUserId(), popId);
+        return ResponseEntity.ok().build();
+    }
+
+
 }
