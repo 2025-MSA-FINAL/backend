@@ -16,22 +16,33 @@ public class AdminPopupController {
     private final AdminPopupService popupService;
 
     /**
-     * 팝업스토어 목록 조회 (페이지네이션)
-     * GET /api/admin/popups?page=0&size=10&sortBy=createdAt&sortDir=desc
+     * 팝업스토어 목록 조회 (통합 검색/필터/페이징)
+     * GET /api/admin/popups?page=0&size=10&keyword=BTS&status=active&moderation=pending
+     *
+     * 모든 파라미터는 optional이며, 조합하여 사용 가능
+     *
+     * @param pageRequest 페이징 정보 (page, size, sortBy, sortDir)
+     * @param keyword 검색어 (팝업명, 위치 등)
+     * @param status 팝업 상태 (upcoming, active, ended)
+     * @param moderation 승인 상태 (pending, approved, rejected)
+     * @return 페이징된 팝업스토어 목록
+     *
+     * 사용 예시:
+     * - 전체 조회: /api/admin/popups?page=0&size=10
+     * - 검색: /api/admin/popups?keyword=BTS&page=0
+     * - 필터: /api/admin/popups?status=active&moderation=pending&page=0
+     * - 조합: /api/admin/popups?keyword=팝업&status=active&page=0
      */
     @GetMapping
-    public ResponseEntity<PageDTO<PopupStoreListDTO>> getPopupList(PageRequestDTO pageRequest) {
-        PageDTO<PopupStoreListDTO> popups = popupService.getPopupList(pageRequest);
-        return ResponseEntity.ok(popups);
-    }
+    public ResponseEntity<PageDTO<PopupStoreListDTO>> getPopupList(
+            PageRequestDTO pageRequest,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String moderation) {
 
-    /**
-     * 승인 대기 중인 팝업스토어 목록
-     * GET /api/admin/popups/pending?page=0&size=10
-     */
-    @GetMapping("/pending")
-    public ResponseEntity<PageDTO<PopupStoreListDTO>> getPendingPopupList(PageRequestDTO pageRequest) {
-        PageDTO<PopupStoreListDTO> popups = popupService.getPendingPopupList(pageRequest);
+        PageDTO<PopupStoreListDTO> popups = popupService.getPopupList(
+                pageRequest, keyword, status, moderation
+        );
         return ResponseEntity.ok(popups);
     }
 
@@ -88,17 +99,5 @@ public class AdminPopupController {
     public ResponseEntity<String> deletePopup(@PathVariable Long popId) {
         boolean success = popupService.deletePopup(popId);
         return success ? ResponseEntity.ok("deleted") : ResponseEntity.badRequest().body("fail");
-    }
-
-    /**
-     * 팝업스토어 검색
-     * GET /api/admin/popups/search?keyword=팝업&page=0&size=10
-     */
-    @GetMapping("/search")
-    public ResponseEntity<PageDTO<PopupStoreListDTO>> searchPopups(
-            @RequestParam String keyword,
-            PageRequestDTO pageRequest) {
-        PageDTO<PopupStoreListDTO> popups = popupService.searchPopups(keyword, pageRequest);
-        return ResponseEntity.ok(popups);
     }
 }
