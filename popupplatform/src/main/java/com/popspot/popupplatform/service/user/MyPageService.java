@@ -11,6 +11,7 @@ import com.popspot.popupplatform.dto.user.enums.WishlistStatusFilter;
 import com.popspot.popupplatform.mapper.user.MyPageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -82,10 +83,12 @@ public class MyPageService {
         return new PageDTO<>(content, page, size, total);
     }
 
+    @Transactional
     public Boolean deleteAllWishList(Long userId) {
         return myPageMapper.deleteAllWishList(userId) > 0;
     }
 
+    @Transactional
     public Boolean deleteCloseWishList(Long userId) {
         return myPageMapper.deleteCloseWishList(userId, PopupStatus.ENDED.name()) > 0 ;
     }

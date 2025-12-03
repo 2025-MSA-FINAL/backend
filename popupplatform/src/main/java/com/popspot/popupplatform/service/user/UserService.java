@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +49,7 @@ public class UserService {
     /**
      * 닉네임 변경
      */
+    @Transactional
     public void updateNickname(Long userId, UpdateNicknameRequest request) {
         UserDto user = userMapper.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -73,6 +75,7 @@ public class UserService {
     /**
      * 이메일 변경
      */
+    @Transactional
     public void updateEmail(Long userId, UpdateEmailRequest request) {
         UserDto user = userMapper.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -99,6 +102,7 @@ public class UserService {
      * 휴대폰 번호 변경
      * - 실제 문자 인증은 /api/auth/phone/* API에서 이미 검증했다고 가정
      */
+    @Transactional
     public void updatePhone(Long userId, UpdatePhoneRequest request) {
         UserDto user = userMapper.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -125,6 +129,7 @@ public class UserService {
      * 비밀번호 변경
      * - 현재 비밀번호 확인 후 새 비밀번호로 변경
      */
+    @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
         // USER_GENERAL + USER 조인 정보
         LoginUserDto loginUser = userMapper.findGeneralUserByUserId(userId)
@@ -146,6 +151,7 @@ public class UserService {
      * 회원 탈퇴 (소프트 삭제)
      * - USER.user_status = 'DELETED'
      */
+    @Transactional
     public void deleteUser(Long userId) {
         int updated = userMapper.softDeleteUser(userId);
         if (updated != 1) {
@@ -153,6 +159,7 @@ public class UserService {
         }
     }
 
+    @Transactional
     public void updateProfile(Long userId, UploadResultDto dto) {
         String url;
         if(dto.getUrl()!=null) {
