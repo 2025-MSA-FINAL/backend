@@ -17,6 +17,7 @@ public class CurrentUserResponse {
 
     private String name;
     private String nickname;
+    private String introduction;
 
     private String profileImage; // USER.user_photo
     private String email;

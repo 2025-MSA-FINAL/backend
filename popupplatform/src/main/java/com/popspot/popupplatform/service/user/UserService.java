@@ -38,6 +38,7 @@ public class UserService {
                 .name(user.getName())
                 .gender(user.getGender())
                 .nickname(user.getNickname())
+                .introduction(user.getIntroduction())
                 .profileImage(user.getProfileImage())
                 .email(user.getEmail())
                 .phone(user.getPhone())
@@ -180,5 +181,9 @@ public class UserService {
         if (!passwordEncoder.matches(dto.getPassword(), loginUser.getPassword())) {
             throw new CustomException(UserErrorCode.INVALID_PASSWORD);
         }
+    }
+
+    public void updateIntroduction(Long userId, ChangeIntroductionRequest dto) {
+        int updated = userMapper.updateIntroduction(userId,dto);
     }
 }
