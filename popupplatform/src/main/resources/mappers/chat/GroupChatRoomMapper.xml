@@ -95,4 +95,24 @@
         WHERE g.gcr_id = #{gcrId}
         LIMIT 1
     </select>
+    <select id="findGroupRoomsForUser"
+            resultType="com.popspot.popupplatform.dto.chat.response.ChatRoomSummaryResponse">
+        SELECT
+        'GROUP'          AS roomType,
+        g.gcr_id         AS roomId,
+        g.gcr_title      AS roomName,
+        NULL             AS otherUserId,
+        g.created_at     AS createdAt
+        FROM GROUP_CHAT_ROOM g
+        JOIN CHAT_PARTICIPANT cp
+        ON cp.gcr_id = g.gcr_id
+        AND cp.user_id = #{userId}
+        LEFT JOIN CHAT_ROOM_HIDDEN h
+        ON h.crh_type = 'GROUP'
+        AND h.crh_room_id = g.gcr_id
+        AND h.user_id = #{userId}
+        WHERE g.gcr_is_deleted = FALSE
+        AND (h.crh_is_hidden IS NULL OR h.crh_is_hidden = FALSE)
+        ORDER BY g.created_at DESC
+    </select>
 </mapper>

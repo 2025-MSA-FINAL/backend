@@ -1,18 +1,21 @@
 package com.popspot.popupplatform.service.admin;
 
-import com.popspot.popupplatform.dto.admin.UserListDTO;
+import com.popspot.popupplatform.dto.admin.AdminUserDTO;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 
-public interface AdminUserService {
-    PageDTO<UserListDTO> getUserList(PageRequestDTO pageRequest);
-    PageDTO<UserListDTO> getManagerList(PageRequestDTO pageRequest);
-    UserListDTO getUserDetail(Long userId);
-    boolean updateUserStatus(Long userId, String status);
-    boolean updateUserRole(Long userId, String role);
-    PageDTO<UserListDTO> searchUsers(String keyword, PageRequestDTO pageRequest);
-}
 
+
+public interface AdminUserService {
+
+    PageDTO<AdminUserDTO> getUserList(String status, PageRequestDTO pageRequest);
+
+    PageDTO<AdminUserDTO> getManagerList(String status, PageRequestDTO pageRequest);
+
+    void updateUserStatus(Long userId, String status); //유저 상태 변경 (ACTIVE <-> DELETED)
+
+    void updateUserRole(Long userId, String role); // 유저 권한 변경 (USER <-> MANAGER)
+}
 
 
 

@@ -8,8 +8,8 @@ import java.util.List;
 @Mapper
 public interface UserWishlistMapper {
 
-    //이미 찜했는지 여부 (0 또는 1)
-    int existsByUserIdAndPopId(@Param("userId") Long userId,
+    //이미 찜했는지 여부
+    Boolean existsByUserIdAndPopId(@Param("userId") Long userId,
                                @Param("popId") Long popId);
 
     //찜 추가

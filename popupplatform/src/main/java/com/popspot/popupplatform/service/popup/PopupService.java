@@ -7,6 +7,7 @@ import com.popspot.popupplatform.dto.popup.enums.PopupSortOption;
 import com.popspot.popupplatform.dto.popup.enums.PopupStatus;
 import com.popspot.popupplatform.dto.popup.request.PopupCreateRequest;
 import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
+import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListItemResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
@@ -30,8 +31,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -40,9 +39,10 @@ public class PopupService {
     private final PopupMapper popupMapper;
     private final UserMapper userMapper;
     private final UserWishlistMapper userWishlistMapper;
+    private final PopupAiSummaryService popupAiSummaryService;
 
     /**
-     * 팝업 스토어 등록 
+     * 팝업 스토어 등록
      */
     @Transactional
     public long registerPopup(PopupCreateRequest request, Long managerId) {
@@ -64,12 +64,13 @@ public class PopupService {
         Integer price = request.getPopPrice();
         PopupPriceType priceType = (price == null || price == 0)
                 ? PopupPriceType.FREE : PopupPriceType.PAID;
-        
+
         PopupStatus initialStatus = LocalDateTime.now().isAfter(request.getPopStartDate())
                 ? PopupStatus.ONGOING  // 시작일 지났으면 '진행 중'
                 : PopupStatus.UPCOMING; // 아니면 '오픈 예정'
 
         // 2. DTO -> Entity 변환
+        //    👉 AI 요약은 비동기로 따로 갱신하므로 여기선 null로 저장
         PopupStore popupStore = PopupStore.builder()
                 .popOwnerId(managerId)
                 .popName(request.getPopName())
@@ -83,6 +84,7 @@ public class PopupService {
                 .popPrice(price)
                 .popStatus(initialStatus)
                 .popInstaUrl(request.getPopInstaUrl())
+                .popAiSummary(null) // ✅ 처음에는 비워둔다
                 .build();
 
         // 3. DB 저장
@@ -109,11 +111,19 @@ public class PopupService {
             for (int i = 0; i < request.getPopImages().size(); i++) {
                 String imageUrl = request.getPopImages().get(i);
                 if (imageUrl != null && !imageUrl.isBlank()) {
-                    //순서는 1부터 시작 (i + 1)
+                    // 순서는 1부터 시작 (i + 1)
                     popupMapper.insertPopupImage(newPopupId, imageUrl, i + 1);
                 }
             }
         }
+
+        // 6. 트랜잭션은 이후 AI 요약은 별도 쓰레드에서 비동기로 생성 + DB 업데이트
+        popupAiSummaryService.generateAndUpdateSummaryAsync(
+                newPopupId,
+                request.getPopName(),
+                request.getPopDescription(),
+                request.getHashtags()
+        );
 
         return newPopupId;
     }
@@ -124,7 +134,6 @@ public class PopupService {
         if (trimmed.isEmpty()) return "";
         return trimmed.startsWith("#") ? trimmed.substring(1) : trimmed;
     }
-
 
     /**
      * 팝업 스토어 목록 (String Cursor 적용 버전)
@@ -179,7 +188,6 @@ public class PopupService {
         String sortStr = (sortOption != null) ? sortOption.name() : null;
 
         // 5. DB 조회
-        // (주의: PopupMapper Interface의 파라미터 순서와 정확히 일치해야 함)
         List<PopupStore> popupStores = popupMapper.selectPopupList(
                 cursorId,
                 cursorEndDate,
@@ -193,31 +201,33 @@ public class PopupService {
                 safeMinPrice,
                 safeMaxPrice,
                 sortStr
-    );
+        );
 
         // 6. hasNext, nextCursor 생성 (Encoding: 값_ID 조합)
         boolean hasNext = false;
-        String nextCursor = null; // Long 아님! String임!
+        String nextCursor = null;
 
         if (popupStores.size() > size) {
             hasNext = true;
-            PopupStore lastExtra = popupStores.remove(size); // +1 한 녀석 제거 및 확보
+            popupStores.remove(size);
 
-            // 정렬 기준에 따라 다음 커서 문자열 조합
+            // 제거되고 남은 "현재 페이지의 진짜 마지막 아이템"을 기준으로 커서를 생성해야 함
+            PopupStore lastItem = popupStores.get(popupStores.size() - 1);
+
+            // 정렬 기준에 따라 다음 커서 문자열 조합 (lastItem 사용!)
             if (sortOption == PopupSortOption.DEADLINE) {
                 // 날짜 + "_" + ID
-                nextCursor = lastExtra.getPopEndDate().toString() + "_" + lastExtra.getPopId();
+                nextCursor = lastItem.getPopEndDate().toString() + "_" + lastItem.getPopId();
             } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
                 // 조회수 + "_" + ID
-                nextCursor = lastExtra.getPopViewCount() + "_" + lastExtra.getPopId();
+                nextCursor = lastItem.getPopViewCount() + "_" + lastItem.getPopId();
             } else {
                 // ID만
-                nextCursor = String.valueOf(lastExtra.getPopId());
+                nextCursor = String.valueOf(lastItem.getPopId());
             }
         }
 
         // 7. PopupStore -> PopupListItemResponse 변환 + isLiked 채우기
-        // (기존 코드 유지)
         List<PopupListItemResponse> content;
         Set<Long> likedIdSet = null;
 
@@ -244,7 +254,6 @@ public class PopupService {
                 .build();
     }
 
-
     /**
      * 팝업 한 개 -> 응답 DTO로 변환
      */
@@ -252,10 +261,10 @@ public class PopupService {
                                                           Long userId,
                                                           Set<Long> likedIdSet) {
 
-        Boolean isLiked = null;  //비로그인은 null 유지
+        Boolean isLiked = null;  // 비로그인은 null 유지
 
         if (userId != null) {
-            //로그인 상태일 때만 true/false 세팅
+            // 로그인 상태일 때만 true/false 세팅
             boolean liked = (likedIdSet != null) && likedIdSet.contains(store.getPopId());
             isLiked = liked;
         }
@@ -283,23 +292,94 @@ public class PopupService {
     @Transactional
     public boolean toggleWishlist(Long popId, Long userId) {
 
-        //존재하지 않는 팝업이면 에러 발생
+        // 존재하지 않는 팝업이면 에러 발생
         if (!popupMapper.existsById(popId)) {
             throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
         }
 
-        //이미 찜했는지 확인
-        int exists = userWishlistMapper.existsByUserIdAndPopId(userId, popId);
+        // 이미 찜했는지 확인
+        Boolean exists = userWishlistMapper.existsByUserIdAndPopId(userId, popId);
 
-        if (exists > 0) {
+        if (Boolean.TRUE.equals(exists)) {
             userWishlistMapper.deleteWishlist(userId, popId);
-            return false;   //찜 해제
+            return false;   // 찜 해제
         } else {
             userWishlistMapper.insertWishlist(userId, popId);
-            return true;    //찜
+            return true;    // 찜
         }
     }
 
+    /**
+     * 팝업 상세 조회
+     */
+    @Transactional
+    public PopupDetailResponse getPopupDetail(Long popupId, Long userId) {
 
+        // 1. 조회수 증가 (삭제된 팝업이면 0 row 업데이트)
+        popupMapper.updateViewCount(popupId);
 
+        // 2. 기본 정보 조회 (소프트 삭제된 팝업 제외)
+        PopupStore popup = popupMapper.selectPopupDetail(popupId)
+                .orElseThrow(() -> new CustomException(PopupErrorCode.POPUP_NOT_FOUND));
+
+        // 3. 상세 이미지 & 해시태그 조회
+        List<String> images   = popupMapper.selectPopupImages(popupId);
+        List<String> hashtags = popupMapper.selectPopupHashtags(popupId);
+
+        // 4. 로그인 유저 찜 여부 확인
+        Boolean isLiked = null;     // 비로그인: null
+        if (userId != null) {
+            Boolean exists = userWishlistMapper.existsByUserIdAndPopId(userId, popupId);
+            isLiked = Boolean.TRUE.equals(exists);
+        }
+
+        // 5. 예약 상태 계산
+        // 기본값 NONE : 예약 개념이 없는 팝업
+        String reservationStatus = "NONE";
+        LocalDateTime reservationStartTime = null;
+
+        if (Boolean.TRUE.equals(popup.getPopIsReservation())) {
+            // 예약형 팝업인 경우에만 DB 조회
+            reservationStartTime = popupMapper.selectReservationStartTime(popupId);
+
+            LocalDateTime now = LocalDateTime.now();
+
+            // 1) 팝업 자체가 종료된 경우 -> 예약도 마감
+            if (now.isAfter(popup.getPopEndDate())) {
+                reservationStatus = "CLOSED";
+            }
+            // 2) 예약 오픈 시간이 설정되어 있고, 아직 그 전인 경우 -> 오픈 예정
+            else if (reservationStartTime != null && now.isBefore(reservationStartTime)) {
+                reservationStatus = "UPCOMING";
+            }
+            // 3) 그 외 (오픈 시간 지남 or 시간 설정 안 함) -> 예약 가능
+            else {
+                reservationStatus = "OPEN";
+            }
+        }
+
+        // 6. DTO 조립 및 반환
+        return PopupDetailResponse.builder()
+                .popId(popup.getPopId())
+                .popOwnerId(popup.getPopOwnerId())
+                .popName(popup.getPopName())
+                .popDescription(popup.getPopDescription())
+                .popThumbnail(popup.getPopThumbnail())
+                .popLocation(popup.getPopLocation())
+                .popStartDate(popup.getPopStartDate())
+                .popEndDate(popup.getPopEndDate())
+                .popInstaUrl(popup.getPopInstaUrl())
+                .popIsReservation(popup.getPopIsReservation())
+                .popPriceType(popup.getPopPriceType())
+                .popPrice(popup.getPopPrice())
+                .popStatus(popup.getPopStatus())
+                .popViewCount(popup.getPopViewCount())
+                .popAiSummary(popup.getPopAiSummary())
+                .images(images)
+                .hashtags(hashtags)
+                .isLiked(isLiked)
+                .reservationStartTime(reservationStartTime) // 예약 없는 팝업이면 null
+                .reservationStatus(reservationStatus)       // NONE / UPCOMING / OPEN / CLOSED
+                .build();
+    }
 }

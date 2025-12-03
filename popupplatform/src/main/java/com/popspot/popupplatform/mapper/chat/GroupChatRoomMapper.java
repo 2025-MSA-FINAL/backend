@@ -2,9 +2,11 @@ package com.popspot.popupplatform.mapper.chat;
 
 
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
+import com.popspot.popupplatform.dto.chat.response.ChatRoomSummaryResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -22,4 +24,6 @@ public interface GroupChatRoomMapper {
     void deleteRoom(GroupChatRoom room);
     //채팅방 상세조회(API응답, JOIN)
     GroupChatRoomDetailResponse findRoomDetail(Long gcrId);
+    //내가참여한그룹채팅방목록조회
+    List<ChatRoomSummaryResponse> findGroupRoomsForUser(@Param("userId") Long userId);
 }

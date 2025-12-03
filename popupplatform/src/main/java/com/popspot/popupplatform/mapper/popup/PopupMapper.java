@@ -56,6 +56,25 @@ public interface PopupMapper {
     //진행 중/오픈 예정 -> 종료 상태 변경
     int updateStatusToEnded(@Param("now") LocalDateTime now);
 
+    //조회수 1 증가
+    void updateViewCount(@Param("popId") Long popId);
+
+    //팝업 단건 상세 조회
+    Optional<PopupStore> selectPopupDetail(@Param("popId") Long popId);
+
+    //팝업 상세 이미지 리스트 조회
+    List<String> selectPopupImages(@Param("popId") Long popId);
+
+    //팝업 해시태그 리스트 조회
+    List<String> selectPopupHashtags(@Param("popId") Long popId);
+
+    //팝업 예약 시작 시간 조회
+    LocalDateTime selectReservationStartTime(@Param("popId") Long popId);
+
+    //AI 요약 업데이트 (비동기 처리가 끝난 후 실행)
+    void updatePopupAiSummary(@Param("popId") Long popId,
+                              @Param("summary") String summary);
+
 
 
 }

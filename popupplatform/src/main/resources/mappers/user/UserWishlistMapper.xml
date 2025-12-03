@@ -6,11 +6,11 @@
 <mapper namespace="com.popspot.popupplatform.mapper.user.UserWishlistMapper">
 
     <!-- 이미 찜했는지 여부 -->
-    <select id="existsByUserIdAndPopId" resultType="int">
-        SELECT COUNT(*)
+    <select id="existsByUserIdAndPopId" resultType="boolean">
+        SELECT COUNT(*) > 0
         FROM USER_WISHLIST
         WHERE user_id = #{userId}
-        AND pop_id = #{popId}
+        AND pop_id  = #{popId}
     </select>
 
     <!-- 찜 추가 -->
