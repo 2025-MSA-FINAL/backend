@@ -12,14 +12,18 @@ import com.popspot.popupplatform.global.exception.code.CommonErrorCode;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
 import com.popspot.popupplatform.mapper.manager.ManagerPopupMapper;
+import com.popspot.popupplatform.mapper.popup.PopupMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
+import com.popspot.popupplatform.service.popup.PopupAiSummaryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -27,6 +31,9 @@ public class ManagerPopupService {
 
     private final ManagerPopupMapper managerPopupMapper;
     private final UserMapper userMapper;
+
+    private final PopupMapper popupMapper;
+    private final PopupAiSummaryService popupAiSummaryService;
 
 
     /**
@@ -60,46 +67,72 @@ public class ManagerPopupService {
     }
 
     /**
-     * 3. 팝업 기본 정보 수정
+     * 3. 팝업 전체 정보 수정 (기본정보 + 이미지 + 해시태그)
      */
     @Transactional
     public void updatePopupBasicInfo(Long managerId, Long popId, ManagerPopupUpdateRequest request) {
 
-        //매니저 권한 체크
+        //매니저 권한 및 날짜/빈값 검증 로직
         JwtUserDto user = userMapper.findJwtUserByUserId(managerId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+        if (!"MANAGER".equals(user.getRole())) throw new CustomException(AuthErrorCode.ACCESS_DENIED);
 
-        if (!"MANAGER".equals(user.getRole())) {
-            throw new CustomException(AuthErrorCode.ACCESS_DENIED);
-        }
-
-        //기존 데이터 조회
         ManagerPopupDetailResponse currentInfo = managerPopupMapper.selectPopupDetail(popId, managerId)
                 .orElseThrow(() -> new CustomException(PopupErrorCode.POPUP_NOT_FOUND));
 
-        //날짜 유효성 검사
-        LocalDateTime newStart = (request.getPopStartDate() != null)
-                ? request.getPopStartDate()
-                : currentInfo.getPopStartDate();
+        LocalDateTime newStart = (request.getPopStartDate() != null) ? request.getPopStartDate() : currentInfo.getPopStartDate();
+        LocalDateTime newEnd   = (request.getPopEndDate() != null) ? request.getPopEndDate() : currentInfo.getPopEndDate();
+        if (newEnd.isBefore(newStart)) throw new CustomException(PopupErrorCode.INVALID_DATE_RANGE);
 
-        LocalDateTime newEnd   = (request.getPopEndDate() != null)
-                ? request.getPopEndDate()
-                : currentInfo.getPopEndDate();
+        //기본 정보 업데이트
+        int updatedRows = managerPopupMapper.updatePopup(popId, managerId, request);
+        if (updatedRows == 0) throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
 
-        if (newEnd.isBefore(newStart)) {
-            throw new CustomException(PopupErrorCode.INVALID_DATE_RANGE); // "종료일이 시작일보다 빠를 수 없습니다"
+        //이미지 수정 (Null이면 건드리지 않음 / 빈 리스트면 모두 삭제)
+        if (request.getPopImages() != null) {
+            // 1. 기존 이미지 삭제
+            managerPopupMapper.deletePopupImages(popId);
+
+            // 2. 새 이미지 등록
+            for (int i = 0; i < request.getPopImages().size(); i++) {
+                String imageUrl = request.getPopImages().get(i);
+                if (imageUrl != null && !imageUrl.isBlank()) {
+                    popupMapper.insertPopupImage(popId, imageUrl, i + 1);
+                }
+            }
         }
 
-        //빈 문자열 검사
-        if (request.getPopName() != null && request.getPopName().isBlank()) {
-            throw new CustomException(CommonErrorCode.INVALID_REQUEST); // "잘못된 요청입니다"
-        }
-        if (request.getPopDescription() != null && request.getPopDescription().isBlank()) {
-            throw new CustomException(CommonErrorCode.INVALID_REQUEST);
+        //해시태그 수정
+        if (request.getHashtags() != null) {
+            // 1. 기존 해시태그 연결 삭제
+            managerPopupMapper.deletePopupHashtags(popId);
+
+            // 2. 새 해시태그 등록
+            request.getHashtags().forEach(rawTag -> {
+                String tagName = normalizeTag(rawTag);
+                if (tagName != null && !tagName.isEmpty()) {
+                    popupMapper.insertHashtag(tagName);
+                    Long hashId = popupMapper.findHashtagIdByName(tagName)
+                            .orElseThrow(() -> new CustomException(CommonErrorCode.INTERNAL_SERVER_ERROR));
+                    popupMapper.insertPopupHashtag(popId, hashId);
+                }
+            });
         }
 
-        //업데이트 실행
-        managerPopupMapper.updatePopup(popId, managerId, request);
+        //AI 요약 갱신
+        String targetName = (request.getPopName() != null) ? request.getPopName() : currentInfo.getPopName();
+        String targetDesc = (request.getPopDescription() != null) ? request.getPopDescription() : currentInfo.getPopDescription();
+        List<String> targetTags = (request.getHashtags() != null) ? request.getHashtags() : List.of();
+
+        popupAiSummaryService.generateAndUpdateSummaryAsync(popId, targetName, targetDesc, targetTags);
+    }
+
+    //태그 정규화 메서드
+    private String normalizeTag(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return "";
+        return trimmed.startsWith("#") ? trimmed.substring(1) : trimmed;
     }
 
     /**
