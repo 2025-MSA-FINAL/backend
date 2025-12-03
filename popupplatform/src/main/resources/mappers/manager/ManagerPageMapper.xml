@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.manager.ManagerPageMapper">
+
+    <select id="findProfileByUserId" resultType="com.popspot.popupplatform.dto.user.response.ManagerProfileResponse">
+        SELECT
+        user_id          AS userId,
+        user_name        AS name,
+        user_nickname    AS brandName,
+        user_phonenumber AS phone,
+        user_email       AS email,
+        user_photo       AS profileImage,
+        user_role        AS role
+        FROM USER
+        WHERE user_id = #{userId}
+        AND user_status = 'ACTIVE'
+    </select>
+
+    <select id="findMyPopups" resultType="com.popspot.popupplatform.dto.popup.response.PopupListItemResponse">
+        SELECT
+        pop_id            AS popId,
+        pop_name          AS popName,
+        pop_thumbnail     AS popThumbnail,
+        pop_location      AS popLocation,
+        pop_start_date    AS startDate,
+        pop_end_date      AS endDate,
+        pop_status        AS popupStatus,
+        pop_price_type    AS popPriceType,
+        pop_price         AS popPrice
+        FROM POPUPSTORE
+        WHERE pop_owner_id = #{userId}
+        AND pop_is_deleted = FALSE
+
+        <if test="status != null and status != 'ALL'">
+            AND pop_status = #{status}
+        </if>
+
+        ORDER BY
+        <choose>
+            <when test="sortDir == 'ASC'">
+                created_at ASC
+            </when>
+            <otherwise>
+                created_at DESC
+            </otherwise>
+        </choose>
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countMyPopups" resultType="long">
+        SELECT COUNT(*)
+        FROM POPUPSTORE
+        WHERE pop_owner_id = #{userId}
+        AND pop_is_deleted = FALSE
+        <if test="status != null and status != 'ALL'">
+            AND pop_status = #{status}
+        </if>
+    </select>
+
+</mapper>

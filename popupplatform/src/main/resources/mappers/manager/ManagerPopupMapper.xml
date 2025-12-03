@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.manager.ManagerPopupMapper">
+
+    <select id="selectPopupDetail" resultType="com.popspot.popupplatform.dto.popup.response.ManagerPopupDetailResponse">
+        SELECT
+        pop_id            AS popId,
+        pop_name          AS popName,
+        pop_thumbnail     AS popThumbnail,
+        pop_ai_summary    AS popAiSummary,
+        pop_location      AS popLocation,
+        pop_start_date    AS popStartDate,
+        pop_end_date      AS popEndDate,
+        pop_price_type    AS popPriceType,
+        pop_price         AS popPrice,
+        pop_status        AS popStatus
+        FROM POPUPSTORE
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}  AND pop_is_deleted = FALSE
+    </select>
+
+    <select id="selectReservations" resultType="com.popspot.popupplatform.dto.user.response.ManagerReservationResponse">
+        SELECT
+        ur.ur_id           AS reservationId,
+        u.user_id          AS userId,
+        u.user_name        AS userName,
+        u.user_nickname    AS userNickname,
+        u.user_photo       AS userProfileImage,
+        u.user_phonenumber AS userPhone,
+        ur.ur_date_time    AS reservedDateTime,
+        ur.ur_user_cnt     AS userCount,
+        ur.ur_status       AS status,
+        ur.created_at      AS createdAt
+        FROM USER_RESERVATION ur
+        JOIN USER u ON ur.user_id = u.user_id
+        WHERE ur.pop_id = #{popId}
+        ORDER BY ur.ur_date_time DESC  LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countReservations" resultType="long">
+        SELECT COUNT(*)
+        FROM USER_RESERVATION
+        WHERE pop_id = #{popId}
+    </select>
+
+</mapper>
