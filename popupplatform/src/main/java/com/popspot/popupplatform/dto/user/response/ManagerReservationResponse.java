@@ -41,4 +41,7 @@ public class ManagerReservationResponse {
 
     @Schema(description = "예약 상태 (true: 확정, false: 취소)")
     private Boolean status;
+
+    @Schema(description = "예약 생성 시간 (신청 시간)")
+    private LocalDateTime createdAt;
 }

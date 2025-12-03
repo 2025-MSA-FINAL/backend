@@ -31,7 +31,8 @@
         u.user_phonenumber AS userPhone,
         ur.ur_date_time    AS reservedDateTime,
         ur.ur_user_cnt     AS userCount,
-        ur.ur_status       AS status
+        ur.ur_status       AS status,
+        ur.created_at      AS createdAt
         FROM USER_RESERVATION ur
         JOIN USER u ON ur.user_id = u.user_id
         WHERE ur.pop_id = #{popId}

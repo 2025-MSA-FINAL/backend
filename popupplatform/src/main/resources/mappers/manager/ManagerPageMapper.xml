@@ -26,7 +26,9 @@
         pop_location      AS popLocation,
         pop_start_date    AS startDate,
         pop_end_date      AS endDate,
-        pop_status        AS popupStatus
+        pop_status        AS popupStatus,
+        pop_price_type    AS popPriceType,
+        pop_price         AS popPrice
         FROM POPUPSTORE
         WHERE pop_owner_id = #{userId}
         AND pop_is_deleted = FALSE
