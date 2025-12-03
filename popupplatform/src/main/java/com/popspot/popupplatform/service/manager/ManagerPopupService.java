@@ -84,6 +84,26 @@ public class ManagerPopupService {
         LocalDateTime newEnd   = (request.getPopEndDate() != null) ? request.getPopEndDate() : currentInfo.getPopEndDate();
         if (newEnd.isBefore(newStart)) throw new CustomException(PopupErrorCode.INVALID_DATE_RANGE);
 
+        if (request.getPopName() != null && request.getPopName().isBlank()) {
+            throw new CustomException(PopupErrorCode.TITLE_REQUIRED);
+        }
+
+        if (request.getPopDescription() != null && request.getPopDescription().isBlank()) {
+            throw new CustomException(PopupErrorCode.DESCRIPTION_REQUIRED);
+        }
+
+        if (request.getPopThumbnail() != null && request.getPopThumbnail().isBlank()) {
+            throw new CustomException(PopupErrorCode.THUMBNAIL_REQUIRED);
+        }
+
+        if (request.getPopLocation() != null && request.getPopLocation().isBlank()) {
+            throw new CustomException(PopupErrorCode.LOCATION_REQUIRED);
+        }
+
+        if (request.getPopPrice() != null && request.getPopPrice() < 0) {
+            throw new CustomException(PopupErrorCode.INVALID_PRICE);
+        }
+
         //기본 정보 업데이트
         int updatedRows = managerPopupMapper.updatePopup(popId, managerId, request);
         if (updatedRows == 0) throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
