@@ -10,6 +10,8 @@
         pop_name          AS popName,
         pop_thumbnail     AS popThumbnail,
         pop_ai_summary    AS popAiSummary,
+        pop_description   AS popDescription,
+        pop_insta_url     AS popInstaUrl,
         pop_location      AS popLocation,
         pop_start_date    AS popStartDate,
         pop_end_date      AS popEndDate,
@@ -18,7 +20,8 @@
         pop_status        AS popStatus
         FROM POPUPSTORE
         WHERE pop_id = #{popId}
-        AND pop_owner_id = #{managerId}  AND pop_is_deleted = FALSE
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
     </select>
 
     <select id="selectReservations" resultType="com.popspot.popupplatform.dto.user.response.ManagerReservationResponse">

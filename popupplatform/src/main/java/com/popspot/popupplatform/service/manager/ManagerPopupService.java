@@ -8,6 +8,7 @@ import com.popspot.popupplatform.dto.popup.response.ManagerPopupDetailResponse;
 import com.popspot.popupplatform.dto.user.response.ManagerReservationResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
+import com.popspot.popupplatform.global.exception.code.CommonErrorCode;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
 import com.popspot.popupplatform.mapper.manager.ManagerPopupMapper;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -71,10 +73,32 @@ public class ManagerPopupService {
             throw new CustomException(AuthErrorCode.ACCESS_DENIED);
         }
 
-        int updatedRows = managerPopupMapper.updatePopup(popId, managerId, request);
+        //기존 데이터 조회
+        ManagerPopupDetailResponse currentInfo = managerPopupMapper.selectPopupDetail(popId, managerId)
+                .orElseThrow(() -> new CustomException(PopupErrorCode.POPUP_NOT_FOUND));
 
-        if (updatedRows == 0) {
-            throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
+        //날짜 유효성 검사
+        LocalDateTime newStart = (request.getPopStartDate() != null)
+                ? request.getPopStartDate()
+                : currentInfo.getPopStartDate();
+
+        LocalDateTime newEnd   = (request.getPopEndDate() != null)
+                ? request.getPopEndDate()
+                : currentInfo.getPopEndDate();
+
+        if (newEnd.isBefore(newStart)) {
+            throw new CustomException(PopupErrorCode.INVALID_DATE_RANGE); // "종료일이 시작일보다 빠를 수 없습니다"
         }
+
+        //빈 문자열 검사
+        if (request.getPopName() != null && request.getPopName().isBlank()) {
+            throw new CustomException(CommonErrorCode.INVALID_REQUEST); // "잘못된 요청입니다"
+        }
+        if (request.getPopDescription() != null && request.getPopDescription().isBlank()) {
+            throw new CustomException(CommonErrorCode.INVALID_REQUEST);
+        }
+
+        //업데이트 실행
+        managerPopupMapper.updatePopup(popId, managerId, request);
     }
 }
