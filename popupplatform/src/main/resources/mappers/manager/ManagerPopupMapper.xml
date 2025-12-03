@@ -45,4 +45,46 @@
         WHERE pop_id = #{popId}
     </select>
 
+
+
+    <update id="updatePopup">
+        UPDATE POPUPSTORE
+        <set>
+            <if test="request.popName != null">
+                pop_name = #{request.popName},
+            </if>
+            <if test="request.popDescription != null">
+                pop_description = #{request.popDescription},
+            </if>
+            <if test="request.popThumbnail != null">
+                pop_thumbnail = #{request.popThumbnail},
+            </if>
+            <if test="request.popLocation != null">
+                pop_location = #{request.popLocation},
+            </if>
+            <if test="request.popStartDate != null">
+                pop_start_date = #{request.popStartDate},
+            </if>
+            <if test="request.popEndDate != null">
+                pop_end_date = #{request.popEndDate},
+            </if>
+            <if test="request.popPriceType != null">
+                pop_price_type = #{request.popPriceType},
+            </if>
+            <if test="request.popPrice != null">
+                pop_price = #{request.popPrice},
+            </if>
+            <if test="request.popInstaUrl != null">
+                pop_insta_url = #{request.popInstaUrl},
+            </if>
+
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </update>
+
+
+
 </mapper>
