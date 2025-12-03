@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.PopupBlockMapper">
+
+    <!-- 특정 팝업의 기존 제외일 전체 삭제 -->
+    <delete id="deleteByPopId">
+        DELETE FROM POPUP_BLOCK
+        WHERE pop_id = #{popId}
+    </delete>
+
+    <!-- 제외일 추가 -->
+    <insert id="insertBlock">
+        INSERT INTO POPUP_BLOCK
+        (pop_id, pb_date_time)
+        VALUES
+        (#{popId}, #{pbDateTime})
+    </insert>
+
+    <!-- 제외일 조회 -->
+    <select id="findByPopId" resultType="com.popspot.popupplatform.domain.reservation.PopupBlock">
+        SELECT pb_id, pop_id, pb_date_time
+        FROM POPUP_BLOCK
+        WHERE pop_id = #{popId}
+        ORDER BY pb_date_time
+    </select>
+
+</mapper>
