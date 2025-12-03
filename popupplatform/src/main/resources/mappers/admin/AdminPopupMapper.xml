@@ -1,7 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
 <mapper namespace="com.popspot.popupplatform.mapper.admin.AdminPopupMapper">
-    <!-- 팝업스토어 목록 조회 (검색 + 필터 + 정렬 + 페이징) -->
+
+        <resultMap id="PopupStoreListResultMap" type="com.popspot.popupplatform.dto.admin.PopupStoreListDTO">
+
+        <!-- 기본 정보 -->
+        <id     property="popId"               column="pop_id"/>
+        <result property="popName"             column="pop_name"/>
+        <result property="popThumbnail"        column="pop_thumbnail"/>
+        <result property="popLocation"         column="pop_location"/>
+        <result property="popStartDate"        column="pop_start_date"/>
+        <result property="popEndDate"          column="pop_end_date"/>
+        <result property="popStatus"           column="pop_status"/>
+        <result property="popModerationStatus" column="pop_moderation_status"/>
+        <result property="popIsDeleted"        column="pop_is_deleted"/>
+        <result property="popViewCount"        column="pop_view_count"/>
+        <result property="popPriceType"        column="pop_price_type"/>
+        <result property="popPrice"            column="pop_price"/>
+
+        <!-- 운영자 정보 -->
+        <result property="popOwnerId"          column="pop_owner_id"/>
+        <result property="ownerName"           column="owner_name"/>
+        <result property="ownerEmail"          column="owner_email"/>
+
+        <!-- 예약/통계 -->
+        <result property="popIsReservation"    column="pop_is_reservation"/>
+        <result property="reservationCount"    column="reservation_count"/>
+        <result property="wishlistCount"       column="wishlist_count"/>
+
+        <!-- 생성일 -->
+        <result property="createdAt"           column="created_at"/>
+
+    </resultMap>
+
+
+    <!-- ============================
+         1) 팝업 목록 조회
+         (검색 + 필터 + 정렬 + 페이징)
+    ============================= -->
     <select id="findPopupList" resultMap="PopupStoreListResultMap">
         SELECT
         p.pop_id,
@@ -21,13 +59,16 @@
         u.user_name AS owner_name,
         u.user_email AS owner_email,
         p.created_at,
+
+        /* 예약 수 / 찜 수 */
         (SELECT COUNT(*) FROM USER_RESERVATION ur WHERE ur.pop_id = p.pop_id) AS reservation_count,
         (SELECT COUNT(*) FROM USER_WISHLIST uw WHERE uw.pop_id = p.pop_id) AS wishlist_count
+
         FROM POPUPSTORE p
         LEFT JOIN USER u ON p.pop_owner_id = u.user_id
         WHERE p.pop_is_deleted = FALSE
 
-        <!-- keyword 검색 -->
+        <!--  keyword 검색 -->
         <if test="keyword != null and keyword != ''">
             AND (
             p.pop_name LIKE CONCAT('%', #{keyword}, '%')
@@ -36,12 +77,12 @@
             )
         </if>
 
-        <!-- status 필터 -->
+        <!-- 🏷 status 필터 -->
         <if test="status != null and status != ''">
             AND p.pop_status = #{status}
         </if>
 
-        <!-- moderation 필터 -->
+        <!--  moderation 필터 -->
         <if test="moderation != null and moderation != ''">
             AND p.pop_moderation_status = #{moderation}
         </if>
@@ -63,31 +104,31 @@
     </select>
 
 
-
-    <!-- 총 개수 조회 (검색 + 필터 적용된 count 쿼리) -->
+    <!-- ============================
+         2) 총 개수 조회
+    ============================= -->
     <select id="countPopupList" resultType="long">
-    SELECT COUNT(*)
-    FROM POPUPSTORE p
-    LEFT JOIN USER u ON p.pop_owner_id = u.user_id
-    WHERE p.pop_is_deleted = FALSE
+        SELECT COUNT(*)
+        FROM POPUPSTORE p
+        LEFT JOIN USER u ON p.pop_owner_id = u.user_id
+        WHERE p.pop_is_deleted = FALSE
 
-    <!-- keyword 검색 -->
-    <if test="keyword != null and keyword != ''">
-        AND (
-        p.pop_name LIKE CONCAT('%', #{keyword}, '%')
-        OR p.pop_location LIKE CONCAT('%', #{keyword}, '%')
-        OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
-        )
-    </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+            p.pop_name LIKE CONCAT('%', #{keyword}, '%')
+            OR p.pop_location LIKE CONCAT('%', #{keyword}, '%')
+            OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
 
-    <!-- status 필터 -->
-    <if test="status != null and status != ''">
-        AND p.pop_status = #{status}
-    </if>
+        <if test="status != null and status != ''">
+            AND p.pop_status = #{status}
+        </if>
 
-    <!-- moderation 필터 -->
-    <if test="moderation != null">
-        AND p.pop_moderation_status = #{moderation}
-    </if>
+        <if test="moderation != null and moderation != ''">
+            AND p.pop_moderation_status = #{moderation}
+        </if>
     </select>
+
+
 </mapper>
