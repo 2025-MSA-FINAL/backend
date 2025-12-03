@@ -247,12 +247,4 @@
         AND user_status  = 'ACTIVE'
     </update>
 
-    <!--  수정 -->
-    <update id="updateIntroduction">
-        UPDATE USER
-        SET user_introduction     = #{request.introduction}
-        WHERE user_id      = #{userId}
-        AND user_status  = 'ACTIVE'
-    </update>
-
 </mapper>

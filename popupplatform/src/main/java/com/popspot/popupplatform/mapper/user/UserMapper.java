@@ -4,7 +4,6 @@ package com.popspot.popupplatform.mapper.user;
 import com.popspot.popupplatform.dto.global.JwtUserDto;
 import com.popspot.popupplatform.dto.user.LoginUserDto;
 import com.popspot.popupplatform.dto.user.UserDto;
-import com.popspot.popupplatform.dto.user.request.ChangeIntroductionRequest;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -109,6 +108,4 @@ public interface UserMapper {
 
     int updateProfileImage(@Param("userId") Long userId,
                            @Param("profileImageUrl") String profileImageUrl);
-
-    int updateIntroduction(@Param("userId")Long userId,@Param("request")ChangeIntroductionRequest request);
 }

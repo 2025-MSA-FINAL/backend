@@ -112,14 +112,4 @@ public class UserController {
         userService.checkVaildPwd(user.getUserId(), dto);
         return ResponseEntity.ok().body(true);
     }
-
-    @Operation(summary = "자기소개 수정", description = "회원의 자기소개를 수정합니다")
-    @PatchMapping("/me/introduction")
-    public ResponseEntity<Void> updateProfile(
-            @AuthenticationPrincipal CustomUserDetails user,
-            @RequestBody ChangeIntroductionRequest dto
-    ) {
-        userService.updateIntroduction(user.getUserId(), dto);
-        return ResponseEntity.ok().build();
-    }
 }
