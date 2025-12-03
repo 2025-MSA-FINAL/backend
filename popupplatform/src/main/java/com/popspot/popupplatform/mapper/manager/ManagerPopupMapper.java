@@ -32,4 +32,19 @@ public interface ManagerPopupMapper {
      * 3. 예약자 전체 수 (페이징 계산용)
      */
     long countReservations(@Param("popId") Long popId);
+
+    /**
+     * 4. 팝업 기본 정보 수정
+     */
+    int updatePopup(
+            @Param("popId") Long popId,
+            @Param("managerId") Long managerId,
+            @Param("request") com.popspot.popupplatform.dto.popup.request.ManagerPopupUpdateRequest request
+    );
+
+    /**
+     * 5. 팝업 삭제 (Soft Delete)
+     */
+    int deletePopup(@Param("popId") Long popId, @Param("managerId") Long managerId);
+
 }

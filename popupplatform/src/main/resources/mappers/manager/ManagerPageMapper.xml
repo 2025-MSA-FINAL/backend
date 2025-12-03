@@ -28,7 +28,8 @@
         pop_end_date      AS endDate,
         pop_status        AS popupStatus,
         pop_price_type    AS popPriceType,
-        pop_price         AS popPrice
+        pop_price         AS popPrice,
+        pop_view_count    AS popViewCount
         FROM POPUPSTORE
         WHERE pop_owner_id = #{userId}
         AND pop_is_deleted = FALSE
@@ -39,13 +40,41 @@
 
         ORDER BY
         <choose>
-            <when test="sortDir == 'ASC'">
-                created_at ASC
+            <when test="sort == 'VIEW'">
+                pop_view_count DESC
             </when>
+
+            <when test="sort == 'DEADLINE'">
+                pop_end_date ASC
+            </when>
+
+            <when test="sort == 'CREATED'">
+                pop_id DESC
+            </when>
+
+            <when test="sort == 'POPULAR'">
+                (
+                IFNULL((
+                SELECT COUNT(*)
+                FROM POPUP_VIEWED v
+                WHERE v.pop_id = POPUPSTORE.pop_id
+                AND v.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                ), 0)
+                +
+                3 * IFNULL((
+                SELECT COUNT(*)
+                FROM USER_WISHLIST w
+                WHERE w.pop_id = POPUPSTORE.pop_id
+                ), 0)
+                ) DESC
+            </when>
+
             <otherwise>
-                created_at DESC
+                pop_id DESC
             </otherwise>
         </choose>
+
+        , pop_id DESC
         LIMIT #{size} OFFSET #{offset}
     </select>
 

@@ -70,7 +70,6 @@ public class PopupService {
                 : PopupStatus.UPCOMING; // 아니면 '오픈 예정'
 
         // 2. DTO -> Entity 변환
-        //    👉 AI 요약은 비동기로 따로 갱신하므로 여기선 null로 저장
         PopupStore popupStore = PopupStore.builder()
                 .popOwnerId(managerId)
                 .popName(request.getPopName())
@@ -84,7 +83,7 @@ public class PopupService {
                 .popPrice(price)
                 .popStatus(initialStatus)
                 .popInstaUrl(request.getPopInstaUrl())
-                .popAiSummary(null) // ✅ 처음에는 비워둔다
+                .popAiSummary(null)
                 .build();
 
         // 3. DB 저장
@@ -117,7 +116,7 @@ public class PopupService {
             }
         }
 
-        // 6. 트랜잭션은 이후 AI 요약은 별도 쓰레드에서 비동기로 생성 + DB 업데이트
+        // 6. AI 요약은 트랜잭션 이후 별도 쓰레드에서 비동기로 생성 + DB 업데이트
         popupAiSummaryService.generateAndUpdateSummaryAsync(
                 newPopupId,
                 request.getPopName(),

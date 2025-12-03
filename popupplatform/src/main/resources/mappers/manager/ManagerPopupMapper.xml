@@ -10,6 +10,8 @@
         pop_name          AS popName,
         pop_thumbnail     AS popThumbnail,
         pop_ai_summary    AS popAiSummary,
+        pop_description   AS popDescription,
+        pop_insta_url     AS popInstaUrl,
         pop_location      AS popLocation,
         pop_start_date    AS popStartDate,
         pop_end_date      AS popEndDate,
@@ -18,7 +20,8 @@
         pop_status        AS popStatus
         FROM POPUPSTORE
         WHERE pop_id = #{popId}
-        AND pop_owner_id = #{managerId}  AND pop_is_deleted = FALSE
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
     </select>
 
     <select id="selectReservations" resultType="com.popspot.popupplatform.dto.user.response.ManagerReservationResponse">
@@ -44,5 +47,56 @@
         FROM USER_RESERVATION
         WHERE pop_id = #{popId}
     </select>
+
+
+
+    <update id="updatePopup">
+        UPDATE POPUPSTORE
+        <set>
+            <if test="request.popName != null">
+                pop_name = #{request.popName},
+            </if>
+            <if test="request.popDescription != null">
+                pop_description = #{request.popDescription},
+            </if>
+            <if test="request.popThumbnail != null">
+                pop_thumbnail = #{request.popThumbnail},
+            </if>
+            <if test="request.popLocation != null">
+                pop_location = #{request.popLocation},
+            </if>
+            <if test="request.popStartDate != null">
+                pop_start_date = #{request.popStartDate},
+            </if>
+            <if test="request.popEndDate != null">
+                pop_end_date = #{request.popEndDate},
+            </if>
+            <if test="request.popPriceType != null">
+                pop_price_type = #{request.popPriceType},
+            </if>
+            <if test="request.popPrice != null">
+                pop_price = #{request.popPrice},
+            </if>
+            <if test="request.popInstaUrl != null">
+                pop_insta_url = #{request.popInstaUrl},
+            </if>
+
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </update>
+
+
+    <update id="deletePopup">
+        UPDATE POPUPSTORE
+        SET pop_is_deleted = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </update>
+
 
 </mapper>
