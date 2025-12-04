@@ -48,10 +48,12 @@ public class GroupChatRoomController {
             description = "popId를 기준으로 생성된 그룹 채팅방들을 조회합니다."
     )
     public ResponseEntity<List<GroupChatRoomListResponse>> getRoomList(
-            @RequestParam Long popId
+            @RequestParam Long popId,
+            @AuthenticationPrincipal CustomUserDetails user
     ) {
         //서비스에서 popID에 대한 채팅방 목록 조회
-        List<GroupChatRoomListResponse> roomList = roomService.getRoomsByPopId(popId);
+        Long userId = user.getUserId();
+        List<GroupChatRoomListResponse> roomList = roomService.getRoomsByPopId(popId, userId);
         //조회된 채팅방 목록 응답
         return ResponseEntity.ok(roomList);
     }

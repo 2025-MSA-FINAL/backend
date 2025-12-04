@@ -16,4 +16,5 @@ public class GroupChatRoomListResponse {
     private String limitGender; //그룹채팅방성별제한
     private Integer minAge; //그룹채팅방최소연령
     private Integer maxAge; //그룹채팅방쵀대연령
+    private boolean joined; //그룹채팅방참여여부
 }
