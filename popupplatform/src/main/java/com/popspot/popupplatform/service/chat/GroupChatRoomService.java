@@ -77,8 +77,8 @@ public class GroupChatRoomService {
     }
     //팝업 스토어 ID로 채팅방 목록 조회
     @Transactional(readOnly = true)
-    public List<GroupChatRoomListResponse> getRoomsByPopId(Long popId) {
-        return roomMapper.findRoomsByPopId(popId);
+    public List<GroupChatRoomListResponse> getRoomsByPopId(Long popId, Long userId) {
+        return roomMapper.findRoomsByPopId(popId, userId);
     }
     //채팅방 참여
     //참여할 채팅방 gcrId, 참여할 유저 userId
