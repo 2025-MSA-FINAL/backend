@@ -1,7 +1,9 @@
 package com.popspot.popupplatform.service.chat;
 
+import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
+import com.popspot.popupplatform.dto.chat.UserlimitInfoDto;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
@@ -11,10 +13,12 @@ import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.mapper.chat.GroupChatRoomMapper;
+import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -22,6 +26,7 @@ import java.util.List;
 public class GroupChatRoomService {
     private final GroupChatRoomMapper roomMapper;
     private final ChatParticipantMapper participantMapper;
+    private final UserMapper userMapper;
 
     //공통검증메서드
     private GroupChatRoom validateRoomOwnership(Long gcrId, Long userId) {
@@ -44,6 +49,11 @@ public class GroupChatRoomService {
     //채팅방생성정보 req, 채팅방생성유저(방장) userId
     @Transactional
     public Long createRoom(CreateGroupChatRoomRequest req, Long userId) {
+        // 기본값 설정
+        String limitGender = (req.getLimitGender() == null) ? "NONE" : req.getLimitGender();
+        Integer minAge = (req.getMinAge() == null) ? 0 : req.getMinAge();
+        Integer maxAge = (req.getMaxAge() == null) ? 100 : req.getMaxAge();
+
         //최소인원체크(1:1채팅방은 별도기능이기에 3명이상이어야함)
         if(req.getMaxUserCnt()<3) {
             throw new CustomException(ChatErrorCode.MIN_USER_COUNT_INVALID);
@@ -56,9 +66,9 @@ public class GroupChatRoomService {
                 .gcrTitle(req.getTitle())
                 .gcrDescription(req.getDescription())
                 .gcrMaxUserCnt(req.getMaxUserCnt())
-                .gcrLimitGender(req.getLimitGender())
-                .gcrMinAge(req.getMinAge())
-                .gcrMaxAge(req.getMaxAge())
+                .gcrLimitGender(limitGender)
+                .gcrMinAge(minAge)
+                .gcrMaxAge(maxAge)
                 .gcrIsDeleted(false)
                 .build();
         //DB저장
@@ -77,8 +87,8 @@ public class GroupChatRoomService {
     }
     //팝업 스토어 ID로 채팅방 목록 조회
     @Transactional(readOnly = true)
-    public List<GroupChatRoomListResponse> getRoomsByPopId(Long popId) {
-        return roomMapper.findRoomsByPopId(popId);
+    public List<GroupChatRoomListResponse> getRoomsByPopId(Long popId, Long userId) {
+        return roomMapper.findRoomsByPopId(popId, userId);
     }
     //채팅방 참여
     //참여할 채팅방 gcrId, 참여할 유저 userId
@@ -103,6 +113,25 @@ public class GroupChatRoomService {
         if (currentUserCnt >= room.getGcrMaxUserCnt()) {
             throw new CustomException(ChatErrorCode.ROOM_FULL);
         }
+        //유저정보 가져오기
+        UserlimitInfoDto user = userMapper.findUserLimitInfo(userId)
+                .orElseThrow(() -> new CustomException(ChatErrorCode.USER_NOT_FOUND));
+        String gender = user.getGender();
+        Integer birthYear = user.getBirthYear();
+        // 나이 계산
+        int currentYear = LocalDate.now().getYear();
+        int age = currentYear - birthYear;
+        //성별제한검사
+        if (!"NONE".equalsIgnoreCase(room.getGcrLimitGender())) {
+            if (!room.getGcrLimitGender().equalsIgnoreCase(gender)) {
+                throw new CustomException(ChatErrorCode.GENDER_NOT_ALLOWED);
+            }
+        }
+        //나이제한검사
+        if (age < room.getGcrMinAge() || age > room.getGcrMaxAge()) {
+            throw new CustomException(ChatErrorCode.AGE_NOT_ALLOWED);
+        }
+
         //참여자 엔티티 생성
         ChatParticipant participant = ChatParticipant.builder()
                 .gcrId(gcrId)

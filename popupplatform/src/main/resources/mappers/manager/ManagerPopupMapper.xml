@@ -80,13 +80,21 @@
             <if test="request.popInstaUrl != null">
                 pop_insta_url = #{request.popInstaUrl},
             </if>
-
+            pop_moderation_status = FALSE,
             updated_at = CURRENT_TIMESTAMP
         </set>
         WHERE pop_id = #{popId}
         AND pop_owner_id = #{managerId}
         AND pop_is_deleted = FALSE
     </update>
+
+    <delete id="deletePopupImages">
+        DELETE FROM POPUP_IMG WHERE pop_id = #{popId}
+    </delete>
+
+    <delete id="deletePopupHashtags">
+        DELETE FROM POPUP_HASHTAG WHERE pop_id = #{popId}
+    </delete>
 
 
     <update id="deletePopup">

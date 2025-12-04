@@ -27,6 +27,9 @@ public class ManagerPopupDetailResponse {
     @Schema(description = "AI 요약 멘트")
     private String popAiSummary;
 
+    @Schema(description = "팝업 원본 설명 (수정 화면용)")
+    private String popDescription;
+
     @Schema(description = "장소 (주소)")
     private String popLocation;
 

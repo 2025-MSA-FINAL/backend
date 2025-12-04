@@ -15,7 +15,7 @@ public interface GroupChatRoomMapper {
     //그룹채팅방생성
     void insertRoom(GroupChatRoom room);
     //팝업ID에 대한 그룹채팅방 목록
-    List<GroupChatRoomListResponse> findRoomsByPopId(Long popId);
+    List<GroupChatRoomListResponse> findRoomsByPopId(@Param("popId") Long popId, @Param("userId") Long userId);
     //채팅방 엔티티 단순 조회 (내부로직 )
     GroupChatRoom findById(Long gcrId);
     //그룹채팅방 수정
