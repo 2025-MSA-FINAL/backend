@@ -42,9 +42,16 @@ public interface ManagerPopupMapper {
             @Param("request") com.popspot.popupplatform.dto.popup.request.ManagerPopupUpdateRequest request
     );
 
+    //기존 이미지 삭제
+    void deletePopupImages(@Param("popId") Long popId);
+    //기존 해시태그 삭제
+    void deletePopupHashtags(@Param("popId") Long popId);
+
     /**
      * 5. 팝업 삭제 (Soft Delete)
      */
     int deletePopup(@Param("popId") Long popId, @Param("managerId") Long managerId);
+
+
 
 }
