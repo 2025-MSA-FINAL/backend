@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -41,4 +42,10 @@ public class ManagerPopupUpdateRequest {
 
     @Schema(description = "인스타 URL")
     private String popInstaUrl;
+
+    @Schema(description = "팝업 이미지 URL 리스트 (순서대로 저장됨)")
+    private List<String> popImages;
+
+    @Schema(description = "해시태그 리스트 (예: ['힙한', '성수동'])")
+    private List<String> hashtags;
 }
