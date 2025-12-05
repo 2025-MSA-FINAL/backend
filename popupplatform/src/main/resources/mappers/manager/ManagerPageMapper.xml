@@ -24,9 +24,9 @@
         pop_name          AS popName,
         pop_thumbnail     AS popThumbnail,
         pop_location      AS popLocation,
-        pop_start_date    AS startDate,
-        pop_end_date      AS endDate,
-        pop_status        AS popupStatus,
+        pop_start_date    AS popStartDate,
+        pop_end_date      AS popEndDate,
+        pop_status        AS popStatus,
         pop_price_type    AS popPriceType,
         pop_price         AS popPrice,
         pop_view_count    AS popViewCount
@@ -41,14 +41,21 @@
         ORDER BY
         <choose>
             <when test="sort == 'VIEW'">
-                pop_view_count DESC
+                COALESCE(pop_view_count, 0) DESC,
+                pop_id DESC
             </when>
 
             <when test="sort == 'DEADLINE'">
-                pop_end_date ASC
+                CASE WHEN pop_status = 'ENDED' THEN 1 ELSE 0 END ASC,
+
+                CASE WHEN pop_end_date IS NULL THEN 1 ELSE 0 END ASC,
+
+                pop_end_date ASC,
+                pop_id DESC
             </when>
 
             <when test="sort == 'CREATED'">
+                created_at DESC,
                 pop_id DESC
             </when>
 
@@ -66,7 +73,9 @@
                 FROM USER_WISHLIST w
                 WHERE w.pop_id = POPUPSTORE.pop_id
                 ), 0)
-                ) DESC
+                ) DESC,
+
+                pop_id DESC
             </when>
 
             <otherwise>
