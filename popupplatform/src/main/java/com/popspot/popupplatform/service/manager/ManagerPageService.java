@@ -44,21 +44,26 @@ public class ManagerPageService {
         int size = Math.max(pageRequest.getSize(), 1);
         int offset = page * size;
 
-        // 프론트에서 보낸 정렬 기준 (DEADLINE, CREATED, VIEW 등)
-        // 안 보내면 기본값 'CREATED'(최신순) 또는 'DEADLINE'(마감임박순)으로 설정
-        String sort = (pageRequest.getSortBy() == null || pageRequest.getSortBy().isEmpty())
-                ? "CREATED" : pageRequest.getSortBy();
+        String rawSort = pageRequest.getSortBy();
+        if (rawSort == null) {
+            rawSort = "CREATED";
+        }
+
+        String sort = switch (rawSort) {
+            case "DEADLINE", "VIEW", "POPULAR", "CREATED" -> rawSort;
+            default -> "CREATED";
+        };
 
         String effectiveStatus = (status == null || status.isEmpty()) ? "ALL" : status;
 
         List<PopupListItemResponse> content = managerPageMapper.findMyPopups(
                 userId, offset, size, effectiveStatus, sort
         );
-
         long total = managerPageMapper.countMyPopups(userId, effectiveStatus);
 
         return new PageDTO<>(content, page, size, total);
     }
+
 
     /**
      * 3. 이메일 수정 (UserMapper 재활용)
