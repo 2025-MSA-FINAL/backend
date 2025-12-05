@@ -9,4 +9,6 @@ import java.util.List;
 public interface ChatPopupMapper {
     //간단 팝업 전체 목록 불러오기
     List<PopupSimpleResponse> findAllPopupNames();
+    //팝업 검색 목록 불러오기
+    List<PopupSimpleResponse> searchPopupNames(String keyword);
 }
