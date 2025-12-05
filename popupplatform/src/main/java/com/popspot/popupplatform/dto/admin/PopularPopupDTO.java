@@ -9,5 +9,5 @@ public class PopularPopupDTO {
     private String popName;
     private String popThumbnail;
     private Long viewCount;       // 조회수
-    private int rank;             // 순위
+    private int popupRank;             // 순위
 }
