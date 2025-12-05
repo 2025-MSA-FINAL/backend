@@ -11,4 +11,13 @@
         WHERE pop_is_deleted = FALSE
         ORDER BY created_at DESC
     </select>
+    <select id="searchPopupNames" resultType="com.popspot.popupplatform.dto.chat.response.PopupSimpleResponse">
+        SELECT
+        pop_id AS popId,
+        pop_name AS popName
+        FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+        AND pop_name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY created_at DESC
+    </select>
 </mapper>
