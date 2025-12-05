@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatMessageMapper">
+    <insert id="insertChatMessage"
+            parameterType="com.popspot.popupplatform.domain.chat.ChatMessage">
+        INSERT INTO CHAT_MESSAGE
+        (cm_type, cm_room_id, cm_content, user_id, cm_is_deleted, cm_url)
+        VALUES
+        (#{cmType}, #{cmRoomId}, #{cmContent}, #{userId}, FALSE, #{cmUrl})
+    </insert>
+    <select id="findMessages"
+            resultType="com.popspot.popupplatform.domain.chat.ChatMessage">
+        SELECT *
+        FROM CHAT_MESSAGE
+        WHERE cm_type = #{roomType}
+        AND cm_room_id = #{roomId}
+        AND (#{minCreatedAt} IS NULL OR created_at > #{minCreatedAt})
+        ORDER BY created_at ASC
+    </select>
+</mapper>

@@ -82,6 +82,12 @@ public class PrivateChatRoomService {
             privateChatRoomDeleteMapper.updateDeleteFlag(pcrId, userId, false);
         }
     }
+    // 상대방 userId 조회 (메시지 전송 전 필수)
+    public Long getOtherUserId(Long pcrId, Long senderId) {
+        PrivateChatRoom room = privateChatRoomMapper.findById(pcrId);
+        if (room.getUserId().equals(senderId)) return room.getUserId2();
+        return room.getUserId();
+    }
     //해당UserId기준으로 해당채팅방PcrId가 삭제상태 여부확인
     @Transactional(readOnly = true)
     public boolean isDeletedForUser(Long userId, Long pcrId) {
