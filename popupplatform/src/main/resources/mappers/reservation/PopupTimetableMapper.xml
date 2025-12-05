@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.PopupTimetableMapper">
+
+    <!-- 해당 팝업 기존 시간표 전체 삭제 -->
+    <delete id="deleteByPopId">
+        DELETE FROM POPUP_TIMETABLE
+        WHERE pop_id = #{popId}
+    </delete>
+
+    <!-- 요일별 시간표 추가 -->
+    <insert id="insertTimetable">
+        INSERT INTO POPUP_TIMETABLE
+        (pt_day_of_week, pop_id, pt_start_date_time, pt_end_date_time, pt_capacity)
+        VALUES
+        (#{ptDayOfWeek}, #{popId}, #{ptStartDateTime}, #{ptEndDateTime}, #{ptCapacity})
+    </insert>
+
+    <!-- 조회용 -->
+    <select id="findByPopId" resultType="com.popspot.popupplatform.domain.reservation.PopupTimetable">
+        SELECT *
+        FROM POPUP_TIMETABLE
+        WHERE pop_id = #{popId}
+        ORDER BY pt_day_of_week
+    </select>
+
+</mapper>

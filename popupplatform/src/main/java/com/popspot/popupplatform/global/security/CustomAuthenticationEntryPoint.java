@@ -33,6 +33,12 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         } else {
             // 인증 문제는 아님
             errorCode = AuthErrorCode.UNKNOWN_AUTH_ERROR;
+            // 콘솔에 어떤 에러가 발생했는지 출력
+            System.err.println("Authentication failed: "
+                    + authException.getClass().getName()
+                    + " - " + authException.getMessage());
+            authException.printStackTrace(); // 스택트레이스까지 찍어줌
+
         }
 
         ErrorResponse body = new ErrorResponse(errorCode.getCode(), errorCode.getMessage());

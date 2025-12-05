@@ -247,4 +247,16 @@
         AND user_status  = 'ACTIVE'
     </update>
 
+    <!-- 성별/나이 제한 검사용 사용자 기본 정보 조회  -->
+    <select id="findUserLimitInfo"
+            resultType="com.popspot.popupplatform.dto.chat.UserlimitInfoDto">
+        SELECT
+        u.user_id AS userId,
+        u.user_gender AS gender,
+        u.user_birthyear AS birthYear
+        FROM USER u
+        WHERE u.user_id = #{userId}
+        AND u.user_status = 'ACTIVE'
+        LIMIT 1
+    </select>
 </mapper>
