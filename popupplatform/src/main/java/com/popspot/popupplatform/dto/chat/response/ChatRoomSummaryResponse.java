@@ -1,5 +1,6 @@
 package com.popspot.popupplatform.dto.chat.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@Schema(description = "채팅방 요약 정보 DTO")
 public class ChatRoomSummaryResponse {
     private String roomType; // "PRIVATE" 또는 "GROUP"
     private Long roomId; // pcr_id 또는 gcr_id

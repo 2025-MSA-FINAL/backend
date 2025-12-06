@@ -1,14 +1,13 @@
 package com.popspot.popupplatform.dto.popup.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -50,4 +49,10 @@ public class ManagerPopupDetailResponse {
 
     @Schema(description = "인스타그램 URL")
     private String popInstaUrl;
+
+    @Schema(description = "팝업 상세 이미지 URL 리스트")
+    private List<String> popImages;
+
+    @Schema(description = "해시태그 리스트")
+    private List<String> hashtags;
 }
