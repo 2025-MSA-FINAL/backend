@@ -409,4 +409,204 @@
         WHERE pop_id = #{popId}
         AND pop_is_deleted = FALSE
     </update>
+
+    <!--
+        [User Report] 1) 유저 팝업 이용 이벤트 조회
+
+        - VIEW / WISHLIST / RESERVATION 을 UNION 해서 한 번에 가져온다.
+        - POPUPSTORE와 조인해서 가격 타입, 위치 포함
+        - POPUP_HASHTAG / HASHTAG 조인으로 해시태그를 GROUP_CONCAT
+    -->
+    <select id="selectUserPopupEvents"
+            resultType="com.popspot.popupplatform.dto.user.report.UserPopupEventDto">
+
+        SELECT
+        e.pop_id               AS popId,
+        e.event_type           AS eventType,
+        e.event_at             AS eventAt,
+        ps.pop_price_type      AS priceType,
+        e.people_count         AS peopleCount,
+        TRIM(SUBSTRING_INDEX(ps.pop_location, ' ', 2)) AS region,
+        GROUP_CONCAT(DISTINCT h.hash_name
+        ORDER BY h.hash_name SEPARATOR ',') AS hashtags
+        FROM (
+        -- 조회 기록
+        SELECT
+        pv.pop_id        AS pop_id,
+        'VIEW'           AS event_type,
+        pv.pv_viewed_at  AS event_at,
+        NULL             AS people_count
+        FROM POPUP_VIEWED pv
+        WHERE pv.user_id = #{userId}
+
+        UNION ALL
+
+        -- 찜 기록
+        SELECT
+        uw.pop_id        AS pop_id,
+        'WISHLIST'       AS event_type,
+        uw.created_at    AS event_at,
+        NULL             AS people_count
+        FROM USER_WISHLIST uw
+        WHERE uw.user_id = #{userId}
+
+        UNION ALL
+
+        -- 예약 기록
+        SELECT
+        ur.pop_id        AS pop_id,
+        'RESERVATION'    AS event_type,
+        ur.ur_date_time  AS event_at,
+        ur.ur_user_cnt   AS people_count
+        FROM USER_RESERVATION ur
+        WHERE ur.user_id = #{userId}
+        ) e
+        JOIN POPUPSTORE ps
+        ON ps.pop_id = e.pop_id
+        LEFT JOIN POPUP_HASHTAG ph
+        ON ph.pop_id = ps.pop_id
+        LEFT JOIN HASHTAG h
+        ON h.hash_id = ph.hash_id
+        GROUP BY
+        e.pop_id,
+        e.event_type,
+        e.event_at,
+        e.people_count,
+        ps.pop_price_type,
+        ps.pop_location
+        ORDER BY
+        e.event_at DESC
+    </select>
+
+    <!--
+    [User Report] 2) 나와 비슷한 성향의 사람들이 찾는 팝업 추천
+
+    아이디어:
+    - 사용자가 찜한 팝업에 달린 해시태그들을 기준으로
+    - 그 해시태그들을 가진 다른 팝업들을 추출
+    - ENDED 아닌 팝업만, 해시태그 겹치는 수 + 조회수(pop_view_count) 기준 정렬
+    - 사용자가 이미 본/찜/예약한 팝업은 제외 (원하면 제외 안 해도 됨)
+    -->
+    <select id="selectSimilarTastePopups"
+            resultType="com.popspot.popupplatform.dto.user.report.UserPersonaPopupCard">
+
+        SELECT
+        ps.pop_id          AS popId,
+        ps.pop_thumbnail   AS thumbnailUrl,
+        ps.pop_name        AS title,
+        ps.pop_location    AS location,
+        ps.pop_price       AS price,
+        ps.pop_price_type  AS priceType,
+        ps.pop_status      AS status
+        FROM POPUPSTORE ps
+        JOIN POPUP_HASHTAG ph
+        ON ph.pop_id = ps.pop_id
+        WHERE ph.hash_id IN (
+        -- 사용자가 찜한 팝업들의 해시태그 목록
+        SELECT DISTINCT ph2.hash_id
+        FROM USER_WISHLIST uw
+        JOIN POPUP_HASHTAG ph2
+        ON ph2.pop_id = uw.pop_id
+        WHERE uw.user_id = #{userId}
+        )
+        AND ps.pop_status != 'ENDED'
+        AND ps.pop_is_deleted = FALSE
+        AND ps.pop_id NOT IN (
+        -- 사용자가 이미 본/찜/예약한 팝업은 제외 (추천 신선도 확보)
+        SELECT pop_id
+        FROM USER_WISHLIST
+        WHERE user_id = #{userId}
+        UNION
+        SELECT pop_id
+        FROM POPUP_VIEWED
+        WHERE user_id = #{userId}
+        UNION
+        SELECT pop_id
+        FROM USER_RESERVATION
+        WHERE user_id = #{userId}
+        )
+        GROUP BY
+        ps.pop_id,
+        ps.pop_thumbnail,
+        ps.pop_name,
+        ps.pop_location,
+        ps.pop_price,
+        ps.pop_price_type,
+        ps.pop_status,
+        ps.pop_view_count
+        ORDER BY
+        COUNT(DISTINCT ph.hash_id) DESC,    -- 나와 해시태그가 많이 겹칠수록 우선
+        ps.pop_view_count DESC,             -- 많이 보는 팝업일수록 우선
+        ps.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!--
+       [User Report] 3) 같은 성별 + 연령대에서 인기 있는 팝업
+
+       - POPUP_VIEWED / USER_WISHLIST / USER_RESERVATION 을 모두 이벤트로 보고
+       - user_gender, user_birthyear 로 필터링
+       - ENDED 아닌 팝업만 추천
+   -->
+    <select id="selectDemographicPopularPopups"
+            resultType="com.popspot.popupplatform.dto.user.report.UserPersonaPopupCard">
+
+        SELECT
+        ps.pop_id          AS popId,
+        ps.pop_thumbnail   AS thumbnailUrl,
+        ps.pop_name        AS title,
+        ps.pop_location    AS location,
+        ps.pop_price       AS price,
+        ps.pop_price_type  AS priceType,
+        ps.pop_status      AS status
+        FROM POPUPSTORE ps
+        JOIN (
+        SELECT
+        e.pop_id    AS pop_id,
+        COUNT(*)    AS score
+        FROM (
+        -- 조회
+        SELECT
+        pv.pop_id         AS pop_id,
+        u.user_gender     AS user_gender,
+        u.user_birthyear  AS user_birthyear
+        FROM POPUP_VIEWED pv
+        JOIN USER u
+        ON u.user_id = pv.user_id
+
+        UNION ALL
+
+        -- 찜
+        SELECT
+        uw.pop_id         AS pop_id,
+        u.user_gender     AS user_gender,
+        u.user_birthyear  AS user_birthyear
+        FROM USER_WISHLIST uw
+        JOIN USER u
+        ON u.user_id = uw.user_id
+
+        UNION ALL
+
+        -- 예약
+        SELECT
+        ur.pop_id         AS pop_id,
+        u.user_gender     AS user_gender,
+        u.user_birthyear  AS user_birthyear
+        FROM USER_RESERVATION ur
+        JOIN USER u
+        ON u.user_id = ur.user_id
+        ) e
+        WHERE e.user_gender = #{gender}
+        AND e.user_birthyear BETWEEN #{birthYearStart} AND #{birthYearEnd}
+        GROUP BY e.pop_id
+        ) t
+        ON t.pop_id = ps.pop_id
+        WHERE ps.pop_status != 'ENDED'
+        AND ps.pop_is_deleted = FALSE
+        ORDER BY
+        t.score DESC,            -- 해당 성별/연령대에서 이벤트 많이 발생한 순
+        ps.pop_view_count DESC,  -- 전체 조회수 서포트
+        ps.created_at DESC
+        LIMIT #{limit}
+    </select>
 </mapper>
