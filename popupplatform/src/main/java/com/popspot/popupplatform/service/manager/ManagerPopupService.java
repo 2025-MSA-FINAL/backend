@@ -39,9 +39,20 @@ public class ManagerPopupService {
     /**
      * 1. 팝업 상세 정보 조회
      */
-    public ManagerPopupDetailResponse getPopupDetail(Long managerId, Long popId) {
-        return managerPopupMapper.selectPopupDetail(popId, managerId)
+    public ManagerPopupDetailResponse getPopupDetail(Long userId, Long popId) {
+        // 1. 기본 정보 조회 (수정된 부분: Optional 처리)
+        ManagerPopupDetailResponse response = managerPopupMapper.selectPopupDetail(popId, userId)
                 .orElseThrow(() -> new CustomException(PopupErrorCode.POPUP_NOT_FOUND));
+
+        // 2. 상세 이미지 리스트 조회 & 주입
+        List<String> images = popupMapper.selectPopupImages(popId);
+        response.setPopImages(images);
+
+        // 3. 해시태그 리스트 조회 & 주입
+        List<String> hashtags = popupMapper.selectPopupHashtags(popId);
+        response.setHashtags(hashtags);
+
+        return response;
     }
 
     /**
