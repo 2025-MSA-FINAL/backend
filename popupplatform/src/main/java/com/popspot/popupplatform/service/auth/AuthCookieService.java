@@ -19,7 +19,7 @@ public class AuthCookieService {
     @Value("${app.cookie.same-site:Lax}")
     private String cookieSameSite;
 
-    @Value("${app.cookie.access-max-age-seconds:3600}")
+    @Value("${app.cookie.access-max-age-seconds:1209600}")
     private long accessCookieMaxAgeSec;
 
     @Value("${app.cookie.refresh-max-age-seconds:1209600}")

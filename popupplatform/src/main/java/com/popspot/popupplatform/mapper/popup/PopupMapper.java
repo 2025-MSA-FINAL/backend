@@ -1,6 +1,8 @@
 package com.popspot.popupplatform.mapper.popup;
 
 import com.popspot.popupplatform.domain.popup.PopupStore;
+import com.popspot.popupplatform.dto.user.report.UserPersonaPopupCard;
+import com.popspot.popupplatform.dto.user.report.UserPopupEventDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -75,6 +77,29 @@ public interface PopupMapper {
     void updatePopupAiSummary(@Param("popId") Long popId,
                               @Param("summary") String summary);
 
+    // -------------------- [User Report] --------------------
 
+    /**
+     * 유저의 팝업 이용 이벤트(조회/찜/예약)를 모두 가져온다.
+     * VIEW / WISHLIST / RESERVATION 을 UNION 해서 한 리스트로 반환.
+     */
+    List<UserPopupEventDto> selectUserPopupEvents(@Param("userId") Long userId);
+
+    /**
+     * 유저가 찜한 팝업의 해시태그와 겹치는 해시태그를 가진
+     * (ENDED가 아닌) 팝업들을 추천용으로 조회.
+     * - 겹치는 해시태그 수 + 조회수(pop_view_count) 기준 정렬
+     */
+    List<UserPersonaPopupCard> selectSimilarTastePopups(@Param("userId") Long userId,
+                                                        @Param("limit") int limit);
+
+    /**
+     * 같은 성별 + 생년(연령대) 범위에 속한 유저들이
+     * 많이 관심 가진 팝업(ENDED 아님)을 인기순으로 조회.
+     */
+    List<UserPersonaPopupCard> selectDemographicPopularPopups(@Param("gender") String gender,
+                                                              @Param("birthYearStart") int birthYearStart,
+                                                              @Param("birthYearEnd") int birthYearEnd,
+                                                              @Param("limit") int limit);
 
 }
