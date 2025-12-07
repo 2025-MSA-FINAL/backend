@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.manager.ManagerReportMapper">
+
+    <select id="selectKpiStats" resultType="map">
+        SELECT
+        COALESCE(p.pop_view_count, 0) as views,
+        p.pop_is_reservation as isReservationAvailable,
+        (SELECT COUNT(*) FROM USER_WISHLIST w WHERE w.pop_id = #{popupId}) as wishlists,
+        (SELECT COUNT(*) FROM USER_RESERVATION r WHERE r.pop_id = #{popupId} AND r.ur_status = 1) as reservations
+        FROM POPUPSTORE p
+        WHERE p.pop_id = #{popupId}
+    </select>
+
+    <select id="selectAudienceGender" resultType="map">
+        SELECT u.user_gender as gender, COUNT(r.ur_id) as count
+        FROM USER_RESERVATION r JOIN USER u ON r.user_id = u.user_id
+        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
+        GROUP BY u.user_gender
+    </select>
+
+    <select id="selectAudienceAge" resultType="map">
+        SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u.user_birthyear) / 10) * 10, 's') as ageGroup, COUNT(r.ur_id) as count
+        FROM USER_RESERVATION r JOIN USER u ON r.user_id = u.user_id
+        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
+        GROUP BY ageGroup ORDER BY ageGroup
+    </select>
+
+    <select id="selectAudienceTime" resultType="map">
+        SELECT HOUR(r.ur_date_time) as hour, COUNT(r.ur_id) as count
+        FROM USER_RESERVATION r
+        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
+        GROUP BY hour ORDER BY hour
+    </select>
+
+    <select id="selectAudienceGenderByWishlist" resultType="map">
+        SELECT u.user_gender as gender, COUNT(w.user_id) as count
+        FROM USER_WISHLIST w JOIN USER u ON w.user_id = u.user_id
+        WHERE w.pop_id = #{popupId}
+        GROUP BY u.user_gender
+    </select>
+
+    <select id="selectAudienceAgeByWishlist" resultType="map">
+        SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u.user_birthyear) / 10) * 10, 's') as ageGroup, COUNT(w.user_id) as count
+        FROM USER_WISHLIST w JOIN USER u ON w.user_id = u.user_id
+        WHERE w.pop_id = #{popupId}
+        GROUP BY ageGroup ORDER BY ageGroup
+    </select>
+
+    <select id="selectAudienceTimeByWishlist" resultType="map">
+        /* 찜은 방문 시간이 없으므로, '찜 누른 시간'을 기준으로 활동 시간대 분석 */
+        SELECT HOUR(w.created_at) as hour, COUNT(w.user_id) as count
+        FROM USER_WISHLIST w
+        WHERE w.pop_id = #{popupId}
+        GROUP BY hour ORDER BY hour
+    </select>
+
+    <select id="selectMeaningfulHashtags" resultType="string">
+        SELECT h.hash_name
+        FROM POPUP_HASHTAG ph
+        JOIN HASHTAG h ON ph.hash_id = h.hash_id
+        JOIN POPUP_HASHTAG other_ph ON h.hash_id = other_ph.hash_id
+        JOIN POPUPSTORE p ON other_ph.pop_id = p.pop_id
+        WHERE ph.pop_id = #{popupId}
+        AND h.hash_name NOT IN ('팝업', '팝업스토어', 'popup', 'pop-up', '스토어', '서울', '부산', '대구')
+        GROUP BY h.hash_name
+        ORDER BY SUM(p.pop_view_count) DESC
+        LIMIT 5
+    </select>
+
+    <select id="selectMarketTrendStats" resultType="map">
+        SELECT
+        (COUNT(r.ur_id) * 1.0 / NULLIF(SUM(DISTINCT p.pop_view_count), 0)) * 100 as marketReservationRate,
+
+        (SELECT u2.user_gender
+        FROM USER_WISHLIST w2
+        JOIN USER u2 ON w2.user_id = u2.user_id
+        JOIN POPUP_HASHTAG ph2 ON w2.pop_id = ph2.pop_id
+        JOIN HASHTAG h2 ON ph2.hash_id = h2.hash_id
+        WHERE h2.hash_name = #{hashtag}
+        GROUP BY u2.user_gender
+        ORDER BY COUNT(*) DESC LIMIT 1) as topGender,
+
+        (SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u3.user_birthyear) / 10) * 10, 's')
+        FROM USER_WISHLIST w3
+        JOIN USER u3 ON w3.user_id = u3.user_id
+        JOIN POPUP_HASHTAG ph3 ON w3.pop_id = ph3.pop_id
+        JOIN HASHTAG h3 ON ph3.hash_id = h3.hash_id
+        WHERE h3.hash_name = #{hashtag}
+        GROUP BY FLOOR((YEAR(CURRENT_DATE) - u3.user_birthyear) / 10)
+        ORDER BY COUNT(*) DESC LIMIT 1) as topAgeGroup
+
+        FROM USER_RESERVATION r
+        JOIN POPUPSTORE p ON r.pop_id = p.pop_id
+        JOIN POPUP_HASHTAG ph ON p.pop_id = ph.pop_id
+        JOIN HASHTAG h ON ph.hash_id = h.hash_id
+        WHERE h.hash_name = #{hashtag}
+        AND r.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)
+    </select>
+
+    <select id="selectMyPopupTrendStats" resultType="map">
+        SELECT
+        (COUNT(r.ur_id) * 1.0 / NULLIF((SELECT pop_view_count FROM POPUPSTORE WHERE pop_id = #{popupId}), 0)) * 100 as myRate
+        FROM USER_RESERVATION r
+        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
+    </select>
+
+    <select id="selectMyPopupTrendStatsByWishlist" resultType="map">
+        SELECT
+        (COUNT(w.user_id) * 1.0 / NULLIF((SELECT pop_view_count FROM POPUPSTORE WHERE pop_id = #{popupId}), 0)) * 100 as myRate
+        FROM USER_WISHLIST w
+        WHERE w.pop_id = #{popupId}
+    </select>
+
+</mapper>
