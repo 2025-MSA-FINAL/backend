@@ -26,17 +26,24 @@ public interface ManagerReportMapper {
     List<Map<String, Object>> selectAudienceTimeByWishlist(@Param("popupId") Long popupId);
 
     // ==========================================
-    // 5. Market Trend
+    // 3. Market Trend
+    //  - 시장 예약률 + 시장 관심도(찜) 둘 다 반환
     // ==========================================
     // 의미 있는 해시태그 추출
     List<String> selectMeaningfulHashtags(@Param("popupId") Long popupId);
 
     // 시장 전체 통계 조회
+    //  - marketReservationRate : (시장 전체 예약 / 시장 전체 조회수) * 100
+    //  - marketInterestRate    : (시장 전체 찜 / 시장 전체 조회수) * 100
+    //  - marketWishlistCount   : 시장 전체 찜 개수 (데이터 충분 여부 판단용)
+    //  - topGender, topAgeGroup: "해시태그를 찜한 유저" 기준 Top 타겟
     Map<String, Object> selectMarketTrendStats(@Param("hashtag") String hashtag);
 
     // 내 팝업 성과 (예약 기준)
+    //  - myRate : (내 예약 / 내 조회수) * 100
     Map<String, Object> selectMyPopupTrendStats(@Param("popupId") Long popupId, @Param("hashtag") String hashtag);
 
     // 내 팝업 성과 (찜 기준)
+    //  - myRate : (내 찜 / 내 조회수) * 100
     Map<String, Object> selectMyPopupTrendStatsByWishlist(@Param("popupId") Long popupId, @Param("hashtag") String hashtag);
 }

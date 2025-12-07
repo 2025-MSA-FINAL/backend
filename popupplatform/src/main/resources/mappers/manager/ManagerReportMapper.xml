@@ -4,61 +4,92 @@
 
 <mapper namespace="com.popspot.popupplatform.mapper.manager.ManagerReportMapper">
 
+    <!-- 1. KPI -->
     <select id="selectKpiStats" resultType="map">
         SELECT
-        COALESCE(p.pop_view_count, 0) as views,
-        p.pop_is_reservation as isReservationAvailable,
-        (SELECT COUNT(*) FROM USER_WISHLIST w WHERE w.pop_id = #{popupId}) as wishlists,
-        (SELECT COUNT(*) FROM USER_RESERVATION r WHERE r.pop_id = #{popupId} AND r.ur_status = 1) as reservations
+        COALESCE(p.pop_view_count, 0)                               AS views,
+        p.pop_is_reservation                                        AS isReservationAvailable,
+        (SELECT COUNT(*) FROM USER_WISHLIST w WHERE w.pop_id = #{popupId}) AS wishlists,
+        (SELECT COUNT(*) FROM USER_RESERVATION r
+        WHERE r.pop_id = #{popupId} AND r.ur_status = 1)           AS reservations
         FROM POPUPSTORE p
         WHERE p.pop_id = #{popupId}
     </select>
 
+    <!-- 2. Audience (예약 기준) -->
     <select id="selectAudienceGender" resultType="map">
-        SELECT u.user_gender as gender, COUNT(r.ur_id) as count
-        FROM USER_RESERVATION r JOIN USER u ON r.user_id = u.user_id
-        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
+        SELECT
+        u.user_gender AS gender,
+        COUNT(r.ur_id) AS count
+        FROM USER_RESERVATION r
+        JOIN USER u ON r.user_id = u.user_id
+        WHERE r.pop_id = #{popupId}
+        AND r.ur_status = 1
         GROUP BY u.user_gender
     </select>
 
     <select id="selectAudienceAge" resultType="map">
-        SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u.user_birthyear) / 10) * 10, 's') as ageGroup, COUNT(r.ur_id) as count
-        FROM USER_RESERVATION r JOIN USER u ON r.user_id = u.user_id
-        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
-        GROUP BY ageGroup ORDER BY ageGroup
+        SELECT
+        CONCAT(FLOOR((YEAR(CURRENT_DATE) - u.user_birthyear) / 10) * 10, 's') AS ageGroup,
+        COUNT(r.ur_id)                                                        AS count
+        FROM USER_RESERVATION r
+        JOIN USER u ON r.user_id = u.user_id
+        WHERE r.pop_id = #{popupId}
+        AND r.ur_status = 1
+        GROUP BY ageGroup
+        ORDER BY ageGroup
     </select>
 
     <select id="selectAudienceTime" resultType="map">
-        SELECT HOUR(r.ur_date_time) as hour, COUNT(r.ur_id) as count
+        SELECT
+        HOUR(r.ur_date_time) AS hour,
+        COUNT(r.ur_id)       AS count
         FROM USER_RESERVATION r
-        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
-        GROUP BY hour ORDER BY hour
+        WHERE r.pop_id = #{popupId}
+        AND r.ur_status = 1
+        GROUP BY hour
+        ORDER BY hour
     </select>
 
+    <!-- 2-1. Audience (찜 기준) -->
     <select id="selectAudienceGenderByWishlist" resultType="map">
-        SELECT u.user_gender as gender, COUNT(w.user_id) as count
-        FROM USER_WISHLIST w JOIN USER u ON w.user_id = u.user_id
+        SELECT
+        u.user_gender AS gender,
+        COUNT(w.user_id) AS count
+        FROM USER_WISHLIST w
+        JOIN USER u ON w.user_id = u.user_id
         WHERE w.pop_id = #{popupId}
         GROUP BY u.user_gender
     </select>
 
     <select id="selectAudienceAgeByWishlist" resultType="map">
-        SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u.user_birthyear) / 10) * 10, 's') as ageGroup, COUNT(w.user_id) as count
-        FROM USER_WISHLIST w JOIN USER u ON w.user_id = u.user_id
+        SELECT
+        CONCAT(FLOOR((YEAR(CURRENT_DATE) - u.user_birthyear) / 10) * 10, 's') AS ageGroup,
+        COUNT(w.user_id)                                                      AS count
+        FROM USER_WISHLIST w
+        JOIN USER u ON w.user_id = u.user_id
         WHERE w.pop_id = #{popupId}
-        GROUP BY ageGroup ORDER BY ageGroup
+        GROUP BY ageGroup
+        ORDER BY ageGroup
     </select>
 
     <select id="selectAudienceTimeByWishlist" resultType="map">
-        /* 찜은 방문 시간이 없으므로, '찜 누른 시간'을 기준으로 활동 시간대 분석 */
-        SELECT HOUR(w.created_at) as hour, COUNT(w.user_id) as count
+        <!-- 찜은 방문 시간이 없으므로, '찜 누른 시간' 기준으로 활동 시간대 분석 -->
+        SELECT
+        HOUR(w.created_at) AS hour,
+        COUNT(w.user_id)   AS count
         FROM USER_WISHLIST w
         WHERE w.pop_id = #{popupId}
-        GROUP BY hour ORDER BY hour
+        GROUP BY hour
+        ORDER BY hour
     </select>
 
+    <!-- 3. Market Trend -->
+
+    <!-- 내 팝업이 가진 해시태그 중, 플랫폼에서 조회수가 높은 태그 Top5 -->
     <select id="selectMeaningfulHashtags" resultType="string">
-        SELECT h.hash_name
+        SELECT
+        h.hash_name
         FROM POPUP_HASHTAG ph
         JOIN HASHTAG h ON ph.hash_id = h.hash_id
         JOIN POPUP_HASHTAG other_ph ON h.hash_id = other_ph.hash_id
@@ -70,46 +101,95 @@
         LIMIT 5
     </select>
 
+    <!--
+        시장 통계:
+        - marketReservationRate : (태그를 가진 팝업들의 전체 예약 / 태그 팝업들의 전체 조회수) * 100
+        - marketInterestRate    : (태그를 가진 팝업들의 전체 찜   / 태그 팝업들의 전체 조회수) * 100
+        - marketWishlistCount   : 태그 기준 전체 찜 개수
+        - topGender / topAgeGroup : "해시태그를 찜한 유저" 기준 주요 타겟
+        - 기간 조건: 최근 90일
+    -->
     <select id="selectMarketTrendStats" resultType="map">
         SELECT
-        (COUNT(r.ur_id) * 1.0 / NULLIF(SUM(DISTINCT p.pop_view_count), 0)) * 100 as marketReservationRate,
+        /* 예약 기반 시장 전환율 */
+        (COUNT(r.ur_id) * 1.0 / NULLIF(SUM(DISTINCT p.pop_view_count), 0)) * 100 AS marketReservationRate,
 
-        (SELECT u2.user_gender
+        /* 찜 기반 시장 관심도 (서브쿼리로 계산) */
+        (
+        SELECT (COUNT(w.user_id) * 1.0 / NULLIF(SUM(DISTINCT p2.pop_view_count), 0)) * 100
+        FROM USER_WISHLIST w
+        JOIN POPUPSTORE p2 ON w.pop_id = p2.pop_id
+        JOIN POPUP_HASHTAG ph2 ON w.pop_id = ph2.pop_id
+        JOIN HASHTAG h2 ON ph2.hash_id = h2.hash_id
+        WHERE h2.hash_name = #{hashtag}
+        AND w.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)
+        ) AS marketInterestRate,
+
+        /* 찜 표본 수 (시장 데이터 충분 여부 판단용) */
+        (
+        SELECT COUNT(*)
+        FROM USER_WISHLIST w3
+        JOIN POPUP_HASHTAG ph3 ON w3.pop_id = ph3.pop_id
+        JOIN HASHTAG h3 ON ph3.hash_id = h3.hash_id
+        WHERE h3.hash_name = #{hashtag}
+        AND w3.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)
+        ) AS marketWishlistCount,
+
+        /* 태그를 가장 많이 찜한 성별 */
+        (
+        SELECT u2.user_gender
         FROM USER_WISHLIST w2
         JOIN USER u2 ON w2.user_id = u2.user_id
         JOIN POPUP_HASHTAG ph2 ON w2.pop_id = ph2.pop_id
         JOIN HASHTAG h2 ON ph2.hash_id = h2.hash_id
         WHERE h2.hash_name = #{hashtag}
+        AND w2.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)
         GROUP BY u2.user_gender
-        ORDER BY COUNT(*) DESC LIMIT 1) as topGender,
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        ) AS topGender,
 
-        (SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u3.user_birthyear) / 10) * 10, 's')
+        /* 태그를 가장 많이 찜한 연령대 */
+        (
+        SELECT CONCAT(FLOOR((YEAR(CURRENT_DATE) - u3.user_birthyear) / 10) * 10, 's')
         FROM USER_WISHLIST w3
         JOIN USER u3 ON w3.user_id = u3.user_id
         JOIN POPUP_HASHTAG ph3 ON w3.pop_id = ph3.pop_id
         JOIN HASHTAG h3 ON ph3.hash_id = h3.hash_id
         WHERE h3.hash_name = #{hashtag}
+        AND w3.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)
         GROUP BY FLOOR((YEAR(CURRENT_DATE) - u3.user_birthyear) / 10)
-        ORDER BY COUNT(*) DESC LIMIT 1) as topAgeGroup
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+        ) AS topAgeGroup
 
-        FROM USER_RESERVATION r
-        JOIN POPUPSTORE p ON r.pop_id = p.pop_id
+        FROM POPUPSTORE p
         JOIN POPUP_HASHTAG ph ON p.pop_id = ph.pop_id
         JOIN HASHTAG h ON ph.hash_id = h.hash_id
-        WHERE h.hash_name = #{hashtag}
+        LEFT JOIN USER_RESERVATION r
+        ON r.pop_id = p.pop_id
+        AND r.ur_status = 1
         AND r.created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)
+        WHERE h.hash_name = #{hashtag}
     </select>
 
+    <!-- 내 팝업 성과 (예약 기준): 내 예약률 -->
     <select id="selectMyPopupTrendStats" resultType="map">
         SELECT
-        (COUNT(r.ur_id) * 1.0 / NULLIF((SELECT pop_view_count FROM POPUPSTORE WHERE pop_id = #{popupId}), 0)) * 100 as myRate
+        (COUNT(r.ur_id) * 1.0 /
+        NULLIF((SELECT pop_view_count FROM POPUPSTORE WHERE pop_id = #{popupId}), 0)
+        ) * 100 AS myRate
         FROM USER_RESERVATION r
-        WHERE r.pop_id = #{popupId} AND r.ur_status = 1
+        WHERE r.pop_id = #{popupId}
+        AND r.ur_status = 1
     </select>
 
+    <!-- 내 팝업 성과 (찜 기준): 내 관심도 -->
     <select id="selectMyPopupTrendStatsByWishlist" resultType="map">
         SELECT
-        (COUNT(w.user_id) * 1.0 / NULLIF((SELECT pop_view_count FROM POPUPSTORE WHERE pop_id = #{popupId}), 0)) * 100 as myRate
+        (COUNT(w.user_id) * 1.0 /
+        NULLIF((SELECT pop_view_count FROM POPUPSTORE WHERE pop_id = #{popupId}), 0)
+        ) * 100 AS myRate
         FROM USER_WISHLIST w
         WHERE w.pop_id = #{popupId}
     </select>

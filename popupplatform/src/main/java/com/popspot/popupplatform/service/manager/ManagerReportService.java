@@ -1,8 +1,8 @@
 package com.popspot.popupplatform.service.manager;
 
-import com.popspot.popupplatform.dto.manager.enums.AnalysisBasis;
 import com.popspot.popupplatform.dto.manager.ManagerReportResponseDto;
 import com.popspot.popupplatform.dto.manager.ManagerReportResponseDto.*;
+import com.popspot.popupplatform.dto.manager.enums.AnalysisBasis;
 import com.popspot.popupplatform.mapper.manager.ManagerReportMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -21,21 +21,22 @@ public class ManagerReportService {
     private final ChatClient chatClient;
 
     // [설정] 통계 노출 기준값
-    private static final int MIN_AUDIENCE_THRESHOLD = 0;
-    private static final long MIN_VIEWS_THRESHOLD = 0L;
+    private static final int  MIN_AUDIENCE_THRESHOLD          = 0;   // 배포 시 5 권장
+    private static final long MIN_VIEWS_THRESHOLD             = 0L;  // 배포 시 100 권장
+    private static final long MIN_MARKET_WISHLIST_THRESHOLD   = 50L; // 스펙: 태그 시장 찜 50건 미만이면 데이터 부족
 
     public ManagerReportService(ManagerReportMapper managerReportMapper, ChatClient.Builder builder) {
         this.managerReportMapper = managerReportMapper;
         this.chatClient = builder
                 .defaultSystem("""
-                    당신은 팝업 스토어 성과를 분석해주는 'AI 수석 매니저'입니다.
-                    제공된 통계 데이터(조회수, 예약률, 시장 비교 등)를 바탕으로 사장님에게 보고할 리포트를 작성하세요.
-                    
-                    [출력 규칙]
-                    1. 3줄로 출력 (요약, 시장 분석, 액션 제안)
-                    2. 각 줄은 [요약], [시장 분석], [액션 제안] 접두사 필수.
-                    3. 정중한 전문가 톤 유지.
-                """)
+                        당신은 팝업 스토어 성과를 분석해주는 'AI 수석 매니저'입니다.
+                        제공된 통계 데이터(조회수, 예약률, 시장 비교 등)를 바탕으로 사장님에게 보고할 리포트를 작성하세요.
+                        
+                        [출력 규칙]
+                        1. 3줄로 출력 (요약, 시장 분석, 액션 제안)
+                        2. 각 줄은 [요약], [시장 분석], [액션 제안] 접두사 필수.
+                        3. 정중한 전문가 톤 유지.
+                        """)
                 .build();
     }
 
@@ -47,12 +48,11 @@ public class ManagerReportService {
         AnalysisBasis basis = determineBasis(kpiDto);
 
         // 3. Audience 생성
-        // (MarketTrend에서 이 데이터를 써야 하므로 먼저 생성)
         AudienceDto audienceDto = (basis == AnalysisBasis.RESERVATION)
                 ? generateReservationAudience(popupId)
                 : generateWishlistAudience(popupId);
 
-        // 4. Market Trend 생성 (Audience 데이터 주입하여 '내 타겟' 분석)
+        // 4. Market Trend 생성 (Audience 데이터 주입)
         List<MarketTrendDto> marketTrends = generateMarketTrends(popupId, basis, audienceDto);
 
         // 5. AI 인사이트
@@ -82,12 +82,13 @@ public class ManagerReportService {
     // ==========================================
     private KpiDto generateKpiStats(Long popupId) {
         Map<String, Object> stats = managerReportMapper.selectKpiStats(popupId);
-        long views = parseLong(stats.get("views"));
-        long wishlists = parseLong(stats.get("wishlists"));
+
+        long views        = parseLong(stats.get("views"));
+        long wishlists    = parseLong(stats.get("wishlists"));
         long reservations = parseLong(stats.get("reservations"));
         boolean isReservationAvailable = Boolean.TRUE.equals(stats.get("isReservationAvailable"));
 
-        double interestRate = (views == 0) ? 0.0 : ((double) wishlists / views) * 100.0;
+        double interestRate    = (views == 0) ? 0.0 : ((double) wishlists / views) * 100.0;
         double reservationRate = (views == 0) ? 0.0 : ((double) reservations / views) * 100.0;
 
         return KpiDto.builder()
@@ -119,7 +120,10 @@ public class ManagerReportService {
         );
     }
 
-    private AudienceDto buildAudienceDto(List<Map<String, Object>> genderList, List<Map<String, Object>> ageList, List<Map<String, Object>> timeList) {
+    private AudienceDto buildAudienceDto(List<Map<String, Object>> genderList,
+                                         List<Map<String, Object>> ageList,
+                                         List<Map<String, Object>> timeList) {
+
         long total = genderList.stream().mapToLong(m -> parseLong(m.get("count"))).sum();
         boolean hasEnoughData = total >= MIN_AUDIENCE_THRESHOLD;
 
@@ -141,54 +145,78 @@ public class ManagerReportService {
     }
 
     // ==========================================
-    // 3. Market Trend (고도화: Audience 데이터 활용)
+    // 3. Market Trend
+    //  - basis에 따라 "시장 예약률 vs 내 예약률" 또는 "시장 관심도 vs 내 관심도"
     // ==========================================
-    private List<MarketTrendDto> generateMarketTrends(Long popupId, AnalysisBasis basis, AudienceDto audienceDto) {
+    private List<MarketTrendDto> generateMarketTrends(Long popupId,
+                                                      AnalysisBasis basis,
+                                                      AudienceDto audienceDto) {
         List<MarketTrendDto> trends = new ArrayList<>();
         List<String> hashtags = managerReportMapper.selectMeaningfulHashtags(popupId);
 
-        // [고도화] 내 팝업의 주 타겟(Top 1) 추출 로직
-        // AudienceDto에 있는 Map 데이터를 스트림으로 돌려서 Value가 제일 큰 Key를 찾음
+        // 내 팝업의 주 타겟 (Audience에서 Top 1)
         String myTopGender = getTopKey(audienceDto.getGenderRatio());
-        String myTopAge = getTopKey(audienceDto.getAgeGroupDistribution());
+        String myTopAge    = getTopKey(audienceDto.getAgeGroupDistribution());
 
         for (String tag : hashtags) {
             Map<String, Object> marketStats = managerReportMapper.selectMarketTrendStats(tag);
-
             Map<String, Object> myStats = (basis == AnalysisBasis.RESERVATION)
                     ? managerReportMapper.selectMyPopupTrendStats(popupId, tag)
                     : managerReportMapper.selectMyPopupTrendStatsByWishlist(popupId, tag);
 
-            if (marketStats == null || myStats == null) continue;
+            if (marketStats == null || myStats == null) {
+                continue;
+            }
 
-            double marketRate = parseDouble(marketStats.get("marketReservationRate"));
-            double myRate = parseDouble(myStats.get("myRate"));
+            double marketReservationRate = parseDouble(marketStats.get("marketReservationRate"));
+            double marketInterestRate    = parseDouble(marketStats.get("marketInterestRate"));
+            long   marketWishlistCount   = parseLong(marketStats.get("marketWishlistCount"));
+            double myRate                = parseDouble(myStats.get("myRate"));
 
-            // [비교 데이터 조립]
+            // basis에 따라 시장 기준 metric 선택
+            double selectedMarketRate;
+            boolean hasMarketData;
+
+            if (basis == AnalysisBasis.RESERVATION) {
+                selectedMarketRate = marketReservationRate;
+                hasMarketData = selectedMarketRate > 0.0;
+            } else {
+                selectedMarketRate = marketInterestRate;
+                hasMarketData = marketWishlistCount >= MIN_MARKET_WISHLIST_THRESHOLD;
+            }
+
             Map<String, String> topGenderMap = new HashMap<>();
-            topGenderMap.put("market", (String) marketStats.get("topGender")); // 시장 1위
-            topGenderMap.put("mine", myTopGender);                             // 내 팝업 1위 (계산됨)
+            topGenderMap.put("market", (String) marketStats.get("topGender")); // 태그 찜 기준 시장 1위 성별
+            topGenderMap.put("mine", myTopGender);                             // 내 팝업 1위 성별
 
             Map<String, String> topAgeMap = new HashMap<>();
-            topAgeMap.put("market", (String) marketStats.get("topAgeGroup"));  // 시장 1위
-            topAgeMap.put("mine", myTopAge);                                   // 내 팝업 1위 (계산됨)
+            topAgeMap.put("market", (String) marketStats.get("topAgeGroup"));  // 태그 찜 기준 시장 1위 연령대
+            topAgeMap.put("mine", myTopAge);                                   // 내 팝업 1위 연령대
 
             trends.add(MarketTrendDto.builder()
                     .tagName(tag)
-                    .hasMarketData(marketRate > 0)
-                    .marketReservationRate(formatDouble(marketRate))
+                    .hasMarketData(hasMarketData)
+                    // 이름은 marketReservationRate지만, 실제 값은
+                    //  - RESERVATION: 예약률
+                    //  - WISHLIST   : 관심도
+                    .marketReservationRate(formatDouble(selectedMarketRate))
                     .myMetricRate(formatDouble(myRate))
                     .topGender(topGenderMap)
                     .topAgeGroup(topAgeMap)
                     .build());
         }
+
         return trends;
     }
 
     // ==========================================
     // 4. AI Insight
     // ==========================================
-    private AiInsightDto generateAiInsight(KpiDto kpi, AudienceDto audience, List<MarketTrendDto> trends, AnalysisBasis basis) {
+    private AiInsightDto generateAiInsight(KpiDto kpi,
+                                           AudienceDto audience,
+                                           List<MarketTrendDto> trends,
+                                           AnalysisBasis basis) {
+
         if (kpi.getTotalViews() < MIN_VIEWS_THRESHOLD) {
             return AiInsightDto.builder()
                     .summary("아직 데이터가 충분하지 않습니다.")
@@ -197,7 +225,9 @@ public class ManagerReportService {
                     .build();
         }
 
-        String basisLabel = (basis == AnalysisBasis.RESERVATION) ? "예약 확정자 기준" : "찜(관심) 유저 기준";
+        String basisLabel = (basis == AnalysisBasis.RESERVATION)
+                ? "예약 확정자 기준"
+                : "찜(관심) 유저 기준";
 
         String audienceText = "데이터 부족";
         if (audience != null && audience.isHasEnoughData()) {
@@ -213,14 +243,18 @@ public class ManagerReportService {
         if (trends.isEmpty()) {
             trendText = "비교할 시장 데이터 없음";
         } else {
-            String myLabel = (basis == AnalysisBasis.RESERVATION) ? "내 예약률" : "내 관심도";
-            trendText = trends.stream().limit(3)
+            String myLabel      = (basis == AnalysisBasis.RESERVATION) ? "내 예약률" : "내 관심도";
+            String marketLabel  = (basis == AnalysisBasis.RESERVATION) ? "시장 평균 예약률" : "시장 평균 관심도";
+
+            trendText = trends.stream()
+                    .limit(3)
                     .map(t -> String.format(
-                            "#%s 태그 시장: 주 타겟 [%s %s] / 시장 평균 예약률 %.1f%% vs %s %.1f%% (내 주 타겟: %s %s)",
+                            "#%s 태그 시장: 주 타겟 [%s %s] / %s %.1f%% vs %s %.1f%% (내 주 타겟: %s %s)",
                             t.getTagName(),
                             t.getTopAgeGroup().get("market"), t.getTopGender().get("market"),
-                            t.getMarketReservationRate(), myLabel, t.getMyMetricRate(),
-                            t.getTopAgeGroup().get("mine"), t.getTopGender().get("mine") // AI에게 내 타겟 정보도 전달
+                            marketLabel, t.getMarketReservationRate(),
+                            myLabel, t.getMyMetricRate(),
+                            t.getTopAgeGroup().get("mine"), t.getTopGender().get("mine")
                     ))
                     .collect(Collectors.joining("\n"));
         }
@@ -228,43 +262,60 @@ public class ManagerReportService {
         try {
             String kpiText;
             if (basis == AnalysisBasis.RESERVATION) {
-                kpiText = String.format("- 조회수: %d, 찜: %d, 예약: %d (전환율 %.1f%%)",
-                        kpi.getTotalViews(), kpi.getTotalWishlists(), kpi.getTotalReservations(), kpi.getReservationRate());
+                kpiText = String.format(
+                        "- 조회수: %d, 찜: %d, 예약: %d (전환율 %.1f%%)",
+                        kpi.getTotalViews(),
+                        kpi.getTotalWishlists(),
+                        kpi.getTotalReservations(),
+                        kpi.getReservationRate()
+                );
             } else {
-                kpiText = String.format("- 조회수: %d, 찜: %d (관심도 %.1f%%), 예약기능: 미사용",
-                        kpi.getTotalViews(), kpi.getTotalWishlists(), kpi.getInterestRate());
+                kpiText = String.format(
+                        "- 조회수: %d, 찜: %d (관심도 %.1f%%), 예약기능: 미사용",
+                        kpi.getTotalViews(),
+                        kpi.getTotalWishlists(),
+                        kpi.getInterestRate()
+                );
             }
 
             String userPrompt = String.format("""
-                    [분석 기준: %s]
-                    [KPI]
-                    %s
-                    
-                    [인구통계]
-                    %s
-                    
-                    [시장비교]
-                    %s
-                    
-                    위 데이터를 바탕으로 요약/분석/제안 3줄 리포트를 작성해줘.
-                    """,
+                            [분석 기준: %s]
+                            [KPI]
+                            %s
+                            
+                            [인구통계]
+                            %s
+                            
+                            [시장비교]
+                            %s
+                            
+                            위 데이터를 바탕으로 요약/분석/제안 3줄 리포트를 작성해줘.
+                            """,
                     basisLabel, kpiText, audienceText, trendText
             );
 
-            String response = chatClient.prompt().user(userPrompt).call().content();
+            String response = chatClient.prompt()
+                    .user(userPrompt)
+                    .call()
+                    .content();
+
             String[] lines = response.split("\n");
 
-            String summary = "AI 분석 중";
-            String analysis = "시장 데이터 분석 중";
+            String summary    = "AI 분석 중";
+            String analysis   = "시장 데이터 분석 중";
             String suggestion = "기본적인 관리에 집중하세요.";
 
             for (String raw : lines) {
                 String line = raw.trim();
                 if (line.isEmpty()) continue;
 
-                if (line.startsWith("[요약]")) summary = line;
-                else if (line.startsWith("[시장 분석]")) analysis = line;
-                else if (line.startsWith("[액션 제안]")) suggestion = line;
+                if (line.startsWith("[요약]")) {
+                    summary = line;
+                } else if (line.startsWith("[시장 분석]")) {
+                    analysis = line;
+                } else if (line.startsWith("[액션 제안]")) {
+                    suggestion = line;
+                }
             }
 
             return AiInsightDto.builder()
@@ -274,15 +325,17 @@ public class ManagerReportService {
                     .build();
         } catch (Exception e) {
             log.error("AI Error", e);
-            return AiInsightDto.builder().summary("AI 서버 연결 지연").trendAnalysis("잠시 후 시도").actionSuggestion("기본 관리 권장").build();
+            return AiInsightDto.builder()
+                    .summary("AI 서버 연결 지연")
+                    .trendAnalysis("잠시 후 다시 시도해주세요.")
+                    .actionSuggestion("기본적인 팝업 관리에 집중해보세요.")
+                    .build();
         }
     }
 
     // ==========================================
-    // 헬퍼 메서드 (고도화됨)
+    // 헬퍼 메서드
     // ==========================================
-
-    // Map에서 Value가 가장 큰 Key를 찾는 메서드 (예: "FEMALE", "20s")
     private String getTopKey(Map<String, Long> map) {
         if (map == null || map.isEmpty()) return "데이터 부족";
 
@@ -295,13 +348,23 @@ public class ManagerReportService {
     private long parseLong(Object obj) {
         if (obj == null) return 0L;
         if (obj instanceof Number) return ((Number) obj).longValue();
-        try { return Long.parseLong(obj.toString()); } catch (Exception e) { return 0L; }
+        try {
+            return Long.parseLong(obj.toString());
+        } catch (Exception e) {
+            return 0L;
+        }
     }
+
     private double parseDouble(Object obj) {
         if (obj == null) return 0.0;
         if (obj instanceof Number) return ((Number) obj).doubleValue();
-        try { return Double.parseDouble(obj.toString()); } catch (Exception e) { return 0.0; }
+        try {
+            return Double.parseDouble(obj.toString());
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
+
     private double formatDouble(double val) {
         return Math.round(val * 10.0) / 10.0;
     }
