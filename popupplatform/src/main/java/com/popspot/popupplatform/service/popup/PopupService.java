@@ -314,8 +314,21 @@ public class PopupService {
     @Transactional
     public PopupDetailResponse getPopupDetail(Long popupId, Long userId) {
 
-        // 1. 조회수 증가 (삭제된 팝업이면 0 row 업데이트)
-        popupMapper.updateViewCount(popupId);
+        // 1. 조회수 증가 로직 (중복 방지)
+        if (userId == null) {
+            // 비로그인 유저: 그냥 조회수 증가
+            popupMapper.updateViewCount(popupId);
+        } else {
+            // 로그인 유저: '최근(1시간)' 조회 기록이 없을 때만 증가 + 기록 저장
+            boolean viewedRecently = popupMapper.existsViewHistoryRecent(popupId, userId);
+
+            if (!viewedRecently) {
+                // 1) 기록 저장 (POPUP_VIEWED)
+                popupMapper.insertViewHistory(popupId, userId);
+                // 2) 카운트 증가 (POPUPSTORE)
+                popupMapper.updateViewCount(popupId);
+            }
+        }
 
         // 2. 기본 정보 조회 (소프트 삭제된 팝업 제외)
         PopupStore popup = popupMapper.selectPopupDetail(popupId)
@@ -326,33 +339,25 @@ public class PopupService {
         List<String> hashtags = popupMapper.selectPopupHashtags(popupId);
 
         // 4. 로그인 유저 찜 여부 확인
-        Boolean isLiked = null;     // 비로그인: null
+        Boolean isLiked = null;
         if (userId != null) {
             Boolean exists = userWishlistMapper.existsByUserIdAndPopId(userId, popupId);
             isLiked = Boolean.TRUE.equals(exists);
         }
 
         // 5. 예약 상태 계산
-        // 기본값 NONE : 예약 개념이 없는 팝업
         String reservationStatus = "NONE";
         LocalDateTime reservationStartTime = null;
 
         if (Boolean.TRUE.equals(popup.getPopIsReservation())) {
-            // 예약형 팝업인 경우에만 DB 조회
             reservationStartTime = popupMapper.selectReservationStartTime(popupId);
-
             LocalDateTime now = LocalDateTime.now();
 
-            // 1) 팝업 자체가 종료된 경우 -> 예약도 마감
             if (now.isAfter(popup.getPopEndDate())) {
                 reservationStatus = "CLOSED";
-            }
-            // 2) 예약 오픈 시간이 설정되어 있고, 아직 그 전인 경우 -> 오픈 예정
-            else if (reservationStartTime != null && now.isBefore(reservationStartTime)) {
+            } else if (reservationStartTime != null && now.isBefore(reservationStartTime)) {
                 reservationStatus = "UPCOMING";
-            }
-            // 3) 그 외 (오픈 시간 지남 or 시간 설정 안 함) -> 예약 가능
-            else {
+            } else {
                 reservationStatus = "OPEN";
             }
         }
@@ -377,8 +382,8 @@ public class PopupService {
                 .images(images)
                 .hashtags(hashtags)
                 .isLiked(isLiked)
-                .reservationStartTime(reservationStartTime) // 예약 없는 팝업이면 null
-                .reservationStatus(reservationStatus)       // NONE / UPCOMING / OPEN / CLOSED
+                .reservationStartTime(reservationStartTime)
+                .reservationStatus(reservationStatus)
                 .build();
     }
 }

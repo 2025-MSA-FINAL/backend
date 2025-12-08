@@ -61,6 +61,12 @@ public interface PopupMapper {
     //조회수 1 증가
     void updateViewCount(@Param("popId") Long popId);
 
+    //유저가 해당 팝업을 최근 1시간 내에 조회했는지 확인
+    boolean existsViewHistoryRecent(@Param("popId") Long popId, @Param("userId") Long userId);
+
+    //조회 기록 저장 (POPUP_VIEWED 테이블)
+    void insertViewHistory(@Param("popId") Long popId, @Param("userId") Long userId);
+
     //팝업 단건 상세 조회
     Optional<PopupStore> selectPopupDetail(@Param("popId") Long popId);
 

@@ -354,6 +354,19 @@
     </update>
 
 
+    <select id="existsViewHistoryRecent" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM POPUP_VIEWED
+        WHERE pop_id = #{popId}
+        AND user_id = #{userId}
+        AND pv_viewed_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    </select>
+
+    <insert id="insertViewHistory">
+        INSERT INTO POPUP_VIEWED (pop_id, user_id, pv_viewed_at)
+        VALUES (#{popId}, #{userId}, NOW())
+    </insert>
+
     <!--
         8) 팝업 단건 상세 조회
     -->
