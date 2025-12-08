@@ -45,26 +45,30 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     private final PopupMapper popupMapper;
 
     /**
-     * 예약 설정 저장 (전체 덮어쓰기)
+     * 예약 설정 저장 (최초 1회만 허용)
      */
     @Transactional
     @Override
     public PopupReservationSettingResponse saveReservationSetting(Long popId, PopupReservationSettingRequest req) {
 
+        // 이미 설정이 있으면 수정 불가
+        PopupReservation existed = popupReservationMapper.findByPopId(popId);
+        if (existed != null) {
+            throw new CustomException(ReservationErrorCode.RESERVATION_ALREADY_EXISTS);
+        }
+
         // -------------------------
-        // 🔥 에러 코드 기반 검증 추가
+        // 🔥 에러 코드 기반 검증
         // -------------------------
         validateReservationRequest(popId, req);
 
         // -------------------------
-        // 기존 로직: 예약 설정 저장
+        // 예약 설정 저장
         // -------------------------
         PopupReservationRequest reservationReq = req.getReservationInfo();
         PopupReservation reservation = toReservationEntity(popId, reservationReq);
         popupReservationMapper.insertPopupReservation(reservation);
 
-        // 제외일 저장
-        popupBlockMapper.deleteByPopId(popId);
         List<PopupBlock> blockEntities = new ArrayList<>();
         if (req.getExcludeDates() != null) {
             for (PopupExcludeDateRequest excludeReq : req.getExcludeDates()) {
@@ -74,16 +78,14 @@ public class PopupReservationServiceImpl implements PopupReservationService {
             }
         }
 
-        // 시간표 + 슬롯 저장
-        popupTimeSlotMapper.deleteByPopId(popId);
-        popupTimetableMapper.deleteByPopId(popId);
-
         List<PopupTimetable> timetableEntities = new ArrayList<>();
         if (req.getTimetables() != null) {
             for (PopupTimetableRequest ttReq : req.getTimetables()) {
                 PopupTimetable timetable = toTimetableEntity(popId, ttReq);
                 popupTimetableMapper.insertTimetable(timetable);
                 timetableEntities.add(timetable);
+
+                // 요일 시간표 기반으로 실제 슬롯 생성
                 generateTimeSlots(popId, reservation, timetable);
             }
         }
