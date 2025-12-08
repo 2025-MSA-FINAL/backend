@@ -38,6 +38,7 @@ public interface PopupMapper {
             @Param("cursorId") Long cursorId,
             @Param("cursorEndDate") LocalDateTime cursorEndDate,
             @Param("cursorViewCount") Long cursorViewCount,
+            @Param("cursorStatusGroup") Integer cursorStatusGroup,
             @Param("limit") int limit,
             @Param("keyword") String keyword,
             @Param("regions") List<String> regions,

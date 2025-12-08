@@ -149,8 +149,8 @@ public class PopupService {
         Long cursorId = null;
         LocalDateTime cursorEndDate = null;
         Long cursorViewCount = null;
+        Integer cursorStatusGroup = null;
 
-        // 변수명 충돌 방지를 위해 sortOption으로 변경
         PopupSortOption sortOption = request.getSafeSort();
 
         if (cursor != null && !cursor.isBlank()) {
@@ -161,18 +161,40 @@ public class PopupService {
                 if (sortOption == PopupSortOption.DEADLINE) {
                     // 형식: "2025-12-31T00:00:00_105"
                     cursorEndDate = LocalDateTime.parse(parts[0]);
-                    cursorId = Long.parseLong(parts[1]);
-                } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
-                    // 형식: "500_105"
-                    cursorViewCount = Long.parseLong(parts[0]);
-                    cursorId = Long.parseLong(parts[1]);
+                    cursorId      = Long.parseLong(parts[1]);
+                } else if (sortOption == PopupSortOption.VIEW) {
+                    // 새 포맷: "statusGroup_viewCount_id"
+                    // 예) "0_532_105"
+                    if (parts.length == 3) {
+                        cursorStatusGroup = Integer.parseInt(parts[0]); // 0: 진행/예정, 1: 종료
+                        cursorViewCount   = Long.parseLong(parts[1]);
+                        cursorId          = Long.parseLong(parts[2]);
+                    } else if (parts.length == 2) {
+                        // 혹시 이전 포맷("viewCount_id")가 남아 있을 경우 대비
+                        cursorViewCount = Long.parseLong(parts[0]);
+                        cursorId        = Long.parseLong(parts[1]);
+                    }
+                } else if (sortOption == PopupSortOption.POPULAR) {
+                    // 새 포맷: "statusGroup_popularityScore_id"
+                    // 예) "0_1234_105"
+                    if (parts.length == 3) {
+                        cursorStatusGroup = Integer.parseInt(parts[0]); // 0: ENDED 아님, 1: ENDED
+                        cursorViewCount   = Long.parseLong(parts[1]);   // popularityScore
+                        cursorId          = Long.parseLong(parts[2]);
+                    } else if (parts.length == 2) {
+                        // 이전 포맷("score_id")가 남아 있을 경우 대비
+                        cursorViewCount = Long.parseLong(parts[0]);
+                        cursorId        = Long.parseLong(parts[1]);
+                    }
                 } else {
-                    // 형식: "105" (기본 최신순)
+                    // 형식: "105" (CREATED 등 기본 최신순)
                     cursorId = Long.parseLong(parts[0]);
                 }
             } catch (Exception e) {
                 // 커서 포맷이 이상하면 0페이지(처음)부터 조회
                 cursorId = null;
+                cursorViewCount = null;
+                cursorStatusGroup = null;
                 log.warn("Invalid cursor format: {}", cursor);
             }
         }
@@ -191,6 +213,7 @@ public class PopupService {
                 cursorId,
                 cursorEndDate,
                 cursorViewCount,
+                cursorStatusGroup,
                 size + 1,
                 request.getKeyword(),
                 request.getRegions(),
@@ -210,18 +233,42 @@ public class PopupService {
             hasNext = true;
             popupStores.remove(size);
 
-            // 제거되고 남은 "현재 페이지의 진짜 마지막 아이템"을 기준으로 커서를 생성해야 함
             PopupStore lastItem = popupStores.get(popupStores.size() - 1);
 
-            // 정렬 기준에 따라 다음 커서 문자열 조합 (lastItem 사용!)
             if (sortOption == PopupSortOption.DEADLINE) {
                 // 날짜 + "_" + ID
                 nextCursor = lastItem.getPopEndDate().toString() + "_" + lastItem.getPopId();
-            } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
-                // 조회수 + "_" + ID
-                nextCursor = lastItem.getPopViewCount() + "_" + lastItem.getPopId();
+
+            } else if (sortOption == PopupSortOption.VIEW) {
+                // statusGroup: 진행/예정(0) vs 종료(1)
+                LocalDateTime now = LocalDateTime.now();
+                int statusGroup = 1; // 기본은 종료
+                if (lastItem.getPopEndDate() != null && !lastItem.getPopEndDate().isBefore(now)) {
+                    // endDate >= now 면 진행/예정
+                    statusGroup = 0;
+                }
+
+                long viewCount = lastItem.getPopViewCount() != null
+                        ? lastItem.getPopViewCount()
+                        : 0L;
+
+                // "statusGroup_viewCount_id"
+                nextCursor = statusGroup + "_" + viewCount + "_" + lastItem.getPopId();
+
+            } else if (sortOption == PopupSortOption.POPULAR) {
+                // statusGroup: ENDED(1) vs 나머지(0)
+                int statusGroup = (lastItem.getPopStatus() == PopupStatus.ENDED) ? 1 : 0;
+
+                // 인기 점수(popularityScore): Mapper에서 popularity_score AS popularity_score 로 넘어온 값
+                long popularityScore = lastItem.getPopPopularityScore() != null
+                        ? lastItem.getPopPopularityScore()
+                        : 0L;
+
+                // "statusGroup_popularityScore_id"
+                nextCursor = statusGroup + "_" + popularityScore + "_" + lastItem.getPopId();
+
             } else {
-                // ID만
+                // CREATED 등: ID만
                 nextCursor = String.valueOf(lastItem.getPopId());
             }
         }

@@ -39,7 +39,9 @@
         <result property="popIsDeleted"       column="pop_is_deleted"/>
         <result property="popViewCount"       column="pop_view_count"/>
         <result property="popAiSummary"       column="pop_ai_summary"/>
+        <result property="popPopularityScore" column="popularity_score"/>
     </resultMap>
+
 
 
     <!--
@@ -187,7 +189,24 @@
         pop_moderation_status,
         pop_is_deleted,
         pop_view_count,
-        pop_ai_summary
+        pop_ai_summary,
+
+        (
+        IFNULL((
+        SELECT COUNT(*)
+        FROM POPUP_VIEWED v
+        WHERE v.pop_id = ps.pop_id
+        AND v.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ), 0)
+        +
+        3 * IFNULL((
+        SELECT COUNT(*)
+        FROM USER_WISHLIST w
+        WHERE w.pop_id = ps.pop_id
+        ), 0)
+        ) AS popularity_score
+
+
         FROM POPUPSTORE ps
         WHERE pop_is_deleted = FALSE
         <!-- AND pop_moderation_status = TRUE -->
@@ -251,15 +270,78 @@
 
                 <when test="sort == 'VIEW'">
                     AND (
+                    -- 1) statusGroup(0: 진행/예정, 1: 종료)가 커서보다 큰 애들
+                    CASE
+                    WHEN pop_end_date &gt;= NOW() THEN 0
+                    ELSE 1
+                    END &gt; #{cursorStatusGroup}
+                    OR (
+                    -- 2) statusGroup이 같고,
+                    CASE
+                    WHEN pop_end_date &gt;= NOW() THEN 0
+                    ELSE 1
+                    END = #{cursorStatusGroup}
+                    AND (
+                    -- 2-1) 조회수가 더 작은(=정렬상 뒤에 있는) 애들
                     pop_view_count &lt; #{cursorViewCount}
-                    OR (pop_view_count = #{cursorViewCount} AND pop_id &lt; #{cursorId})
+                    OR (
+                    pop_view_count = #{cursorViewCount}
+                    AND pop_id &lt; #{cursorId}
+                    )
+                    )
+                    )
                     )
                 </when>
 
                 <when test="sort == 'POPULAR'">
                     AND (
-                    pop_view_count &lt; #{cursorViewCount}
-                    OR (pop_view_count = #{cursorViewCount} AND pop_id &lt; #{cursorId})
+                    -- 1) statusGroup(0: ENDED 아님, 1: ENDED)가 커서보다 큰 애들
+                    CASE
+                    WHEN ps.pop_status = 'ENDED' THEN 1
+                    ELSE 0
+                    END &gt; #{cursorStatusGroup}
+                    OR (
+                    -- 2) statusGroup이 같고,
+                    CASE
+                    WHEN ps.pop_status = 'ENDED' THEN 1
+                    ELSE 0
+                    END = #{cursorStatusGroup}
+                    AND (
+                    -- 2-1) 인기 점수가 더 작은(=정렬상 뒤에 있는) 애들
+                    (
+                    IFNULL((
+                    SELECT COUNT(*)
+                    FROM POPUP_VIEWED v
+                    WHERE v.pop_id = ps.pop_id
+                    AND v.pv_viewed_at &gt;= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    ), 0)
+                    +
+                    3 * IFNULL((
+                    SELECT COUNT(*)
+                    FROM USER_WISHLIST w
+                    WHERE w.pop_id = ps.pop_id
+                    ), 0)
+                    ) &lt; #{cursorViewCount}
+                    OR (
+                    -- 2-2) 인기 점수가 같으면 pop_id로 tie-break
+                    (
+                    IFNULL((
+                    SELECT COUNT(*)
+                    FROM POPUP_VIEWED v
+                    WHERE v.pop_id = ps.pop_id
+                    AND v.pv_viewed_at &gt;= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    ), 0)
+                    +
+                    3 * IFNULL((
+                    SELECT COUNT(*)
+                    FROM USER_WISHLIST w
+                    WHERE w.pop_id = ps.pop_id
+                    ), 0)
+                    ) = #{cursorViewCount}
+                    AND ps.pop_id &lt; #{cursorId}
+                    )
+                    )
+                    )
                     )
                 </when>
 

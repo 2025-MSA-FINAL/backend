@@ -31,4 +31,6 @@ public class PopupStore {
     private Boolean popIsDeleted;           // 삭제 여부 (Soft Delete)
     private Long popViewCount;              // 조회수
     private String popAiSummary;            // AI 요약 내용
+
+    private Long popPopularityScore;        // 인기 점수: 최근 7일 조회수 + 찜 * 3
 }
