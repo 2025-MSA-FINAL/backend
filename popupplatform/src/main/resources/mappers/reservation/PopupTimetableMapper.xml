@@ -19,9 +19,17 @@
         (#{ptDayOfWeek}, #{popId}, #{ptStartDateTime}, #{ptEndDateTime}, #{ptCapacity})
     </insert>
 
-    <!-- 조회용 -->
-    <select id="findByPopId" resultType="com.popspot.popupplatform.domain.reservation.PopupTimetable">
-        SELECT *
+    <!-- 조회 -->
+    <select id="findByPopId"
+            resultType="com.popspot.popupplatform.domain.reservation.PopupTimetable">
+        SELECT
+        pop_id              AS popId,
+        pt_day_of_week      AS ptDayOfWeek,
+        pt_start_date_time  AS ptStartDateTime,
+        pt_end_date_time    AS ptEndDateTime,
+        pt_capacity         AS ptCapacity,
+        created_at          AS createdAt,
+        updated_at          AS updatedAt
         FROM POPUP_TIMETABLE
         WHERE pop_id = #{popId}
         ORDER BY pt_day_of_week
