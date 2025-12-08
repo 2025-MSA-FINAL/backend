@@ -1,7 +1,7 @@
 // src/main/java/com/popspot/popupplatform/mapper/UserMapper.java
 package com.popspot.popupplatform.mapper.user;
 
-import com.popspot.popupplatform.dto.chat.UserlimitInfoDto;
+import com.popspot.popupplatform.dto.chat.UserLimitInfoDto;
 import com.popspot.popupplatform.dto.global.JwtUserDto;
 import com.popspot.popupplatform.dto.user.LoginUserDto;
 import com.popspot.popupplatform.dto.user.UserDto;
@@ -114,5 +114,8 @@ public interface UserMapper {
      * - GROUP CHAT 입장 시 사용
      * - user_gender, user_birthyear 조회
      */
-    Optional<UserlimitInfoDto> findUserLimitInfo(@Param("userId") Long userId);
+    Optional<UserLimitInfoDto> findUserLimitInfo(@Param("userId") Long userId);
+
+    /** 채팅에서 사용할 유저 기본 정보 조회 */
+    Optional<UserDto> findById(Long userId);
 }

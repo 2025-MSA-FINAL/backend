@@ -46,13 +46,16 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        /* ===== WebSocket 허용 (핸드셰이크만 필요) ===== */
+                        .requestMatchers("/ws-stomp").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/ws-stomp").permitAll()
+                        /* ===== STOMP 내부 경로 ===== */
+                        .requestMatchers("/pub/**", "/sub/**").permitAll()
                         .requestMatchers(
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger",
-                                "/ws-chat",
-                                "/ws-chat/**"
+                                "/swagger"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/phone/**",
