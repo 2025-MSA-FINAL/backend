@@ -18,7 +18,7 @@ public class PopupStatusScheduler {
     private final PopupMapper popupMapper;
 
     // 1분마다 실행 (운영 정책에 따라 1시간(0 0 * * * *) 등으로 변경 가능)
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void schedulePopupStatusUpdate() {
         LocalDateTime now = LocalDateTime.now();
