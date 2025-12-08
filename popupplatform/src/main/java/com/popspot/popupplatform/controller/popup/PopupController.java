@@ -4,6 +4,7 @@ import com.popspot.popupplatform.dto.popup.request.PopupCreateRequest;
 import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
 import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
+import com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupWishlistToggleResponse;
 import com.popspot.popupplatform.service.popup.PopupService;
 import com.popspot.popupplatform.global.exception.CustomException;
@@ -25,6 +26,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -176,6 +178,31 @@ public class PopupController {
         // 3. 응답
         return ResponseEntity.ok(response);
     }
+
+
+    @Operation(summary = "내 주변 팝업 조회", description = "현재 위치 기준 반경 내 팝업을 거리순으로 조회합니다.")
+    @GetMapping("/nearby")
+    public List<PopupNearbyItemResponse> getNearbyPopups(
+            @RequestParam("latitude") Double latitude,
+            @RequestParam("longitude") Double longitude,
+            @RequestParam(value = "radiusKm", required = false) Double radiusKm,
+            @RequestParam(value = "size", required = false) Integer size,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long currentUserId = null;
+        if (userDetails != null) {
+            try {
+                currentUserId = Long.valueOf(userDetails.getUsername());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        log.info("[PopupNearby] API 호출 - userId={}, lat={}, lng={}, radiusKm={}, size={}",
+                currentUserId, latitude, longitude, radiusKm, size);
+
+        return popupService.getNearbyPopups(latitude, longitude, radiusKm, size);
+    }
+
 
 
 

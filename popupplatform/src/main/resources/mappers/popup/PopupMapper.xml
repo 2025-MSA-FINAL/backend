@@ -28,6 +28,8 @@
         <result property="popDescription"     column="pop_description"/>
         <result property="popThumbnail"       column="pop_thumbnail"/>
         <result property="popLocation"        column="pop_location"/>
+        <result property="popLatitude"        column="pop_latitude"/>
+        <result property="popLongitude"       column="pop_longitude"/>
         <result property="popStartDate"       column="pop_start_date"/>
         <result property="popEndDate"         column="pop_end_date"/>
         <result property="popIsReservation"   column="pop_is_reservation"/>
@@ -69,6 +71,8 @@
         pop_description,
         pop_thumbnail,
         pop_location,
+        pop_latitude,
+        pop_longitude,
         pop_start_date,
         pop_end_date,
         pop_is_reservation,
@@ -86,6 +90,8 @@
         #{popDescription},
         #{popThumbnail},
         #{popLocation},
+        #{popLatitude},
+        #{popLongitude},
         #{popStartDate},
         #{popEndDate},
         #{popIsReservation},
@@ -179,6 +185,8 @@
         pop_description,
         pop_thumbnail,
         pop_location,
+        pop_latitude,
+        pop_longitude,
         pop_start_date,
         pop_end_date,
         pop_is_reservation,
@@ -455,7 +463,8 @@
     <select id="selectPopupDetail" resultMap="PopupStoreResultMap">
         SELECT
         pop_id, pop_owner_id, pop_name, pop_description,
-        pop_thumbnail, pop_location, pop_start_date, pop_end_date,
+        pop_thumbnail, pop_location, pop_latitude, pop_longitude,
+        pop_start_date, pop_end_date,
         pop_is_reservation, pop_price_type, pop_price, pop_status,
         pop_insta_url, pop_moderation_status, pop_is_deleted,
         pop_view_count, pop_ai_summary
@@ -704,4 +713,61 @@
         ps.created_at DESC
         LIMIT #{limit}
     </select>
+
+
+    <!--
+        [내 주변 팝업 조회]
+        - 위/경도가 NOT NULL 인 팝업만 대상
+        - 삭제되지 않은 팝업 + ENDED 아닌 팝업만
+        - Haversine 공식을 이용해 거리 계산 (km)
+    -->
+    <select id="selectNearbyPopups"
+            resultType="com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse">
+
+        SELECT
+        ps.pop_id          AS popId,
+        ps.pop_name        AS popName,
+        ps.pop_thumbnail   AS popThumbnail,
+        ps.pop_location    AS popLocation,
+        ps.pop_latitude    AS popLatitude,
+        ps.pop_longitude   AS popLongitude,
+        ps.pop_price_type  AS popPriceType,
+        ps.pop_price       AS popPrice,
+        ps.pop_status      AS popStatus,
+
+        -- 거리(km)
+        (
+        6371 * ACOS(
+        COS(RADIANS(#{latitude}))
+        * COS(RADIANS(ps.pop_latitude))
+        * COS(RADIANS(ps.pop_longitude) - RADIANS(#{longitude}))
+        + SIN(RADIANS(#{latitude})) * SIN(RADIANS(ps.pop_latitude))
+        )
+        ) AS distanceKm
+
+        FROM POPUPSTORE ps
+        WHERE
+        ps.pop_is_deleted = FALSE
+        AND ps.pop_status != 'ENDED'
+        AND ps.pop_latitude IS NOT NULL
+        AND ps.pop_longitude IS NOT NULL
+
+        <if test="radiusKm != null">
+            AND (
+            6371 * ACOS(
+            COS(RADIANS(#{latitude}))
+            * COS(RADIANS(ps.pop_latitude))
+            * COS(RADIANS(ps.pop_longitude) - RADIANS(#{longitude}))
+            + SIN(RADIANS(#{latitude})) * SIN(RADIANS(ps.pop_latitude))
+            )
+            ) &lt;= #{radiusKm}
+        </if>
+
+        ORDER BY
+        distanceKm ASC,
+        ps.pop_id DESC
+
+        LIMIT #{limit}
+    </select>
+
 </mapper>

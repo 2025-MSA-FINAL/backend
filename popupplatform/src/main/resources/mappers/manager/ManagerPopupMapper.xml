@@ -13,6 +13,8 @@
         pop_description   AS popDescription,
         pop_insta_url     AS popInstaUrl,
         pop_location      AS popLocation,
+        pop_latitude      AS popLatitude,
+        pop_longitude     AS popLongitude,
         pop_start_date    AS popStartDate,
         pop_end_date      AS popEndDate,
         pop_price_type    AS popPriceType,
@@ -62,9 +64,13 @@
             <if test="request.popThumbnail != null">
                 pop_thumbnail = #{request.popThumbnail},
             </if>
+
             <if test="request.popLocation != null">
-                pop_location = #{request.popLocation},
+                pop_location  = #{request.popLocation},
+                pop_latitude  = #{request.popLatitude},
+                pop_longitude = #{request.popLongitude},
             </if>
+
             <if test="request.popStartDate != null">
                 pop_start_date = #{request.popStartDate},
             </if>

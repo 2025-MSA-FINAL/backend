@@ -10,11 +10,14 @@ import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
 import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListItemResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
+import com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
 import com.popspot.popupplatform.global.exception.code.CommonErrorCode;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
+import com.popspot.popupplatform.global.geo.GeoCodingService;
+import com.popspot.popupplatform.global.geo.GeoPoint;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
 import com.popspot.popupplatform.mapper.user.UserWishlistMapper;
@@ -40,6 +43,7 @@ public class PopupService {
     private final UserMapper userMapper;
     private final UserWishlistMapper userWishlistMapper;
     private final PopupAiSummaryService popupAiSummaryService;
+    private final GeoCodingService geoCodingService;
 
     /**
      * 팝업 스토어 등록
@@ -69,13 +73,32 @@ public class PopupService {
                 ? PopupStatus.ONGOING  // 시작일 지났으면 '진행 중'
                 : PopupStatus.UPCOMING; // 아니면 '오픈 예정'
 
-        // 2. DTO -> Entity 변환
+
+        // 2. 주소 -> 좌표 계산
+        log.info("[PopupRegister] 지오코딩 시도 - address={}", request.getPopLocation());
+
+        GeoPoint geoPoint = geoCodingService.findCoordinates(request.getPopLocation())
+                .orElse(null);
+
+        if (geoPoint == null) {
+            log.warn("[PopupRegister] 지오코딩 실패 - address={}, geoPoint=null", request.getPopLocation());
+        } else {
+            log.info("[PopupRegister] 지오코딩 성공 - address={}, lat={}, lng={}",
+                    request.getPopLocation(), geoPoint.getLatitude(), geoPoint.getLongitude());
+        }
+
+        Double latitude  = (geoPoint != null) ? geoPoint.getLatitude()  : null;
+        Double longitude = (geoPoint != null) ? geoPoint.getLongitude() : null;
+
+        // 3. DTO -> Entity 변환
         PopupStore popupStore = PopupStore.builder()
                 .popOwnerId(managerId)
                 .popName(request.getPopName())
                 .popDescription(request.getPopDescription())
                 .popThumbnail(request.getPopThumbnail())
                 .popLocation(request.getPopLocation())
+                .popLatitude(latitude)
+                .popLongitude(longitude)
                 .popStartDate(request.getPopStartDate())
                 .popEndDate(request.getPopEndDate())
                 .popIsReservation(request.getPopIsReservation())
@@ -86,13 +109,13 @@ public class PopupService {
                 .popAiSummary(null)
                 .build();
 
-        // 3. DB 저장
+        // 4. DB 저장
         popupMapper.insertPopup(popupStore);
         Long newPopupId = popupStore.getPopId();
 
         log.info("팝업 저장 완료: id={}, title={}", newPopupId, popupStore.getPopName());
 
-        // 4. 해시태그 저장
+        // 5. 해시태그 저장
         if (request.getHashtags() != null) {
             request.getHashtags().forEach(rawTag -> {
                 String tagName = normalizeTag(rawTag);
@@ -105,7 +128,7 @@ public class PopupService {
             });
         }
 
-        // 5. 상세 이미지 URL 저장
+        // 6. 상세 이미지 URL 저장
         if (request.getPopImages() != null) {
             for (int i = 0; i < request.getPopImages().size(); i++) {
                 String imageUrl = request.getPopImages().get(i);
@@ -116,7 +139,7 @@ public class PopupService {
             }
         }
 
-        // 6. AI 요약은 트랜잭션 이후 별도 쓰레드에서 비동기로 생성 + DB 업데이트
+        // 7. AI 요약은 트랜잭션 이후 별도 쓰레드에서 비동기로 생성 + DB 업데이트
         popupAiSummaryService.generateAndUpdateSummaryAsync(
                 newPopupId,
                 request.getPopName(),
@@ -433,4 +456,38 @@ public class PopupService {
                 .reservationStatus(reservationStatus)
                 .build();
     }
+
+
+    /**
+     * 내 주변 팝업 조회
+     */
+    @Transactional(readOnly = true)
+    public List<PopupNearbyItemResponse> getNearbyPopups(
+            Double latitude,
+            Double longitude,
+            Double radiusKm,
+            Integer size
+    ) {
+        if (latitude == null || longitude == null) {
+            throw new CustomException(CommonErrorCode.INVALID_REQUEST);
+        }
+
+        double effectiveRadiusKm =
+                (radiusKm == null || radiusKm <= 0) ? 3.0 : radiusKm;   //기본 3km
+        int limit =
+                (size == null || size <= 0 || size > 100) ? 30 : size;  //기본 30개, 최대 100개
+
+        log.info("[PopupNearby] 내 주변 팝업 조회 - lat={}, lng={}, radiusKm={}, limit={}",
+                latitude, longitude, effectiveRadiusKm, limit);
+
+        List<PopupNearbyItemResponse> items =
+                popupMapper.selectNearbyPopups(latitude, longitude, effectiveRadiusKm, limit);
+
+        log.info("[PopupNearby] 결과 개수 = {}", items.size());
+
+        return items;
+    }
+
+
+
 }
