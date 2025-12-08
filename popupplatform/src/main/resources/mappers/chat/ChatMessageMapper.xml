@@ -1,23 +1,110 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.popspot.popupplatform.mapper.chat.ChatMessageMapper">
-    <insert id="insertChatMessage"
-            parameterType="com.popspot.popupplatform.domain.chat.ChatMessage">
+    <resultMap id="ChatMessageResultMap" type="com.popspot.popupplatform.dto.chat.response.ChatMessageResponse">
+
+        <result column="cmId" property="cmId"/>
+        <result column="roomId" property="roomId"/>
+        <result column="roomType" property="roomType"/>
+
+        <result column="senderId" property="senderId"/>
+        <result column="senderNickname" property="senderNickname"/>
+        <result column="senderProfileUrl" property="senderProfileUrl"/>
+
+        <result column="content" property="content"/>
+        <result column="messageType" property="messageType"/>
+
+        <result column="createdAt" property="createdAt"/>
+        <result column="dateLabel" property="dateLabel"/>
+    </resultMap>
+
+
+    <!-- 메시지 저장 -->
+    <insert id="insertMessage"
+            useGeneratedKeys="true"
+            keyProperty="cmId"
+            keyColumn="cm_id">
         INSERT INTO CHAT_MESSAGE
-        (cm_type, cm_room_id, cm_content, user_id, cm_is_deleted, cm_url)
+        (cm_type, cm_room_type, cm_room_id, cm_content, user_id, cm_is_deleted)
         VALUES
-        (#{cmType}, #{cmRoomId}, #{cmContent}, #{userId}, FALSE, #{cmUrl})
+        (#{messageType}, #{roomType}, #{roomId}, #{content}, #{senderId}, FALSE);
     </insert>
-    <select id="findMessages"
-            resultType="com.popspot.popupplatform.domain.chat.ChatMessage">
-        SELECT *
-        FROM CHAT_MESSAGE
-        WHERE cm_type = #{roomType}
-        AND cm_room_id = #{roomId}
-        AND (#{minCreatedAt} IS NULL OR created_at > #{minCreatedAt})
-        ORDER BY created_at ASC
+
+    <!-- 방 메시지 리스트 -->
+    <select id="getMessagesByRoom"
+            resultMap="ChatMessageResultMap">
+        SELECT
+        cm.cm_id AS cmId,
+        cm.cm_room_id AS roomId,
+        cm.cm_type AS messageType,
+        cm.cm_room_type AS roomType,
+        cm.cm_content AS content,
+        cm.user_id AS senderId,
+        u.user_nickname AS senderNickname,
+        u.user_photo AS senderProfileUrl,
+        DATE_FORMAT(cm.created_at, '%p %h:%i') AS createdAt,
+        DATE_FORMAT(cm.created_at, '%Y년 %m월 %d일 %W') AS dateLabel
+        FROM CHAT_MESSAGE cm
+        JOIN USER u ON cm.user_id = u.user_id
+        WHERE cm.cm_room_type = #{roomType}
+        AND cm.cm_room_id = #{roomId}
+        <if test="lastMessageId != null">
+            AND cm.cm_id &lt; #{lastMessageId}
+        </if>
+        ORDER BY cm.cm_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 최신 메시지 -->
+    <select id="getLatestMessage"
+            resultMap="ChatMessageResultMap">
+        SELECT
+        cm.cm_id AS cmId,
+        cm.cm_room_id AS roomId,
+        cm.cm_room_type AS roomType,
+        cm.cm_type AS messageType,
+        cm.cm_content AS content,
+        cm.user_id AS senderId,
+        u.user_nickname AS senderNickname,
+        u.user_photo AS senderProfileUrl,
+        DATE_FORMAT(cm.created_at, '%p %h:%i') AS createdAt,
+        DATE_FORMAT(cm.created_at, '%Y년 %m월 %d일 %W') AS dateLabel
+        FROM CHAT_MESSAGE cm
+        JOIN USER u ON cm.user_id = u.user_id
+        WHERE cm.cm_room_type = #{roomType}
+        AND cm.cm_room_id = #{roomId}
+        ORDER BY cm.cm_id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 메시지 단건 조회 -->
+    <select id="getMessageById"
+            resultMap="ChatMessageResultMap">
+        SELECT
+        cm.cm_id AS cmId,
+        cm.cm_room_id AS roomId,
+        cm.cm_room_type AS roomType,
+        cm.cm_type AS messageType,
+        cm.cm_content AS content,
+        cm.user_id AS senderId,
+        u.user_nickname AS senderNickname,
+        u.user_photo AS senderProfileUrl,
+        DATE_FORMAT(cm.created_at, '%p %h:%i') AS createdAt,
+        DATE_FORMAT(cm.created_at, '%Y년 %m월 %d일 %W') AS dateLabel
+        FROM CHAT_MESSAGE cm
+        JOIN USER u ON cm.user_id = u.user_id
+        WHERE cm.cm_room_type = #{roomType}
+        AND cm.cm_id = #{cmId}
+    </select>
+
+    <!-- 읽지 않은 메시지 수 -->
+    <select id="countUnreadMessages" resultType="int">
+        SELECT COUNT(*)
+        FROM CHAT_MESSAGE cm
+        WHERE cm.cm_room_type = #{roomType}
+        AND cm.cm_room_id = #{roomId}
+        AND cm.cm_id > #{lastReadId}
     </select>
 </mapper>
