@@ -3,7 +3,7 @@ package com.popspot.popupplatform.service.chat;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
-import com.popspot.popupplatform.dto.chat.UserlimitInfoDto;
+import com.popspot.popupplatform.dto.chat.UserLimitInfoDto;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
@@ -114,10 +114,10 @@ public class GroupChatRoomService {
             throw new CustomException(ChatErrorCode.ROOM_FULL);
         }
         //유저정보 가져오기
-        UserlimitInfoDto user = userMapper.findUserLimitInfo(userId)
+        UserLimitInfoDto user = userMapper.findUserLimitInfo(userId)
                 .orElseThrow(() -> new CustomException(ChatErrorCode.USER_NOT_FOUND));
-        String gender = user.getGender();
-        Integer birthYear = user.getBirthYear();
+        String gender = user.getUserGender();
+        Integer birthYear = user.getUserBirthyear();
         // 나이 계산
         int currentYear = LocalDate.now().getYear();
         int age = currentYear - birthYear;

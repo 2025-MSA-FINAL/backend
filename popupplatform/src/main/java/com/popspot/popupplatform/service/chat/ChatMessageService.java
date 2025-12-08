@@ -1,68 +1,75 @@
 package com.popspot.popupplatform.service.chat;
 
-import com.popspot.popupplatform.domain.chat.ChatMessage;
-import com.popspot.popupplatform.dto.chat.request.ChatMessageSendRequest;
+import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
-import com.popspot.popupplatform.mapper.chat.PrivateChatRoomMapper;
+import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ChatMessageService {
+
     private final ChatMessageMapper chatMessageMapper;
-    private final PrivateChatRoomService privateChatRoomService;
-    //Stomp로 들어온 메세지 DB에 저장
-    public ChatMessage saveMessage(ChatMessageSendRequest req) {
-        // PRIVATE 채팅일 경우 삭제 상태 자동 해제 처리
-        if ("PRIVATE".equals(req.getRoomType())) {
+    private final UserMapper userMapper;
+    private final ChatReadService chatReadService;
 
-            Long pcrId = req.getRoomId();
-            Long senderId = req.getSenderId();
+    public ChatMessageResponse saveMessage(ChatMessageRequest req) {
 
-            // 내가 삭제 상태였다면 → 나를 복구
-            privateChatRoomService.restorePrivateRoomOnNewMessage(senderId, pcrId);
+        // 1) INSERT → 자동 생성된 PK(cm_id)가 req.cmId에 채워짐
+        chatMessageMapper.insertMessage(req);
 
-            // 상대방이 삭제 상태였다면 → 상대방 복구
-            Long otherUserId = privateChatRoomService.getOtherUserId(pcrId, senderId);
-            privateChatRoomService.restorePrivateRoomOnNewMessage(otherUserId, pcrId);
+        // 2) 생성된 메시지를 DB에서 다시 조회
+        ChatMessageResponse saved = chatMessageMapper.getMessageById(
+                req.getRoomType(),
+                req.getCmId()
+        );
+
+        if (saved == null) {
+            throw new RuntimeException("메시지 조회 실패");
         }
-        // DTO를 DB 저장을 위한 ChatMessage 엔티티로 변환
-        ChatMessage message = ChatMessage.builder()
-                .cmType(req.getRoomType())
-                .cmRoomId(req.getRoomId())
-                .cmContent(req.getContent())
-                .userId(req.getSenderId())
-                .cmIsDeleted(false)
-                .cmUrl(req.getImgUrl())
-                .build();
-        // 메시지를 DB에 삽입
-        chatMessageMapper.insertChatMessage(message);
 
-        log.debug("Chat message saved: {}", message);
-        return message;
-    }
-    // 채팅방 메세지 목록 조회(메세지 삭제 또는 나가기 유무 판단)
-    public List<ChatMessage> getMessages(String roomType, Long roomId, String minCreatedAt) {
-        return chatMessageMapper.findMessages(roomType, roomId, minCreatedAt);
-    }
-    // 클라이언트로 보내줄 응답 DTO 반환
-    public ChatMessageResponse toResponse(ChatMessage message) {
-        //ChatMessage 엔티티를 클라이언트로 전송할 응답 DTO로 변환
-        return ChatMessageResponse.builder()
-                .cmId(message.getCmId())
-                .roomType(message.getCmType())
-                .roomId(message.getCmRoomId())
-                .senderId(message.getUserId())
-                .content(message.getCmContent())
-                .imgUrl(message.getCmUrl())
-                .createdAt(message.getCreatedAt())
-                .build();
+        return saved;
     }
 
+    private String formatTime(LocalDateTime time) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("a hh:mm");
+        return time.format(formatter);
+    }
+
+    private String formatDate(LocalDateTime date) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 E요일");
+        return date.format(formatter);
+    }
+
+    public List<ChatMessageResponse> getMessages(String roomType, Long roomId, Long lastMessageId, int limit, Long userId) {
+
+        List<ChatMessageResponse> messages =
+                chatMessageMapper.getMessagesByRoom(roomType, roomId, lastMessageId, limit);
+
+        Long lastReadId = chatReadService.getLastRead(roomType, roomId, userId);
+
+        boolean separatorInserted = false;
+
+        for (ChatMessageResponse msg : messages) {
+
+            int readCount = chatReadService.getReadCount(msg.getCmId());
+            msg.setReadCount(readCount);
+
+            boolean isRead = msg.getCmId() <= lastReadId;
+            msg.setIsRead(isRead);
+
+            if (!separatorInserted && msg.getCmId() > lastReadId) {
+                msg.setUnreadSeparator(true);
+                separatorInserted = true;
+            }
+        }
+
+        return messages;
+    }
 }

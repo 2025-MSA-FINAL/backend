@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 @Builder
 @Schema(description = "그룹 채팅방 상세 정보 응답 DTO")
 public class GroupChatRoomDetailResponse {
+
+    @Builder.Default
+    private String roomType = "GROUP";
+
     private Long gcrId; //그룹채팅방PK
     private Long popId; //팝업스토어PK
     private Long ownerId; //방장

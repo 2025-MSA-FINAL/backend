@@ -4,7 +4,7 @@ package com.popspot.popupplatform.service.user;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.popspot.popupplatform.dto.chat.UserlimitInfoDto;
+import com.popspot.popupplatform.dto.chat.UserLimitInfoDto;
 import com.popspot.popupplatform.dto.user.report.*;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
@@ -51,11 +51,11 @@ public class UserReportService {
     public UserPersonaReport userReport(Long userId) {
 
         // 1. 유저 기본 인구통계 정보 (성별 / 출생년도)
-        UserlimitInfoDto limitInfo = userMapper.findUserLimitInfo(userId)
+        UserLimitInfoDto limitInfo = userMapper.findUserLimitInfo(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 또는 비활성화된 유저입니다. userId=" + userId));
 
-        String gender = limitInfo.getGender();         // "M" / "F" / null 등
-        Integer birthYear = limitInfo.getBirthYear();  // 1998 등
+        String gender = limitInfo.getUserGender();         // "M" / "F" / null 등
+        Integer birthYear = limitInfo.getUserBirthyear();  // 1998 등
 
         // 나이/연령대 계산
         AgeInfo ageInfo = calculateAgeInfo(birthYear);

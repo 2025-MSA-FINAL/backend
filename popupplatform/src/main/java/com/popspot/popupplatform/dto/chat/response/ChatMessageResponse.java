@@ -1,20 +1,30 @@
 package com.popspot.popupplatform.dto.chat.response;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-
-import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@Schema(description = "채팅 메시지 응답 DTO")
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatMessageResponse {
-    private Long cmId; //메세지ID
-    private String roomType; //수신한채팅방유형 "PRIVATE" OR "GROUP"
-    private Long roomId; //수신한채팅방ID
-    private Long senderId; //메세지수신자userID
-    private String content; //받을메세지내용
-    private String imgUrl; // 받을이미지 URL
-    private LocalDateTime createdAt; // 메시지 생성 시간
+    private Long cmId;
+    private Long roomId;
+    private String roomType;
+
+    private Long senderId;
+    private String senderNickname;
+    private String senderProfileUrl;
+
+    private String content;
+    private String messageType;
+
+    private String createdAt; // "오전 10:40" 같은 형태
+    private String dateLabel; // 날짜 구분선: "2025년 11월 21일 금요일"
+
+    private Integer readCount; // 읽은 사람 수
+    private Boolean isRead; // 현재 유저 기준 읽음 여부
+    private Boolean unreadSeparator; // 구분선 추가 여부
 }

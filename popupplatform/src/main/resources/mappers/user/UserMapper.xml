@@ -249,14 +249,31 @@
 
     <!-- 성별/나이 제한 검사용 사용자 기본 정보 조회  -->
     <select id="findUserLimitInfo"
-            resultType="com.popspot.popupplatform.dto.chat.UserlimitInfoDto">
+            resultType="com.popspot.popupplatform.dto.chat.UserLimitInfoDto">
         SELECT
-        u.user_id AS userId,
-        u.user_gender AS gender,
-        u.user_birthyear AS birthYear
-        FROM USER u
-        WHERE u.user_id = #{userId}
-        AND u.user_status = 'ACTIVE'
-        LIMIT 1
+        user_id as userId,
+        user_gender as userGender,
+        user_birthyear as userBirthyear
+        FROM USER
+        WHERE user_id = #{userId}
+        AND user_status != 'DELETED'
+    </select>
+
+    <!-- 채팅에서 사용할 유저 기본 정보 조회 -->
+    <select id="findById" resultType="com.popspot.popupplatform.dto.user.UserDto">
+        SELECT
+        user_id AS userId,
+        user_name AS name,
+        user_nickname AS nickname,
+        user_phonenumber AS phone,
+        user_gender AS gender,
+        user_birthyear AS birthYear,
+        user_photo AS profileImage,
+        user_email AS email,
+        user_status AS status,
+        user_role AS role,
+        user_introduction AS introduction
+        FROM USER
+        WHERE user_id = #{userId}
     </select>
 </mapper>
