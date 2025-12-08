@@ -18,6 +18,12 @@ public enum ReservationErrorCode implements BaseErrorCode {
 
     // 잘못된 제외일
     INVALID_EXCLUDE_DATE("RES_005", "유효하지 않은 제외일입니다.", HttpStatus.BAD_REQUEST),
+
+    RESERVATION_ALREADY_EXISTS(
+            "RES_006",
+            "이미 예약 설정이 존재하여 수정할 수 없습니다.",
+            HttpStatus.CONFLICT
+    ),
     ;
 
     private final String code;
