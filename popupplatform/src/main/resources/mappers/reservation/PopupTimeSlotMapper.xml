@@ -50,4 +50,27 @@
         ORDER BY pts_start_time
     </select>
 
+    <resultMap id="PopupTimeSlotResultMap"
+               type="com.popspot.popupplatform.domain.reservation.PopupTimeSlot">
+        <id     property="ptsId"        column="pts_id"/>
+        <result property="popId"        column="pop_id"/>
+        <!-- DayOfWeekType enum ↔ VARCHAR(10) (MON,TUE...) -->
+        <result property="ptsDayOfWeek" column="pts_day_of_week"/>
+        <result property="ptsStartTime" column="pts_start_time"/>
+        <result property="ptsEndTime"   column="pts_end_time"/>
+        <result property="ptsCapacity"  column="pts_capacity"/>
+    </resultMap>
+
+    <select id="findById" resultMap="PopupTimeSlotResultMap">
+        SELECT
+        pts_id,
+        pop_id,
+        pts_day_of_week,
+        pts_start_time,
+        pts_end_time,
+        pts_capacity
+        FROM POPUP_TIME_SLOT
+        WHERE pts_id = #{ptsId}
+    </select>
+
 </mapper>
