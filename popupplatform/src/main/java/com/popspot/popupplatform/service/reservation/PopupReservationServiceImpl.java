@@ -19,10 +19,7 @@ import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.ReservationErrorCode;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
-import com.popspot.popupplatform.mapper.reservation.PopupBlockMapper;
-import com.popspot.popupplatform.mapper.reservation.PopupReservationMapper;
-import com.popspot.popupplatform.mapper.reservation.PopupTimeSlotMapper;
-import com.popspot.popupplatform.mapper.reservation.PopupTimetableMapper;
+import com.popspot.popupplatform.mapper.reservation.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +40,8 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     private final PopupBlockMapper popupBlockMapper;
     private final PopupTimeSlotMapper popupTimeSlotMapper;
     private final PopupMapper popupMapper;
+    private final UserReservationMapper userReservationMapper;
+    private final ReservationHoldMapper reservationHoldMapper;
 
     /**
      * 예약 설정 저장 (최초 1회만 허용)
@@ -165,7 +164,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
 
     // ====================================================
 // 2) 특정 날짜 슬롯 목록
-//    ✅ 이제는 POPUP_TIME_SLOT(pts_id) 기반으로 응답
+//    ✅ POPUP_TIME_SLOT(pts_id) + USER_RESERVATION + RESERVATION_HOLD 기반 remainingCount 계산
 // ====================================================
     @Transactional(readOnly = true)
     @Override
@@ -179,10 +178,9 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                     .build();
         }
 
-        // 요일 구해서 해당 요일의 슬롯 템플릿 조회
+        // 1) 요일 구해서 해당 요일의 슬롯 템플릿 조회
         DayOfWeekType targetDow = toDayOfWeekType(date.getDayOfWeek());
 
-        // ✅ POPUP_TIME_SLOT에서 직접 조회
         List<PopupTimeSlot> slots =
                 popupTimeSlotMapper.findByPopIdAndDayOfWeek(popId, targetDow);
 
@@ -193,15 +191,43 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                     .build();
         }
 
-        // TODO: 여기서 나중에 실제 예약/홀드 인원 빼서 remainingCount 계산
+        // 2) 이 날짜의 하루 범위 및 현재 시간
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+        LocalDateTime now = LocalDateTime.now();
+
+        // 3) 슬롯별로 확정예약 + ACTIVE HOLD 합산해서 remaining 계산
         List<PopupTimeSlotResponse> result = new ArrayList<>();
+
         for (PopupTimeSlot s : slots) {
+            Long ptsId = s.getPtsId();
+            int capacity = s.getPtsCapacity();
+
+            // USER_RESERVATION 에서 확정 예약 인원
+            Integer confirmed = userReservationMapper.sumConfirmedUserCountForDisplay(
+                    ptsId,
+                    startOfDay,
+                    endOfDay
+            );
+            if (confirmed == null) confirmed = 0;
+
+            // RESERVATION_HOLD 에서 아직 ACTIVE 이고, 만료 안 된 HOLD 인원
+            Integer holding = reservationHoldMapper.sumActiveHoldUserCountForDisplay(
+                    ptsId,
+                    date,
+                    now
+            );
+            if (holding == null) holding = 0;
+
+            int remaining = capacity - confirmed - holding;
+            if (remaining < 0) remaining = 0; // 혹시라도 음수 방지
+
             result.add(
                     PopupTimeSlotResponse.builder()
                             .slotId(s.getPtsId())
                             .startTime(s.getPtsStartTime().toString())
                             .endTime(s.getPtsEndTime().toString())
-                            .remainingCount(s.getPtsCapacity()) // 일단 capacity 그대로
+                            .remainingCount(remaining)
                             .build()
             );
         }

@@ -1,0 +1,56 @@
+<!-- src/main/resources/mapper/reservation/ReservationHoldMapper.xml -->
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.ReservationHoldMapper">
+
+    <resultMap id="ReservationHoldResultMap"
+               type="com.popspot.popupplatform.domain.reservation.ReservationHold">
+        <id     property="rhId"        column="rh_id"/>
+        <result property="ptsId"       column="pts_id"/>
+        <result property="userId"      column="user_id"/>
+        <result property="rhDate"      column="rh_date"/>
+        <result property="rhUserCnt"   column="rh_user_cnt"/>
+        <result property="rhStatus"    column="rh_status"/>
+        <result property="rhExpiresAt" column="rh_expires_at"/>
+    </resultMap>
+
+    <!-- 해당 슬롯 + 날짜의 ACTIVE HOLD 인원 합산 -->
+    <select id="sumActiveHoldUserCount" resultType="int">
+        SELECT COALESCE(SUM(rh_user_cnt), 0)
+        FROM RESERVATION_HOLD
+        WHERE pts_id        = #{ptsId}
+        AND rh_date       = #{rhDate}
+        AND rh_status     = 'ACTIVE'
+        AND rh_expires_at > #{now}
+        FOR UPDATE
+    </select>
+
+    <select id="sumActiveHoldUserCountForDisplay" resultType="int">
+        SELECT COALESCE(SUM(rh_user_cnt), 0)
+        FROM RESERVATION_HOLD
+        WHERE pts_id        = #{ptsId}
+        AND rh_date       = #{rhDate}
+        AND rh_status     = 'ACTIVE'
+        AND rh_expires_at > #{now}
+    </select>
+
+    <insert id="insert"
+            parameterType="com.popspot.popupplatform.domain.reservation.ReservationHold"
+            useGeneratedKeys="true"
+            keyProperty="rhId">
+        INSERT INTO RESERVATION_HOLD
+        (pts_id, user_id, rh_date, rh_user_cnt, rh_status, rh_expires_at)
+        VALUES
+        (#{ptsId}, #{userId}, #{rhDate}, #{rhUserCnt}, #{rhStatus}, #{rhExpiresAt})
+    </insert>
+
+    <update id="updateStatusToUsed">
+        UPDATE RESERVATION_HOLD
+        SET rh_status = 'USED',
+        updated_at = CURRENT_TIMESTAMP
+        WHERE rh_id = #{rhId}
+    </update>
+
+</mapper>

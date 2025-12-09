@@ -24,7 +24,27 @@ public enum ReservationErrorCode implements BaseErrorCode {
             "이미 예약 설정이 존재하여 수정할 수 없습니다.",
             HttpStatus.CONFLICT
     ),
+
+    // ✅ 추가: 슬롯 없음
+    RESERVATION_SLOT_NOT_FOUND(
+            "RES_007",
+            "해당 예약 시간대를 찾을 수 없습니다.",
+            HttpStatus.NOT_FOUND
+    ),
+
+    // ✅ 추가: 정원 초과
+    RESERVATION_SLOT_FULL(
+            "RES_008",
+            "해당 시간대가 가득 찼습니다.",
+            HttpStatus.CONFLICT
+    ),
+    INVALID_PEOPLE_COUNT(
+            "RES_009",
+                    "PEOPLE값이 유효하지 않습니다.",
+            HttpStatus.CONFLICT
+            ),
     ;
+
 
     private final String code;
     private final String message;

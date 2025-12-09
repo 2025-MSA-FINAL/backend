@@ -20,4 +20,5 @@ public interface PopupTimeSlotMapper {
             @Param("popId") Long popId,
             @Param("dayOfWeek") DayOfWeekType dayOfWeek
     );
+    PopupTimeSlot findById(@Param("ptsId") Long ptsId);
 }
