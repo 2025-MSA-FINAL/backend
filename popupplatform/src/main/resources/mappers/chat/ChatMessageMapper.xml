@@ -50,6 +50,10 @@
         JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
         AND cm.cm_room_id = #{roomId}
+        <if test="lastDeletedAt != null">
+            AND cm.created_at > #{lastDeletedAt}
+        </if>
+        <!-- 무한스크롤 (이전 메시지 로딩) -->
         <if test="lastMessageId != null">
             AND cm.cm_id &lt; #{lastMessageId}
         </if>
