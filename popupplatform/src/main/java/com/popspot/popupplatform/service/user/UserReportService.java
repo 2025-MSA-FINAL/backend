@@ -284,13 +284,27 @@ public class UserReportService {
 
         int totalActions = viewCount + wishlistCount + reservationCount;
         int distinctPopupCount = popupAnyActionCount.size();
-        long revisitPopupCount = popupAnyActionCount.values().stream()
-                .filter(cnt -> cnt >= 2)
-                .count();
+        double revisitRate;
+        if (hashtagScore.isEmpty()) {
+            revisitRate = 0.0;
+        } else {
+            List<Double> sortedTagScores = hashtagScore.values().stream()
+                    .sorted(Comparator.reverseOrder())  // 점수 높은 태그부터
+                    .toList();
 
-        double revisitRate = distinctPopupCount == 0
-                ? 0.0
-                : (double) revisitPopupCount / distinctPopupCount;
+            double totalTagScore = sortedTagScores.stream()
+                    .mapToDouble(Double::doubleValue)
+                    .sum();
+
+            int topK = Math.min(3, sortedTagScores.size());
+            double topKScore = 0.0;
+            for (int i = 0; i < topK; i++) {
+                topKScore += sortedTagScores.get(i);
+            }
+
+            // 상위 K개 태그 비율 = 취향 일관성 지표
+            revisitRate = (totalTagScore == 0.0) ? 0.0 : (topKScore / totalTagScore);
+        }
 
         double nightRate = totalActions == 0 ? 0.0 : (double) nightActions / totalActions;
         double weekendRate = totalActions == 0 ? 0.0 : (double) weekendActions / totalActions;
@@ -364,8 +378,8 @@ public class UserReportService {
     }
 
     // -------------------------------------------------------
-    // 3) 스냅샷 -> 육각형 축(점수) 계산
-    // -------------------------------------------------------
+// 3) 스냅샷 -> 육각형 축(점수) 계산
+// -------------------------------------------------------
 
     private List<UserPersonaAxis> buildHexagonAxesFromSnapshot(UserBehaviorSnapshot s) {
 
@@ -383,20 +397,31 @@ public class UserReportService {
         double exploration = (explorationScore * 0.5) + (hashtagVarietyScore * 0.3) + (regionVarietyScore * 0.2);
 
         // 3. 계획성: 예약 비율 + 야행성/주말 비율 역가중
-        double reservationRatio = totalActions == 0 ? 0.0 : (double) s.getTotalReservationCount() / totalActions;
-        double planScore = clamp(
-                70.0 * reservationRatio      // 예약 많이 할수록 +
-                        + 15.0 * (1.0 - s.getNightRate())  // 야행성 적을수록 +
-                        + 15.0 * (1.0 - s.getWeekendRate()) // 주말 몰림 적을수록 +
-        );
+        double reservationRatio = totalActions == 0 ? 0.0
+                : (double) s.getTotalReservationCount() / totalActions;
+
+        // ✅ 예약을 한 적이 전혀 없으면 계획성은 0점 고정
+        double planScore;
+        if (s.getTotalReservationCount() == 0) {
+            planScore = 0.0;
+        } else {
+            planScore = clamp(
+                    70.0 * reservationRatio                // 예약 많이 할수록 +
+                            + 15.0 * (1.0 - s.getNightRate())   // 야행성 적을수록 +
+                            + 15.0 * (1.0 - s.getWeekendRate()) // 주말 몰림 적을수록 +
+            );
+        }
 
         // 4. 가격 민감도: 무료 비율 높을수록 "민감도"가 높다고 가정
+        // (FREE/PAID 기록이 전혀 없으면 priceFreeRatio가 0이라 score도 0이 됨)
         double priceSensitivityScore = clamp(100.0 * s.getPriceFreeRatio());
 
         // 5. 동행 선호(Social): 평균 인원 수로 계산 (1명 기준, 3명 이상이면 만점)
+        // (동행 예약 자체가 없으면 avgGroupSize = 0 → 음수라 clamp로 0점 처리됨)
         double socialScore = clamp(100.0 * (s.getAvgGroupSize() - 1.0) / 2.0);
 
         // 6. 충성도(Loyalty): 재방문 팝업 비율
+        // (재방문한 팝업이 없으면 revisitRate = 0 → 0점)
         double loyaltyScore = clamp(100.0 * s.getRevisitRate());
 
         List<UserPersonaAxis> axes = new ArrayList<>();
@@ -437,10 +462,10 @@ public class UserReportService {
                 .build());
 
         axes.add(UserPersonaAxis.builder()
-                .axisKey("LOYALTY")
-                .axisLabel("재방문 성향")
+                .axisKey("PREFERENCE_FOCUS")
+                .axisLabel("취향 일관성")
                 .score((int) Math.round(loyaltyScore))
-                .description("마음에 든 팝업/분위기를 반복해서 찾는 경향")
+                .description("비슷한 분위기나 해시태그를 가진 팝업을 반복해서 찾는 경향")
                 .build());
 
         return axes;

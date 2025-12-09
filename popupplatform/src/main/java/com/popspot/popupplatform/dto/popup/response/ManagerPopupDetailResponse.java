@@ -32,6 +32,12 @@ public class ManagerPopupDetailResponse {
     @Schema(description = "장소 (주소)")
     private String popLocation;
 
+    @Schema(description = "팝업 위치 위도 (WGS84 기준)")
+    private Double popLatitude;
+
+    @Schema(description = "팝업 위치 경도 (WGS84 기준)")
+    private Double popLongitude;
+
     @Schema(description = "시작일")
     private LocalDateTime popStartDate;
 

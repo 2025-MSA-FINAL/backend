@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.service.popup;
 
 import com.popspot.popupplatform.domain.popup.PopupStore;
+import com.popspot.popupplatform.domain.reservation.PopupReservation;
 import com.popspot.popupplatform.dto.global.JwtUserDto;
 import com.popspot.popupplatform.dto.popup.enums.PopupPriceType;
 import com.popspot.popupplatform.dto.popup.enums.PopupSortOption;
@@ -10,12 +11,16 @@ import com.popspot.popupplatform.dto.popup.request.PopupListRequest;
 import com.popspot.popupplatform.dto.popup.response.PopupDetailResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListItemResponse;
 import com.popspot.popupplatform.dto.popup.response.PopupListResponse;
+import com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
 import com.popspot.popupplatform.global.exception.code.CommonErrorCode;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
+import com.popspot.popupplatform.global.geo.GeoCodingService;
+import com.popspot.popupplatform.global.geo.GeoPoint;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
+import com.popspot.popupplatform.mapper.reservation.PopupReservationMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
 import com.popspot.popupplatform.mapper.user.UserWishlistMapper;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +42,11 @@ import java.util.stream.Collectors;
 public class PopupService {
 
     private final PopupMapper popupMapper;
+    private final PopupReservationMapper popupReservationMapper;
     private final UserMapper userMapper;
     private final UserWishlistMapper userWishlistMapper;
     private final PopupAiSummaryService popupAiSummaryService;
+    private final GeoCodingService geoCodingService;
 
     /**
      * 팝업 스토어 등록
@@ -69,13 +76,32 @@ public class PopupService {
                 ? PopupStatus.ONGOING  // 시작일 지났으면 '진행 중'
                 : PopupStatus.UPCOMING; // 아니면 '오픈 예정'
 
-        // 2. DTO -> Entity 변환
+
+        // 2. 주소 -> 좌표 계산
+        log.info("[PopupRegister] 지오코딩 시도 - address={}", request.getPopLocation());
+
+        GeoPoint geoPoint = geoCodingService.findCoordinates(request.getPopLocation())
+                .orElse(null);
+
+        if (geoPoint == null) {
+            log.warn("[PopupRegister] 지오코딩 실패 - address={}, geoPoint=null", request.getPopLocation());
+        } else {
+            log.info("[PopupRegister] 지오코딩 성공 - address={}, lat={}, lng={}",
+                    request.getPopLocation(), geoPoint.getLatitude(), geoPoint.getLongitude());
+        }
+
+        Double latitude  = (geoPoint != null) ? geoPoint.getLatitude()  : null;
+        Double longitude = (geoPoint != null) ? geoPoint.getLongitude() : null;
+
+        // 3. DTO -> Entity 변환
         PopupStore popupStore = PopupStore.builder()
                 .popOwnerId(managerId)
                 .popName(request.getPopName())
                 .popDescription(request.getPopDescription())
                 .popThumbnail(request.getPopThumbnail())
                 .popLocation(request.getPopLocation())
+                .popLatitude(latitude)
+                .popLongitude(longitude)
                 .popStartDate(request.getPopStartDate())
                 .popEndDate(request.getPopEndDate())
                 .popIsReservation(request.getPopIsReservation())
@@ -86,13 +112,13 @@ public class PopupService {
                 .popAiSummary(null)
                 .build();
 
-        // 3. DB 저장
+        // 4. DB 저장
         popupMapper.insertPopup(popupStore);
         Long newPopupId = popupStore.getPopId();
 
         log.info("팝업 저장 완료: id={}, title={}", newPopupId, popupStore.getPopName());
 
-        // 4. 해시태그 저장
+        // 5. 해시태그 저장
         if (request.getHashtags() != null) {
             request.getHashtags().forEach(rawTag -> {
                 String tagName = normalizeTag(rawTag);
@@ -105,7 +131,7 @@ public class PopupService {
             });
         }
 
-        // 5. 상세 이미지 URL 저장
+        // 6. 상세 이미지 URL 저장
         if (request.getPopImages() != null) {
             for (int i = 0; i < request.getPopImages().size(); i++) {
                 String imageUrl = request.getPopImages().get(i);
@@ -116,7 +142,7 @@ public class PopupService {
             }
         }
 
-        // 6. AI 요약은 트랜잭션 이후 별도 쓰레드에서 비동기로 생성 + DB 업데이트
+        // 7. AI 요약은 트랜잭션 이후 별도 쓰레드에서 비동기로 생성 + DB 업데이트
         popupAiSummaryService.generateAndUpdateSummaryAsync(
                 newPopupId,
                 request.getPopName(),
@@ -149,8 +175,8 @@ public class PopupService {
         Long cursorId = null;
         LocalDateTime cursorEndDate = null;
         Long cursorViewCount = null;
+        Integer cursorStatusGroup = null;
 
-        // 변수명 충돌 방지를 위해 sortOption으로 변경
         PopupSortOption sortOption = request.getSafeSort();
 
         if (cursor != null && !cursor.isBlank()) {
@@ -161,18 +187,40 @@ public class PopupService {
                 if (sortOption == PopupSortOption.DEADLINE) {
                     // 형식: "2025-12-31T00:00:00_105"
                     cursorEndDate = LocalDateTime.parse(parts[0]);
-                    cursorId = Long.parseLong(parts[1]);
-                } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
-                    // 형식: "500_105"
-                    cursorViewCount = Long.parseLong(parts[0]);
-                    cursorId = Long.parseLong(parts[1]);
+                    cursorId      = Long.parseLong(parts[1]);
+                } else if (sortOption == PopupSortOption.VIEW) {
+                    // 새 포맷: "statusGroup_viewCount_id"
+                    // 예) "0_532_105"
+                    if (parts.length == 3) {
+                        cursorStatusGroup = Integer.parseInt(parts[0]); // 0: 진행/예정, 1: 종료
+                        cursorViewCount   = Long.parseLong(parts[1]);
+                        cursorId          = Long.parseLong(parts[2]);
+                    } else if (parts.length == 2) {
+                        // 혹시 이전 포맷("viewCount_id")가 남아 있을 경우 대비
+                        cursorViewCount = Long.parseLong(parts[0]);
+                        cursorId        = Long.parseLong(parts[1]);
+                    }
+                } else if (sortOption == PopupSortOption.POPULAR) {
+                    // 새 포맷: "statusGroup_popularityScore_id"
+                    // 예) "0_1234_105"
+                    if (parts.length == 3) {
+                        cursorStatusGroup = Integer.parseInt(parts[0]); // 0: ENDED 아님, 1: ENDED
+                        cursorViewCount   = Long.parseLong(parts[1]);   // popularityScore
+                        cursorId          = Long.parseLong(parts[2]);
+                    } else if (parts.length == 2) {
+                        // 이전 포맷("score_id")가 남아 있을 경우 대비
+                        cursorViewCount = Long.parseLong(parts[0]);
+                        cursorId        = Long.parseLong(parts[1]);
+                    }
                 } else {
-                    // 형식: "105" (기본 최신순)
+                    // 형식: "105" (CREATED 등 기본 최신순)
                     cursorId = Long.parseLong(parts[0]);
                 }
             } catch (Exception e) {
                 // 커서 포맷이 이상하면 0페이지(처음)부터 조회
                 cursorId = null;
+                cursorViewCount = null;
+                cursorStatusGroup = null;
                 log.warn("Invalid cursor format: {}", cursor);
             }
         }
@@ -191,6 +239,7 @@ public class PopupService {
                 cursorId,
                 cursorEndDate,
                 cursorViewCount,
+                cursorStatusGroup,
                 size + 1,
                 request.getKeyword(),
                 request.getRegions(),
@@ -210,18 +259,42 @@ public class PopupService {
             hasNext = true;
             popupStores.remove(size);
 
-            // 제거되고 남은 "현재 페이지의 진짜 마지막 아이템"을 기준으로 커서를 생성해야 함
             PopupStore lastItem = popupStores.get(popupStores.size() - 1);
 
-            // 정렬 기준에 따라 다음 커서 문자열 조합 (lastItem 사용!)
             if (sortOption == PopupSortOption.DEADLINE) {
                 // 날짜 + "_" + ID
                 nextCursor = lastItem.getPopEndDate().toString() + "_" + lastItem.getPopId();
-            } else if (sortOption == PopupSortOption.VIEW || sortOption == PopupSortOption.POPULAR) {
-                // 조회수 + "_" + ID
-                nextCursor = lastItem.getPopViewCount() + "_" + lastItem.getPopId();
+
+            } else if (sortOption == PopupSortOption.VIEW) {
+                // statusGroup: 진행/예정(0) vs 종료(1)
+                LocalDateTime now = LocalDateTime.now();
+                int statusGroup = 1; // 기본은 종료
+                if (lastItem.getPopEndDate() != null && !lastItem.getPopEndDate().isBefore(now)) {
+                    // endDate >= now 면 진행/예정
+                    statusGroup = 0;
+                }
+
+                long viewCount = lastItem.getPopViewCount() != null
+                        ? lastItem.getPopViewCount()
+                        : 0L;
+
+                // "statusGroup_viewCount_id"
+                nextCursor = statusGroup + "_" + viewCount + "_" + lastItem.getPopId();
+
+            } else if (sortOption == PopupSortOption.POPULAR) {
+                // statusGroup: ENDED(1) vs 나머지(0)
+                int statusGroup = (lastItem.getPopStatus() == PopupStatus.ENDED) ? 1 : 0;
+
+                // 인기 점수(popularityScore): Mapper에서 popularity_score AS popularity_score 로 넘어온 값
+                long popularityScore = lastItem.getPopPopularityScore() != null
+                        ? lastItem.getPopPopularityScore()
+                        : 0L;
+
+                // "statusGroup_popularityScore_id"
+                nextCursor = statusGroup + "_" + popularityScore + "_" + lastItem.getPopId();
+
             } else {
-                // ID만
+                // CREATED 등: ID만
                 nextCursor = String.valueOf(lastItem.getPopId());
             }
         }
@@ -314,8 +387,21 @@ public class PopupService {
     @Transactional
     public PopupDetailResponse getPopupDetail(Long popupId, Long userId) {
 
-        // 1. 조회수 증가 (삭제된 팝업이면 0 row 업데이트)
-        popupMapper.updateViewCount(popupId);
+        // 1. 조회수 증가 로직 (중복 방지)
+        if (userId == null) {
+            // 비로그인 유저: 그냥 조회수 증가
+            popupMapper.updateViewCount(popupId);
+        } else {
+            // 로그인 유저: '최근(1시간)' 조회 기록이 없을 때만 증가 + 기록 저장
+            boolean viewedRecently = popupMapper.existsViewHistoryRecent(popupId, userId);
+
+            if (!viewedRecently) {
+                // 1) 기록 저장 (POPUP_VIEWED)
+                popupMapper.insertViewHistory(popupId, userId);
+                // 2) 카운트 증가 (POPUPSTORE)
+                popupMapper.updateViewCount(popupId);
+            }
+        }
 
         // 2. 기본 정보 조회 (소프트 삭제된 팝업 제외)
         PopupStore popup = popupMapper.selectPopupDetail(popupId)
@@ -326,36 +412,29 @@ public class PopupService {
         List<String> hashtags = popupMapper.selectPopupHashtags(popupId);
 
         // 4. 로그인 유저 찜 여부 확인
-        Boolean isLiked = null;     // 비로그인: null
+        Boolean isLiked = null;
         if (userId != null) {
             Boolean exists = userWishlistMapper.existsByUserIdAndPopId(userId, popupId);
             isLiked = Boolean.TRUE.equals(exists);
         }
 
         // 5. 예약 상태 계산
-        // 기본값 NONE : 예약 개념이 없는 팝업
         String reservationStatus = "NONE";
         LocalDateTime reservationStartTime = null;
 
         if (Boolean.TRUE.equals(popup.getPopIsReservation())) {
-            // 예약형 팝업인 경우에만 DB 조회
             reservationStartTime = popupMapper.selectReservationStartTime(popupId);
-
             LocalDateTime now = LocalDateTime.now();
 
-            // 1) 팝업 자체가 종료된 경우 -> 예약도 마감
             if (now.isAfter(popup.getPopEndDate())) {
                 reservationStatus = "CLOSED";
-            }
-            // 2) 예약 오픈 시간이 설정되어 있고, 아직 그 전인 경우 -> 오픈 예정
-            else if (reservationStartTime != null && now.isBefore(reservationStartTime)) {
+            } else if (reservationStartTime != null && now.isBefore(reservationStartTime)) {
                 reservationStatus = "UPCOMING";
-            }
-            // 3) 그 외 (오픈 시간 지남 or 시간 설정 안 함) -> 예약 가능
-            else {
+            } else {
                 reservationStatus = "OPEN";
             }
         }
+        PopupReservation popupReservation = popupReservationMapper.findByPopId(popupId);
 
         // 6. DTO 조립 및 반환
         return PopupDetailResponse.builder()
@@ -369,6 +448,7 @@ public class PopupService {
                 .popEndDate(popup.getPopEndDate())
                 .popInstaUrl(popup.getPopInstaUrl())
                 .popIsReservation(popup.getPopIsReservation())
+                .maxPeoplePerReservation(popupReservation.getPrMaxUserCnt())
                 .popPriceType(popup.getPopPriceType())
                 .popPrice(popup.getPopPrice())
                 .popStatus(popup.getPopStatus())
@@ -377,8 +457,67 @@ public class PopupService {
                 .images(images)
                 .hashtags(hashtags)
                 .isLiked(isLiked)
-                .reservationStartTime(reservationStartTime) // 예약 없는 팝업이면 null
-                .reservationStatus(reservationStatus)       // NONE / UPCOMING / OPEN / CLOSED
+                .reservationStartTime(reservationStartTime)
+                .reservationStatus(reservationStatus)
                 .build();
     }
+
+
+    /**
+     * 내 주변 팝업 조회
+     */
+    @Transactional(readOnly = true)
+    public List<PopupNearbyItemResponse> getNearbyPopups(
+            Double latitude,
+            Double longitude,
+            Double radiusKm,
+            Integer size,
+            Long userId
+    ) {
+        if (latitude == null || longitude == null) {
+            throw new CustomException(CommonErrorCode.INVALID_REQUEST);
+        }
+
+        double effectiveRadiusKm =
+                (radiusKm == null || radiusKm <= 0) ? 3.0 : radiusKm;   // 기본 3km
+        int limit =
+                (size == null || size <= 0 || size > 100) ? 30 : size;  // 기본 30개, 최대 100개
+
+        long start = System.currentTimeMillis(); //시간 측정 시작
+
+        log.info("[PopupNearby] 요청 - lat={}, lng={}, radiusKm={}, limit={}",
+                latitude, longitude, effectiveRadiusKm, limit);
+
+        List<PopupNearbyItemResponse> items =
+                popupMapper.selectNearbyPopups(latitude, longitude, effectiveRadiusKm, limit);
+
+        long elapsed = System.currentTimeMillis() - start; //걸린 시간 계산
+
+        log.info("[PopupNearby] 결과 개수 = {}, DB 소요 시간 = {}ms",
+                items.size(), elapsed);
+
+        //비로그인 or 결과 없음 → isLiked 안 채우고 그대로 리턴
+        if (userId == null || items.isEmpty()) {
+            return items;
+        }
+
+        //로그인 상태면 찜한 팝업 ID 목록 조회
+        List<Long> popupIds = items.stream()
+                .map(PopupNearbyItemResponse::getPopId)
+                .collect(Collectors.toList());
+
+        List<Long> likedPopupIds = userWishlistMapper.findLikedPopupIds(userId, popupIds);
+        Set<Long> likedIdSet = new HashSet<>(likedPopupIds);
+
+        //각 아이템에 isLiked 채워주기
+        items.forEach(item ->
+                item.setIsLiked(likedIdSet.contains(item.getPopId()))
+        );
+
+        return items;
+    }
+
+
+
+
 }

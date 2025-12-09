@@ -59,6 +59,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/phone/**",
+                                "/api/reservations",
                                 "/api/auth/**",
                                 "/oauth2/**",
                                 "/api/files/**"

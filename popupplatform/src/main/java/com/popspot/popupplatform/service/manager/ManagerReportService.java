@@ -23,7 +23,7 @@ public class ManagerReportService {
     // [설정] 통계 노출 기준값
     private static final int  MIN_AUDIENCE_THRESHOLD          = 0;   // 배포 시 5 권장
     private static final long MIN_VIEWS_THRESHOLD             = 0L;  // 배포 시 100 권장
-    private static final long MIN_MARKET_WISHLIST_THRESHOLD   = 50L; // 스펙: 태그 시장 찜 50건 미만이면 데이터 부족
+    private static final long MIN_MARKET_WISHLIST_THRESHOLD   = 3L; // 스펙: 태그 시장 찜 3건 미만이면 데이터 부족
 
     public ManagerReportService(ManagerReportMapper managerReportMapper, ChatClient.Builder builder) {
         this.managerReportMapper = managerReportMapper;
