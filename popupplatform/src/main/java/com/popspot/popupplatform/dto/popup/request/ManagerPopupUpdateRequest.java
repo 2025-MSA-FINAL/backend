@@ -1,10 +1,7 @@
 package com.popspot.popupplatform.dto.popup.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,6 +24,14 @@ public class ManagerPopupUpdateRequest {
 
     @Schema(description = "장소 (주소)")
     private String popLocation;
+
+    @Schema(description = "위도(latitude)", example = "37.4950960")
+    @Setter
+    private Double popLatitude;
+
+    @Schema(description = "경도(longitude)", example = "127.1224270")
+    @Setter
+    private Double popLongitude;
 
     @Schema(description = "시작일", example = "2025-12-01T10:00:00")
     private LocalDateTime popStartDate;

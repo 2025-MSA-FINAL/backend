@@ -28,6 +28,8 @@
         <result property="popDescription"     column="pop_description"/>
         <result property="popThumbnail"       column="pop_thumbnail"/>
         <result property="popLocation"        column="pop_location"/>
+        <result property="popLatitude"        column="pop_latitude"/>
+        <result property="popLongitude"       column="pop_longitude"/>
         <result property="popStartDate"       column="pop_start_date"/>
         <result property="popEndDate"         column="pop_end_date"/>
         <result property="popIsReservation"   column="pop_is_reservation"/>
@@ -39,7 +41,9 @@
         <result property="popIsDeleted"       column="pop_is_deleted"/>
         <result property="popViewCount"       column="pop_view_count"/>
         <result property="popAiSummary"       column="pop_ai_summary"/>
+        <result property="popPopularityScore" column="popularity_score"/>
     </resultMap>
+
 
 
     <!--
@@ -67,6 +71,8 @@
         pop_description,
         pop_thumbnail,
         pop_location,
+        pop_latitude,
+        pop_longitude,
         pop_start_date,
         pop_end_date,
         pop_is_reservation,
@@ -84,6 +90,8 @@
         #{popDescription},
         #{popThumbnail},
         #{popLocation},
+        #{popLatitude},
+        #{popLongitude},
         #{popStartDate},
         #{popEndDate},
         #{popIsReservation},
@@ -177,6 +185,8 @@
         pop_description,
         pop_thumbnail,
         pop_location,
+        pop_latitude,
+        pop_longitude,
         pop_start_date,
         pop_end_date,
         pop_is_reservation,
@@ -187,7 +197,24 @@
         pop_moderation_status,
         pop_is_deleted,
         pop_view_count,
-        pop_ai_summary
+        pop_ai_summary,
+
+        (
+        IFNULL((
+        SELECT COUNT(*)
+        FROM POPUP_VIEWED v
+        WHERE v.pop_id = ps.pop_id
+        AND v.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ), 0)
+        +
+        3 * IFNULL((
+        SELECT COUNT(*)
+        FROM USER_WISHLIST w
+        WHERE w.pop_id = ps.pop_id
+        ), 0)
+        ) AS popularity_score
+
+
         FROM POPUPSTORE ps
         WHERE pop_is_deleted = FALSE
         <!-- AND pop_moderation_status = TRUE -->
@@ -251,15 +278,78 @@
 
                 <when test="sort == 'VIEW'">
                     AND (
+                    -- 1) statusGroup(0: 진행/예정, 1: 종료)가 커서보다 큰 애들
+                    CASE
+                    WHEN pop_end_date &gt;= NOW() THEN 0
+                    ELSE 1
+                    END &gt; #{cursorStatusGroup}
+                    OR (
+                    -- 2) statusGroup이 같고,
+                    CASE
+                    WHEN pop_end_date &gt;= NOW() THEN 0
+                    ELSE 1
+                    END = #{cursorStatusGroup}
+                    AND (
+                    -- 2-1) 조회수가 더 작은(=정렬상 뒤에 있는) 애들
                     pop_view_count &lt; #{cursorViewCount}
-                    OR (pop_view_count = #{cursorViewCount} AND pop_id &lt; #{cursorId})
+                    OR (
+                    pop_view_count = #{cursorViewCount}
+                    AND pop_id &lt; #{cursorId}
+                    )
+                    )
+                    )
                     )
                 </when>
 
                 <when test="sort == 'POPULAR'">
                     AND (
-                    pop_view_count &lt; #{cursorViewCount}
-                    OR (pop_view_count = #{cursorViewCount} AND pop_id &lt; #{cursorId})
+                    -- 1) statusGroup(0: ENDED 아님, 1: ENDED)가 커서보다 큰 애들
+                    CASE
+                    WHEN ps.pop_status = 'ENDED' THEN 1
+                    ELSE 0
+                    END &gt; #{cursorStatusGroup}
+                    OR (
+                    -- 2) statusGroup이 같고,
+                    CASE
+                    WHEN ps.pop_status = 'ENDED' THEN 1
+                    ELSE 0
+                    END = #{cursorStatusGroup}
+                    AND (
+                    -- 2-1) 인기 점수가 더 작은(=정렬상 뒤에 있는) 애들
+                    (
+                    IFNULL((
+                    SELECT COUNT(*)
+                    FROM POPUP_VIEWED v
+                    WHERE v.pop_id = ps.pop_id
+                    AND v.pv_viewed_at &gt;= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    ), 0)
+                    +
+                    3 * IFNULL((
+                    SELECT COUNT(*)
+                    FROM USER_WISHLIST w
+                    WHERE w.pop_id = ps.pop_id
+                    ), 0)
+                    ) &lt; #{cursorViewCount}
+                    OR (
+                    -- 2-2) 인기 점수가 같으면 pop_id로 tie-break
+                    (
+                    IFNULL((
+                    SELECT COUNT(*)
+                    FROM POPUP_VIEWED v
+                    WHERE v.pop_id = ps.pop_id
+                    AND v.pv_viewed_at &gt;= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    ), 0)
+                    +
+                    3 * IFNULL((
+                    SELECT COUNT(*)
+                    FROM USER_WISHLIST w
+                    WHERE w.pop_id = ps.pop_id
+                    ), 0)
+                    ) = #{cursorViewCount}
+                    AND ps.pop_id &lt; #{cursorId}
+                    )
+                    )
+                    )
                     )
                 </when>
 
@@ -354,13 +444,27 @@
     </update>
 
 
+    <select id="existsViewHistoryRecent" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM POPUP_VIEWED
+        WHERE pop_id = #{popId}
+        AND user_id = #{userId}
+        AND pv_viewed_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+    </select>
+
+    <insert id="insertViewHistory">
+        INSERT INTO POPUP_VIEWED (pop_id, user_id, pv_viewed_at)
+        VALUES (#{popId}, #{userId}, NOW())
+    </insert>
+
     <!--
         8) 팝업 단건 상세 조회
     -->
     <select id="selectPopupDetail" resultMap="PopupStoreResultMap">
         SELECT
         pop_id, pop_owner_id, pop_name, pop_description,
-        pop_thumbnail, pop_location, pop_start_date, pop_end_date,
+        pop_thumbnail, pop_location, pop_latitude, pop_longitude,
+        pop_start_date, pop_end_date,
         pop_is_reservation, pop_price_type, pop_price, pop_status,
         pop_insta_url, pop_moderation_status, pop_is_deleted,
         pop_view_count, pop_ai_summary
@@ -609,4 +713,61 @@
         ps.created_at DESC
         LIMIT #{limit}
     </select>
+
+
+    <!--
+        [내 주변 팝업 조회]
+        - 위/경도가 NOT NULL 인 팝업만 대상
+        - 삭제되지 않은 팝업 + ENDED 아닌 팝업만
+        - Haversine 공식을 이용해 거리 계산 (km)
+    -->
+    <select id="selectNearbyPopups"
+            resultType="com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse">
+
+        SELECT
+        ps.pop_id          AS popId,
+        ps.pop_name        AS popName,
+        ps.pop_thumbnail   AS popThumbnail,
+        ps.pop_location    AS popLocation,
+        ps.pop_latitude    AS popLatitude,
+        ps.pop_longitude   AS popLongitude,
+        ps.pop_price_type  AS popPriceType,
+        ps.pop_price       AS popPrice,
+        ps.pop_status      AS popStatus,
+
+        -- 거리(km)
+        (
+        6371 * ACOS(
+        COS(RADIANS(#{latitude}))
+        * COS(RADIANS(ps.pop_latitude))
+        * COS(RADIANS(ps.pop_longitude) - RADIANS(#{longitude}))
+        + SIN(RADIANS(#{latitude})) * SIN(RADIANS(ps.pop_latitude))
+        )
+        ) AS distanceKm
+
+        FROM POPUPSTORE ps
+        WHERE
+        ps.pop_is_deleted = FALSE
+        AND ps.pop_status != 'ENDED'
+        AND ps.pop_latitude IS NOT NULL
+        AND ps.pop_longitude IS NOT NULL
+
+        <if test="radiusKm != null">
+            AND (
+            6371 * ACOS(
+            COS(RADIANS(#{latitude}))
+            * COS(RADIANS(ps.pop_latitude))
+            * COS(RADIANS(ps.pop_longitude) - RADIANS(#{longitude}))
+            + SIN(RADIANS(#{latitude})) * SIN(RADIANS(ps.pop_latitude))
+            )
+            ) &lt;= #{radiusKm}
+        </if>
+
+        ORDER BY
+        distanceKm ASC,
+        ps.pop_id DESC
+
+        LIMIT #{limit}
+    </select>
+
 </mapper>
