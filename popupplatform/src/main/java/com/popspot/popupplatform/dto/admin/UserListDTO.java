@@ -26,5 +26,4 @@ public class UserListDTO {
     // 통계 정보
     private Long reservationCount;     // 예약 수
     private Long wishlistCount;        // 찜한 팝업 수
-    private Long reportCount;          // 신고 수
 }

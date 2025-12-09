@@ -4,6 +4,8 @@ import com.popspot.popupplatform.dto.admin.PopupStoreListDTO;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 
+import java.util.Map;
+
 public interface AdminPopupService {
 
     /**
@@ -39,4 +41,12 @@ public interface AdminPopupService {
      * 팝업스토어 삭제
      */
     boolean deletePopup(Long popId);
+
+    /**
+     * 전체 통계 조회 (필터 무관)
+     */
+    Map<String, Object> getPopupStats();
+
+
+
 }

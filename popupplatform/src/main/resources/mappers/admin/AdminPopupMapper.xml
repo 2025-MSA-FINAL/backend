@@ -4,8 +4,7 @@
 
 <mapper namespace="com.popspot.popupplatform.mapper.admin.AdminPopupMapper">
 
-        <resultMap id="PopupStoreListResultMap" type="com.popspot.popupplatform.dto.admin.PopupStoreListDTO">
-
+    <resultMap id="PopupStoreListResultMap" type="com.popspot.popupplatform.dto.admin.PopupStoreListDTO">
         <!-- 기본 정보 -->
         <id     property="popId"               column="pop_id"/>
         <result property="popName"             column="pop_name"/>
@@ -32,7 +31,6 @@
 
         <!-- 생성일 -->
         <result property="createdAt"           column="created_at"/>
-
     </resultMap>
 
 
@@ -68,7 +66,6 @@
         LEFT JOIN USER u ON p.pop_owner_id = u.user_id
         WHERE p.pop_is_deleted = FALSE
 
-        <!--  keyword 검색 -->
         <if test="keyword != null and keyword != ''">
             AND (
             p.pop_name LIKE CONCAT('%', #{keyword}, '%')
@@ -77,17 +74,37 @@
             )
         </if>
 
-        <!-- 🏷 status 필터 -->
         <if test="status != null and status != ''">
-            AND p.pop_status = #{status}
+            <choose>
+                <when test="status == 'active'">
+                    AND p.pop_status = 'ONGOING'
+                </when>
+                <when test="status == 'upcoming'">
+                    AND p.pop_status = 'UPCOMING'
+                </when>
+                <when test="status == 'ended'">
+                    AND p.pop_status = 'ENDED'
+                </when>
+                <otherwise>
+                    AND p.pop_status = #{status}
+                </otherwise>
+            </choose>
         </if>
 
-        <!--  moderation 필터 -->
         <if test="moderation != null and moderation != ''">
-            AND p.pop_moderation_status = #{moderation}
+            <choose>
+                <when test="moderation == 'pending'">
+                    AND p.pop_moderation_status IS NULL
+                </when>
+                <when test="moderation == 'approved'">
+                    AND p.pop_moderation_status = 1
+                </when>
+                <when test="moderation == 'rejected'">
+                    AND p.pop_moderation_status = 0
+                </when>
+            </choose>
         </if>
 
-        <!-- 정렬 -->
         ORDER BY
         <choose>
             <when test="pageRequest.sortBy == 'popName'">p.pop_name</when>
@@ -98,7 +115,6 @@
         </choose>
         ${pageRequest.sortDir}
 
-        <!-- 페이징 -->
         LIMIT #{pageRequest.size}
         OFFSET #{pageRequest.offset}
     </select>
@@ -121,14 +137,52 @@
             )
         </if>
 
+        <!-- status 필터 -->
         <if test="status != null and status != ''">
-            AND p.pop_status = #{status}
+            <choose>
+                <when test="status == 'active'">
+                    AND p.pop_status = 'ONGOING'
+                </when>
+                <when test="status == 'upcoming'">
+                    AND p.pop_status = 'UPCOMING'
+                </when>
+                <when test="status == 'ended'">
+                    AND p.pop_status = 'ENDED'
+                </when>
+                <otherwise>
+                    AND p.pop_status = #{status}
+                </otherwise>
+            </choose>
         </if>
 
+        <!-- moderation 필터 -->
         <if test="moderation != null and moderation != ''">
-            AND p.pop_moderation_status = #{moderation}
+            <choose>
+                <when test="moderation == 'pending'">
+                    AND p.pop_moderation_status IS NULL
+                </when>
+                <when test="moderation == 'approved'">
+                    AND p.pop_moderation_status = 1
+                </when>
+                <when test="moderation == 'rejected'">
+                    AND p.pop_moderation_status = 0
+                </when>
+            </choose>
         </if>
     </select>
 
+
+    <!-- ============================
+         3) 전체 통계 조회 (필터 무관)
+    ============================= -->
+    <select id="getPopupStats" resultType="map">
+        SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN pop_moderation_status IS NULL THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN pop_status = 'ONGOING' THEN 1 ELSE 0 END) AS active,
+        SUM(CASE WHEN pop_status = 'ENDED' THEN 1 ELSE 0 END) AS ended
+        FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+    </select>
 
 </mapper>

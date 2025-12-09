@@ -12,6 +12,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 신고 관리 서비스 구현체
+ */
 @Service
 @RequiredArgsConstructor
 public class ReportServiceImpl implements ReportService {
@@ -19,16 +22,18 @@ public class ReportServiceImpl implements ReportService {
     private final ReportMapper reportMapper;
 
     @Override
-    public PageDTO<ReportListDTO> getReportList(String status, PageRequestDTO pageRequest) {
+    public PageDTO<ReportListDTO> getReportList(String status, Long categoryId, PageRequestDTO pageRequest) {
         List<ReportListDTO> reports;
         long total;
 
         if (status != null && !status.isEmpty()) {
-            reports = reportMapper.findReportsByStatus(status, pageRequest);
-            total = reportMapper.countReportsByStatus(status);
+            // 상태 필터가 있는 경우 (+ 카테고리 필터)
+            reports = reportMapper.findReportsByStatus(status, categoryId, pageRequest);
+            total = reportMapper.countReportsByStatus(status, categoryId);
         } else {
-            reports = reportMapper.findAllReportsWithPagination(pageRequest);
-            total = reportMapper.countAllReports();
+            // 전체 목록 조회 (+ 카테고리 필터)
+            reports = reportMapper.findAllReportsWithPagination(categoryId, pageRequest);
+            total = reportMapper.countAllReports(categoryId);
         }
 
         return new PageDTO<>(reports, pageRequest.getPage(), pageRequest.getSize(), total);
@@ -42,6 +47,7 @@ public class ReportServiceImpl implements ReportService {
             return null;
         }
 
+        // 신고 이미지 추가
         detail.setReportImages(reportMapper.findReportImages(repId));
         return detail;
     }
@@ -54,17 +60,28 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public Map<String, Long> getReportStats() {
         Map<String, Long> stats = new HashMap<>();
-        stats.put("pending", reportMapper.countByStatus("pending"));
-        stats.put("approved", reportMapper.countByStatus("approved"));
-        stats.put("resolved", reportMapper.countByStatus("resolved"));
-        stats.put("rejected", reportMapper.countByStatus("rejected"));
+
+        // 3단계 통계
+        long pendingCount = reportMapper.countByStatus("pending");
+
+        // approved + resolved 통합 (XML에서 자동 합산)
+        long approvedCount = reportMapper.countByStatus("approved");
+
+        long rejectedCount = reportMapper.countByStatus("rejected");
+
+        stats.put("pending", pendingCount);
+        stats.put("approved", approvedCount);  // approved + resolved 합산
+        stats.put("rejected", rejectedCount);
+
         return stats;
     }
 
     @Override
-    public PageDTO<ReportListDTO> searchReports(String keyword, PageRequestDTO pageRequest) {
-        List<ReportListDTO> reports = reportMapper.searchReports(keyword, pageRequest);
-        long total = reportMapper.countSearchReports(keyword);
+    public PageDTO<ReportListDTO> searchReports(String keyword, String status, Long categoryId, PageRequestDTO pageRequest) {
+        // 검색 (키워드 + 상태 필터 + 카테고리 필터 동시 적용)
+        List<ReportListDTO> reports = reportMapper.searchReports(keyword, status, categoryId, pageRequest);
+        long total = reportMapper.countSearchReports(keyword, status, categoryId);
+
         return new PageDTO<>(reports, pageRequest.getPage(), pageRequest.getSize(), total);
     }
 }
