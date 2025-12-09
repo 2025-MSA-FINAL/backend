@@ -473,20 +473,26 @@ public class PopupService {
         }
 
         double effectiveRadiusKm =
-                (radiusKm == null || radiusKm <= 0) ? 3.0 : radiusKm;   //기본 3km
+                (radiusKm == null || radiusKm <= 0) ? 3.0 : radiusKm;   // 기본 3km
         int limit =
-                (size == null || size <= 0 || size > 100) ? 30 : size;  //기본 30개, 최대 100개
+                (size == null || size <= 0 || size > 100) ? 30 : size;  // 기본 30개, 최대 100개
 
-        log.info("[PopupNearby] 내 주변 팝업 조회 - lat={}, lng={}, radiusKm={}, limit={}",
+        long start = System.currentTimeMillis(); //시간 측정 시작
+
+        log.info("[PopupNearby] 요청 - lat={}, lng={}, radiusKm={}, limit={}",
                 latitude, longitude, effectiveRadiusKm, limit);
 
         List<PopupNearbyItemResponse> items =
                 popupMapper.selectNearbyPopups(latitude, longitude, effectiveRadiusKm, limit);
 
-        log.info("[PopupNearby] 결과 개수 = {}", items.size());
+        long elapsed = System.currentTimeMillis() - start; //걸린 시간 계산
+
+        log.info("[PopupNearby] 결과 개수 = {}, DB 소요 시간 = {}ms",
+                items.size(), elapsed);
 
         return items;
     }
+
 
 
 
