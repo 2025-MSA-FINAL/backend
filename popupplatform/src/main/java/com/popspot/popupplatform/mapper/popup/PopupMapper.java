@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.mapper.popup;
 
 import com.popspot.popupplatform.domain.popup.PopupStore;
+import com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse;
 import com.popspot.popupplatform.dto.user.report.UserPersonaPopupCard;
 import com.popspot.popupplatform.dto.user.report.UserPopupEventDto;
 import org.apache.ibatis.annotations.Mapper;
@@ -38,6 +39,7 @@ public interface PopupMapper {
             @Param("cursorId") Long cursorId,
             @Param("cursorEndDate") LocalDateTime cursorEndDate,
             @Param("cursorViewCount") Long cursorViewCount,
+            @Param("cursorStatusGroup") Integer cursorStatusGroup,
             @Param("limit") int limit,
             @Param("keyword") String keyword,
             @Param("regions") List<String> regions,
@@ -60,6 +62,12 @@ public interface PopupMapper {
 
     //조회수 1 증가
     void updateViewCount(@Param("popId") Long popId);
+
+    //유저가 해당 팝업을 최근 1시간 내에 조회했는지 확인
+    boolean existsViewHistoryRecent(@Param("popId") Long popId, @Param("userId") Long userId);
+
+    //조회 기록 저장 (POPUP_VIEWED 테이블)
+    void insertViewHistory(@Param("popId") Long popId, @Param("userId") Long userId);
 
     //팝업 단건 상세 조회
     Optional<PopupStore> selectPopupDetail(@Param("popId") Long popId);
@@ -101,5 +109,19 @@ public interface PopupMapper {
                                                               @Param("birthYearStart") int birthYearStart,
                                                               @Param("birthYearEnd") int birthYearEnd,
                                                               @Param("limit") int limit);
+
+
+    /**
+     * 내 주변 팝업 조회
+     * 위/경도가 NOT NULL 인 팝업만 대상
+     * 삭제되지 않은 팝업 + ENDED 아닌 팝업만
+     * Haversine 공식을 이용해 거리 계산 (km)
+     */
+    List<PopupNearbyItemResponse> selectNearbyPopups(
+            @Param("latitude") Double latitude,
+            @Param("longitude") Double longitude,
+            @Param("radiusKm") Double radiusKm,
+            @Param("limit") Integer limit
+    );
 
 }
