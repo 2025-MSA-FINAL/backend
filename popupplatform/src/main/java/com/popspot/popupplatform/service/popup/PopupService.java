@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.service.popup;
 
 import com.popspot.popupplatform.domain.popup.PopupStore;
+import com.popspot.popupplatform.domain.reservation.PopupReservation;
 import com.popspot.popupplatform.dto.global.JwtUserDto;
 import com.popspot.popupplatform.dto.popup.enums.PopupPriceType;
 import com.popspot.popupplatform.dto.popup.enums.PopupSortOption;
@@ -16,6 +17,7 @@ import com.popspot.popupplatform.global.exception.code.CommonErrorCode;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
+import com.popspot.popupplatform.mapper.reservation.PopupReservationMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
 import com.popspot.popupplatform.mapper.user.UserWishlistMapper;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 public class PopupService {
 
     private final PopupMapper popupMapper;
+    private final PopupReservationMapper popupReservationMapper;
     private final UserMapper userMapper;
     private final UserWishlistMapper userWishlistMapper;
     private final PopupAiSummaryService popupAiSummaryService;
@@ -356,6 +359,7 @@ public class PopupService {
                 reservationStatus = "OPEN";
             }
         }
+        PopupReservation popupReservation = popupReservationMapper.findByPopId(popupId);
 
         // 6. DTO 조립 및 반환
         return PopupDetailResponse.builder()
@@ -369,6 +373,7 @@ public class PopupService {
                 .popEndDate(popup.getPopEndDate())
                 .popInstaUrl(popup.getPopInstaUrl())
                 .popIsReservation(popup.getPopIsReservation())
+                .maxPeoplePerReservation(popupReservation.getPrMaxUserCnt())
                 .popPriceType(popup.getPopPriceType())
                 .popPrice(popup.getPopPrice())
                 .popStatus(popup.getPopStatus())
