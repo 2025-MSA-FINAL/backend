@@ -6,6 +6,7 @@ import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -17,7 +18,8 @@ public interface ChatMessageMapper {
             @Param("roomType") String roomType,
             @Param("roomId") Long roomId,
             @Param("lastMessageId") Long lastMessageId,
-            @Param("limit") int limit
+            @Param("limit") int limit,
+            @Param("lastDeletedAt") LocalDateTime lastDeletedAt
     );
 
     ChatMessageResponse getLatestMessage(
