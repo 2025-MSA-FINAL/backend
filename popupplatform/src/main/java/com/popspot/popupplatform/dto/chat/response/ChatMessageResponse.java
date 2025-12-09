@@ -23,8 +23,7 @@ public class ChatMessageResponse {
     private String content;
     private String messageType;
 
-    private LocalDateTime createdAt; // "오전 10:40" 같은 형태
-    private String dateLabel; // 날짜 구분선: "2025년 11월 21일 금요일"
+    private LocalDateTime createdAt;
 
     private Integer readCount; // 읽은 사람 수
     private Boolean isRead; // 현재 유저 기준 읽음 여부
