@@ -85,4 +85,6 @@ public class PopupDetailResponse {
     @Schema(description = "예약 상태 (UPCOMING/OPEN/CLOSED 등)", example = "UPCOMING")
     private String reservationStatus;
 
+    @Schema(description = "예약 가능 최대 인원", example = "3")
+    private Integer maxPeoplePerReservation;
 }
