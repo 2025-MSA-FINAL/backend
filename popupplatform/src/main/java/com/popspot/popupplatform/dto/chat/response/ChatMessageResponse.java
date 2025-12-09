@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,7 +23,7 @@ public class ChatMessageResponse {
     private String content;
     private String messageType;
 
-    private String createdAt; // "오전 10:40" 같은 형태
+    private LocalDateTime createdAt; // "오전 10:40" 같은 형태
     private String dateLabel; // 날짜 구분선: "2025년 11월 21일 금요일"
 
     private Integer readCount; // 읽은 사람 수

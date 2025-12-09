@@ -20,4 +20,5 @@ public class ChatRoomSummaryResponse {
     private Long otherUserId; // 1대1채팅방에서의 상대UserId (GROUP에서는 null)
     private LocalDateTime createdAt; // 정렬 기준: created_at
     private Integer unreadCount;   //안 읽은 메시지 개수
+    private LocalDateTime latestMessageTime; //최근 메세지 시간
 }

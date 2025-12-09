@@ -17,7 +17,6 @@
         <result column="messageType" property="messageType"/>
 
         <result column="createdAt" property="createdAt"/>
-        <result column="dateLabel" property="dateLabel"/>
     </resultMap>
 
 
@@ -44,8 +43,7 @@
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
-        DATE_FORMAT(cm.created_at, '%p %h:%i') AS createdAt,
-        DATE_FORMAT(cm.created_at, '%Y년 %m월 %d일 %W') AS dateLabel
+        cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
         JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
@@ -73,8 +71,7 @@
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
-        DATE_FORMAT(cm.created_at, '%p %h:%i') AS createdAt,
-        DATE_FORMAT(cm.created_at, '%Y년 %m월 %d일 %W') AS dateLabel
+        cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
         JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
@@ -95,8 +92,7 @@
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
-        DATE_FORMAT(cm.created_at, '%p %h:%i') AS createdAt,
-        DATE_FORMAT(cm.created_at, '%Y년 %m월 %d일 %W') AS dateLabel
+        cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
         JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
