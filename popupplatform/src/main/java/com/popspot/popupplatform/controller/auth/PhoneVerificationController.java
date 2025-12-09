@@ -5,6 +5,7 @@ import com.popspot.popupplatform.service.auth.PhoneVerificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
  * - /api/auth/phone/send   : 인증번호 전송
  * - /api/auth/phone/verify : 인증번호 검증
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth/phone")
@@ -31,7 +33,6 @@ public class PhoneVerificationController {
     @Operation(summary = "인증 번호 문자 발송", description = "휴대폰 인증을 위한 문자 발송을 진행합니다.")
     @PostMapping("/send")
     public ResponseEntity<Void> sendVerification(@RequestBody PhoneVerificationRequest request) {
-
         phoneVerificationService.sendVerificationCode(request.getPhone());
 
         // 204 No Content

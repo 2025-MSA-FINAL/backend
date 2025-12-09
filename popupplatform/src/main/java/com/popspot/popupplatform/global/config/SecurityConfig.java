@@ -10,6 +10,7 @@ import com.popspot.popupplatform.service.auth.NaverOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -45,6 +46,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        /* ===== WebSocket 허용 (핸드셰이크만 필요) ===== */
+                        .requestMatchers("/ws-stomp").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/ws-stomp").permitAll()
+                        /* ===== STOMP 내부 경로 ===== */
+                        .requestMatchers("/pub/**", "/sub/**").permitAll()
                         .requestMatchers(
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",
@@ -53,10 +59,17 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/phone/**",
+                                "/api/reservations",
                                 "/api/auth/**",
                                 "/oauth2/**",
                                 "/api/files/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/popups", "/api/popups/**").permitAll()
+                        .requestMatchers("/api/managers/**",
+                                "/api/popup/*/reservation-setting").hasRole("MANAGER")
+                        .requestMatchers(
+                                "/api/users/me"
+                        ).authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

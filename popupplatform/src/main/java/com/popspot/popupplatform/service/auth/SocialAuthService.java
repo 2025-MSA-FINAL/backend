@@ -52,6 +52,7 @@ public class SocialAuthService {
         dto.setGender(req.getGender());
         dto.setPhone(req.getPhone());
         dto.setBirthYear(req.getBirthYear());
+        dto.setIntroduction(req.getIntroduction());
 
         dto.setLoginId(req.getLoginId());
         dto.setLoginPwd(passwordEncoder.encode(req.getPassword()));

@@ -3,17 +3,16 @@ package com.popspot.popupplatform.service.user;
 import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.dto.user.LoginUserDto;
 import com.popspot.popupplatform.dto.user.UserDto;
-import com.popspot.popupplatform.dto.user.request.ChangePasswordRequest;
-import com.popspot.popupplatform.dto.user.request.UpdateEmailRequest;
-import com.popspot.popupplatform.dto.user.request.UpdateNicknameRequest;
-import com.popspot.popupplatform.dto.user.request.UpdatePhoneRequest;
+import com.popspot.popupplatform.dto.user.request.*;
 import com.popspot.popupplatform.dto.user.response.CurrentUserResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.UserErrorCode;
 import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +20,9 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${aws.s3.default-profile.url}")
+    private String defaultProfileUrl;
 
     /**
      * 현재 로그인한 사용자 정보 조회 (마이페이지 상단 / 네비바)
@@ -47,6 +49,7 @@ public class UserService {
     /**
      * 닉네임 변경
      */
+    @Transactional
     public void updateNickname(Long userId, UpdateNicknameRequest request) {
         UserDto user = userMapper.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -72,6 +75,7 @@ public class UserService {
     /**
      * 이메일 변경
      */
+    @Transactional
     public void updateEmail(Long userId, UpdateEmailRequest request) {
         UserDto user = userMapper.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -98,6 +102,7 @@ public class UserService {
      * 휴대폰 번호 변경
      * - 실제 문자 인증은 /api/auth/phone/* API에서 이미 검증했다고 가정
      */
+    @Transactional
     public void updatePhone(Long userId, UpdatePhoneRequest request) {
         UserDto user = userMapper.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
@@ -124,6 +129,7 @@ public class UserService {
      * 비밀번호 변경
      * - 현재 비밀번호 확인 후 새 비밀번호로 변경
      */
+    @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
         // USER_GENERAL + USER 조인 정보
         LoginUserDto loginUser = userMapper.findGeneralUserByUserId(userId)
@@ -145,6 +151,7 @@ public class UserService {
      * 회원 탈퇴 (소프트 삭제)
      * - USER.user_status = 'DELETED'
      */
+    @Transactional
     public void deleteUser(Long userId) {
         int updated = userMapper.softDeleteUser(userId);
         if (updated != 1) {
@@ -152,14 +159,26 @@ public class UserService {
         }
     }
 
+    @Transactional
     public void updateProfile(Long userId, UploadResultDto dto) {
-        int updated = userMapper.updateProfileImage(
+        String url;
+        if(dto.getUrl()!=null) {
+            url=dto.getUrl();
+        }else{
+            url=defaultProfileUrl;
+        }
+        userMapper.updateProfileImage(
                 userId,
-                dto.getUrl()
+                url
         );
+    }
 
-        if (updated == 0) {
-            throw new CustomException(UserErrorCode.USER_NOT_FOUND);
+    public void checkVaildPwd(Long userId, CheckValidPwdDto dto) {
+        LoginUserDto loginUser = userMapper.findGeneralUserByUserId(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(dto.getPassword(), loginUser.getPassword())) {
+            throw new CustomException(UserErrorCode.INVALID_PASSWORD);
         }
     }
 }

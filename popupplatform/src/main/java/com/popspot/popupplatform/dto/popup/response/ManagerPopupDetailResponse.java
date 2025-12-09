@@ -1,0 +1,64 @@
+package com.popspot.popupplatform.dto.popup.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(description = "매니저용 팝업 상세 정보 응답")
+public class ManagerPopupDetailResponse {
+
+    @Schema(description = "팝업 ID")
+    private Long popId;
+
+    @Schema(description = "팝업 이름")
+    private String popName;
+
+    @Schema(description = "썸네일 이미지 URL")
+    private String popThumbnail;
+
+    @Schema(description = "AI 요약 멘트")
+    private String popAiSummary;
+
+    @Schema(description = "팝업 원본 설명 (수정 화면용)")
+    private String popDescription;
+
+    @Schema(description = "장소 (주소)")
+    private String popLocation;
+
+    @Schema(description = "팝업 위치 위도 (WGS84 기준)")
+    private Double popLatitude;
+
+    @Schema(description = "팝업 위치 경도 (WGS84 기준)")
+    private Double popLongitude;
+
+    @Schema(description = "시작일")
+    private LocalDateTime popStartDate;
+
+    @Schema(description = "종료일")
+    private LocalDateTime popEndDate;
+
+    @Schema(description = "입장료 (무료/유료)")
+    private String popPriceType; // FREE or PAID
+
+    @Schema(description = "가격")
+    private Integer popPrice;
+
+    @Schema(description = "현재 상태 (UPCOMING, ONGOING, ENDED)")
+    private String popStatus;
+
+    @Schema(description = "인스타그램 URL")
+    private String popInstaUrl;
+
+    @Schema(description = "팝업 상세 이미지 URL 리스트")
+    private List<String> popImages;
+
+    @Schema(description = "해시태그 리스트")
+    private List<String> hashtags;
+}

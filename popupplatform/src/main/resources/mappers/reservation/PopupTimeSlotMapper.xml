@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.PopupTimeSlotMapper">
+
+    <!-- 특정 팝업의 기존 슬롯 전체 삭제 -->
+    <delete id="deleteByPopId">
+        DELETE FROM POPUP_TIME_SLOT
+        WHERE pop_id = #{popId}
+    </delete>
+
+    <!-- 슬롯 추가 -->
+    <insert id="insertTimeSlot" useGeneratedKeys="true" keyProperty="ptsId">
+        INSERT INTO POPUP_TIME_SLOT
+        (pop_id, pts_day_of_week, pts_start_time, pts_end_time, pts_capacity)
+        VALUES
+        (#{popId}, #{ptsDayOfWeek}, #{ptsStartTime}, #{ptsEndTime}, #{ptsCapacity})
+    </insert>
+
+    <!-- 슬롯 조회 (필요하면 사용) -->
+    <select id="findByPopId"
+            resultType="com.popspot.popupplatform.domain.reservation.PopupTimeSlot">
+        SELECT
+        pts_id          AS ptsId,
+        pop_id          AS popId,
+        pts_day_of_week AS ptsDayOfWeek,
+        pts_start_time  AS ptsStartTime,
+        pts_end_time    AS ptsEndTime,
+        pts_capacity    AS ptsCapacity,
+        created_at      AS createdAt,
+        updated_at      AS updatedAt
+        FROM POPUP_TIME_SLOT
+        WHERE pop_id = #{popId}
+        ORDER BY pts_day_of_week, pts_start_time
+    </select>
+
+    <select id="findByPopIdAndDayOfWeek" resultType="com.popspot.popupplatform.domain.reservation.PopupTimeSlot">
+        SELECT
+        pts_id,
+        pop_id,
+        pts_day_of_week,
+        pts_start_time,
+        pts_end_time,
+        pts_capacity
+        FROM POPUP_TIME_SLOT
+        WHERE pop_id = #{popId}
+        AND pts_day_of_week = #{dayOfWeek}
+        ORDER BY pts_start_time
+    </select>
+
+    <resultMap id="PopupTimeSlotResultMap"
+               type="com.popspot.popupplatform.domain.reservation.PopupTimeSlot">
+        <id     property="ptsId"        column="pts_id"/>
+        <result property="popId"        column="pop_id"/>
+        <!-- DayOfWeekType enum ↔ VARCHAR(10) (MON,TUE...) -->
+        <result property="ptsDayOfWeek" column="pts_day_of_week"/>
+        <result property="ptsStartTime" column="pts_start_time"/>
+        <result property="ptsEndTime"   column="pts_end_time"/>
+        <result property="ptsCapacity"  column="pts_capacity"/>
+    </resultMap>
+
+    <select id="findById" resultMap="PopupTimeSlotResultMap">
+        SELECT
+        pts_id,
+        pop_id,
+        pts_day_of_week,
+        pts_start_time,
+        pts_end_time,
+        pts_capacity
+        FROM POPUP_TIME_SLOT
+        WHERE pts_id = #{ptsId}
+    </select>
+
+</mapper>

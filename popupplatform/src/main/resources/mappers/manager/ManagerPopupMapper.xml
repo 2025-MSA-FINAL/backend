@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.manager.ManagerPopupMapper">
+
+    <select id="selectPopupDetail" resultType="com.popspot.popupplatform.dto.popup.response.ManagerPopupDetailResponse">
+        SELECT
+        pop_id            AS popId,
+        pop_name          AS popName,
+        pop_thumbnail     AS popThumbnail,
+        pop_ai_summary    AS popAiSummary,
+        pop_description   AS popDescription,
+        pop_insta_url     AS popInstaUrl,
+        pop_location      AS popLocation,
+        pop_latitude      AS popLatitude,
+        pop_longitude     AS popLongitude,
+        pop_start_date    AS popStartDate,
+        pop_end_date      AS popEndDate,
+        pop_price_type    AS popPriceType,
+        pop_price         AS popPrice,
+        pop_status        AS popStatus
+        FROM POPUPSTORE
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </select>
+
+    <select id="selectReservations" resultType="com.popspot.popupplatform.dto.user.response.ManagerReservationResponse">
+        SELECT
+        ur.ur_id           AS reservationId,
+        u.user_id          AS userId,
+        u.user_name        AS userName,
+        u.user_nickname    AS userNickname,
+        u.user_photo       AS userProfileImage,
+        u.user_phonenumber AS userPhone,
+        ur.ur_date_time    AS reservedDateTime,
+        ur.ur_user_cnt     AS userCount,
+        ur.ur_status       AS status,
+        ur.created_at      AS createdAt
+        FROM USER_RESERVATION ur
+        JOIN USER u ON ur.user_id = u.user_id
+        WHERE ur.pop_id = #{popId}
+        ORDER BY ur.ur_date_time DESC  LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countReservations" resultType="long">
+        SELECT COUNT(*)
+        FROM USER_RESERVATION
+        WHERE pop_id = #{popId}
+    </select>
+
+
+
+    <update id="updatePopup">
+        UPDATE POPUPSTORE
+        <set>
+            <if test="request.popName != null">
+                pop_name = #{request.popName},
+            </if>
+            <if test="request.popDescription != null">
+                pop_description = #{request.popDescription},
+            </if>
+            <if test="request.popThumbnail != null">
+                pop_thumbnail = #{request.popThumbnail},
+            </if>
+
+            <if test="request.popLocation != null">
+                pop_location  = #{request.popLocation},
+                pop_latitude  = #{request.popLatitude},
+                pop_longitude = #{request.popLongitude},
+            </if>
+
+            <if test="request.popStartDate != null">
+                pop_start_date = #{request.popStartDate},
+            </if>
+            <if test="request.popEndDate != null">
+                pop_end_date = #{request.popEndDate},
+            </if>
+            <if test="request.popPriceType != null">
+                pop_price_type = #{request.popPriceType},
+            </if>
+            <if test="request.popPrice != null">
+                pop_price = #{request.popPrice},
+            </if>
+            <if test="request.popInstaUrl != null">
+                pop_insta_url = #{request.popInstaUrl},
+            </if>
+            pop_moderation_status = FALSE,
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </update>
+
+    <delete id="deletePopupImages">
+        DELETE FROM POPUP_IMG WHERE pop_id = #{popId}
+    </delete>
+
+    <delete id="deletePopupHashtags">
+        DELETE FROM POPUP_HASHTAG WHERE pop_id = #{popId}
+    </delete>
+
+
+    <update id="deletePopup">
+        UPDATE POPUPSTORE
+        SET pop_is_deleted = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pop_id = #{popId}
+        AND pop_owner_id = #{managerId}
+        AND pop_is_deleted = FALSE
+    </update>
+
+
+</mapper>

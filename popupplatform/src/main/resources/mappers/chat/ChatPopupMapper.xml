@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatPopupMapper">
+    <select id="findAllPopupNames"  resultType="com.popspot.popupplatform.dto.chat.response.PopupSimpleResponse">
+        SELECT
+        pop_id      AS popId,
+        pop_name    AS popName
+        FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+        ORDER BY created_at DESC
+    </select>
+    <select id="searchPopupNames" resultType="com.popspot.popupplatform.dto.chat.response.PopupSimpleResponse">
+        SELECT
+        pop_id AS popId,
+        pop_name AS popName
+        FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+        AND pop_name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY created_at DESC
+    </select>
+</mapper>

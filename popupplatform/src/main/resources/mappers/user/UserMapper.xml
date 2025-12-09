@@ -42,6 +42,7 @@
         user_phonenumber,
         user_gender,
         user_birthyear,
+        user_introduction,
         user_photo,
         user_email,
         user_status,
@@ -54,6 +55,7 @@
         #{phone},
         #{gender},
         #{birthYear},
+        #{introduction},
         #{profileImage},
         #{email},
         #{status},
@@ -136,6 +138,7 @@
         u.user_phonenumber AS phone,
         u.user_gender      AS gender,
         u.user_birthyear   AS birthYear,
+        u.user_introduction As introduction,
         u.user_photo       AS profileImage,
         u.user_email       AS email,
         u.user_status      AS status,
@@ -212,7 +215,7 @@
         SELECT
         ug.user_id        AS userId,
         ug.login_id       AS loginId,
-        ug.login_password AS password,
+        ug.login_pwd AS password,
         u.user_role       AS role,
         u.user_status     AS status
         FROM USER_GENERAL ug
@@ -225,7 +228,7 @@
     <!-- 비밀번호 변경 -->
     <update id="updatePassword">
         UPDATE USER_GENERAL
-        SET login_password = #{password}
+        SET login_pwd = #{password}
         WHERE user_id = #{userId}
     </update>
 
@@ -244,4 +247,33 @@
         AND user_status  = 'ACTIVE'
     </update>
 
+    <!-- 성별/나이 제한 검사용 사용자 기본 정보 조회  -->
+    <select id="findUserLimitInfo"
+            resultType="com.popspot.popupplatform.dto.chat.UserLimitInfoDto">
+        SELECT
+        user_id as userId,
+        user_gender as userGender,
+        user_birthyear as userBirthyear
+        FROM USER
+        WHERE user_id = #{userId}
+        AND user_status != 'DELETED'
+    </select>
+
+    <!-- 채팅에서 사용할 유저 기본 정보 조회 -->
+    <select id="findById" resultType="com.popspot.popupplatform.dto.user.UserDto">
+        SELECT
+        user_id AS userId,
+        user_name AS name,
+        user_nickname AS nickname,
+        user_phonenumber AS phone,
+        user_gender AS gender,
+        user_birthyear AS birthYear,
+        user_photo AS profileImage,
+        user_email AS email,
+        user_status AS status,
+        user_role AS role,
+        user_introduction AS introduction
+        FROM USER
+        WHERE user_id = #{userId}
+    </select>
 </mapper>
