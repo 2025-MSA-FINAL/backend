@@ -180,9 +180,12 @@ public class PopupController {
     }
 
 
-    @Operation(summary = "내 주변 팝업 조회", description = "현재 위치 기준 반경 내 팝업을 거리순으로 조회합니다.")
+    @Operation(
+            summary = "내 주변 팝업 조회",
+            description = "현재 위치 기준 반경 내 팝업을 거리순으로 조회합니다. (로그인 시 isLiked 포함)"
+    )
     @GetMapping("/nearby")
-    public List<PopupNearbyItemResponse> getNearbyPopups(
+    public ResponseEntity<List<PopupNearbyItemResponse>> getNearbyPopups(
             @RequestParam("latitude") Double latitude,
             @RequestParam("longitude") Double longitude,
             @RequestParam(value = "radiusKm", required = false) Double radiusKm,
@@ -191,17 +194,19 @@ public class PopupController {
     ) {
         Long currentUserId = null;
         if (userDetails != null) {
-            try {
-                currentUserId = Long.valueOf(userDetails.getUsername());
-            } catch (NumberFormatException ignored) {
-            }
+            currentUserId = Long.parseLong(userDetails.getUsername());
         }
 
         log.info("[PopupNearby] API 호출 - userId={}, lat={}, lng={}, radiusKm={}, size={}",
                 currentUserId, latitude, longitude, radiusKm, size);
 
-        return popupService.getNearbyPopups(latitude, longitude, radiusKm, size);
+        List<PopupNearbyItemResponse> items =
+                popupService.getNearbyPopups(latitude, longitude, radiusKm, size, currentUserId);
+
+        return ResponseEntity.ok(items);
     }
+
+
 
 
 

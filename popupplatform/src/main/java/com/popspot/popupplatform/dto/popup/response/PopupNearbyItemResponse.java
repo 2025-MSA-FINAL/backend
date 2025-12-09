@@ -42,5 +42,7 @@ public class PopupNearbyItemResponse {
     @Schema(description = "현재 위치와의 거리 (km)")
     private Double distanceKm;
 
-    //일단 isLiked는 뺌..
+    @Schema(description = "찜 여부")
+    @Setter
+    private Boolean isLiked;
 }

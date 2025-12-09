@@ -466,7 +466,8 @@ public class PopupService {
             Double latitude,
             Double longitude,
             Double radiusKm,
-            Integer size
+            Integer size,
+            Long userId
     ) {
         if (latitude == null || longitude == null) {
             throw new CustomException(CommonErrorCode.INVALID_REQUEST);
@@ -489,6 +490,24 @@ public class PopupService {
 
         log.info("[PopupNearby] 결과 개수 = {}, DB 소요 시간 = {}ms",
                 items.size(), elapsed);
+
+        //비로그인 or 결과 없음 → isLiked 안 채우고 그대로 리턴
+        if (userId == null || items.isEmpty()) {
+            return items;
+        }
+
+        //로그인 상태면 찜한 팝업 ID 목록 조회
+        List<Long> popupIds = items.stream()
+                .map(PopupNearbyItemResponse::getPopId)
+                .collect(Collectors.toList());
+
+        List<Long> likedPopupIds = userWishlistMapper.findLikedPopupIds(userId, popupIds);
+        Set<Long> likedIdSet = new HashSet<>(likedPopupIds);
+
+        //각 아이템에 isLiked 채워주기
+        items.forEach(item ->
+                item.setIsLiked(likedIdSet.contains(item.getPopId()))
+        );
 
         return items;
     }
