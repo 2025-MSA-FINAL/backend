@@ -435,6 +435,10 @@ public class PopupService {
             }
         }
         PopupReservation popupReservation = popupReservationMapper.findByPopId(popupId);
+        int maxPeoplePerReservation =0;
+        if(popupReservation != null){
+            maxPeoplePerReservation=popupReservation.getPrMaxUserCnt();
+        }
 
         // 6. DTO 조립 및 반환
         return PopupDetailResponse.builder()
@@ -448,7 +452,7 @@ public class PopupService {
                 .popEndDate(popup.getPopEndDate())
                 .popInstaUrl(popup.getPopInstaUrl())
                 .popIsReservation(popup.getPopIsReservation())
-                .maxPeoplePerReservation(popupReservation.getPrMaxUserCnt())
+                .maxPeoplePerReservation(maxPeoplePerReservation)
                 .popPriceType(popup.getPopPriceType())
                 .popPrice(popup.getPopPrice())
                 .popStatus(popup.getPopStatus())
