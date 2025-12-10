@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatUserMapper">
+    <select id="getChatUserProfile" resultType="com.popspot.popupplatform.dto.chat.response.ChatUserProfileResponse">
+        SELECT
+        u.user_id            AS userId,
+        u.user_photo         AS profileImage,
+        u.user_nickname      AS nickname,
+        u.user_introduction  AS introduction,
+        u.user_status        AS status
+        FROM USER u
+        WHERE u.user_id = #{userId} AND u.user_status = 'active'
+    </select>
+</mapper>
