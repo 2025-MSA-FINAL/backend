@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface AdminPopupMapper {
@@ -52,4 +53,12 @@ public interface AdminPopupMapper {
      * 팝업스토어 삭제 (soft delete)
      */
     int deletePopup(@Param("popId") Long popId);
+
+
+    /**
+     * 전체 통계 조회 (필터 무관)
+     */
+    Map<String, Object> getPopupStats();
+
+
 }

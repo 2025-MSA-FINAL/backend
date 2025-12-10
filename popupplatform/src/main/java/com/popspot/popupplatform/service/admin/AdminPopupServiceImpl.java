@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -78,4 +79,17 @@ public class AdminPopupServiceImpl implements AdminPopupService {
     public boolean deletePopup(Long popId) {
         return popupMapper.deletePopup(popId) > 0;
     }
+
+    /**
+     * 전체 통계 조회 (필터 무관)
+     */
+    @Override
+    public Map<String, Object> getPopupStats() {
+        return popupMapper.getPopupStats();
+    }
+
+
+
+
+
 }
