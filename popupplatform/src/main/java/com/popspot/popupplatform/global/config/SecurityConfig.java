@@ -68,7 +68,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/managers/**",
                                 "/api/popup/*/reservation-setting").hasRole("MANAGER")
                         .requestMatchers(
-                                "/api/users/me"
+                                "/api/users/me",
+                                "/api/chat",
+                                "/api/chat/**"
                         ).authenticated()
                         .anyRequest().authenticated()
                 )
