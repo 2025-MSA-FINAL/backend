@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/chat/hidden")
+@RequestMapping("/api/chat/hidden")
 public class ChatRoomHiddenController {
     private final ChatRoomHiddenService chatRoomHiddenService;
     //채팅방 숨김처리
