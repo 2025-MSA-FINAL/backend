@@ -73,4 +73,39 @@
         WHERE pts_id = #{ptsId}
     </select>
 
+    <!-- ============================ -->
+    <!-- JOIN: SLOT + POPUP_RESERVATION -->
+    <!-- ============================ -->
+    <select id="findSlotWithPopupReservation"
+            resultMap="SlotWithReservationMap">
+
+        SELECT
+        ts.pts_id           AS slotId,
+        ts.pop_id           AS popId,
+        ts.pts_start_time   AS startTime,
+        ts.pts_capacity     AS capacity,
+
+        pr.pr_max_user_cnt  AS maxUserCnt
+
+        FROM POPUP_TIME_SLOT ts
+        JOIN POPUP_RESERVATION pr
+        ON ts.pop_id = pr.pop_id
+
+        WHERE ts.pts_id = #{slotId}
+    </select>
+
+    <!-- ============================ -->
+    <!-- ResultMap                    -->
+    <!-- ============================ -->
+    <resultMap id="SlotWithReservationMap"
+               type="com.popspot.popupplatform.dto.reservation.SlotWithReservationDto">
+
+        <id property="slotId" column="slotId"/>
+        <result property="popId" column="popId"/>
+        <result property="startTime" column="startTime"/>
+        <result property="capacity" column="capacity"/>
+        <result property="maxUserCnt" column="maxUserCnt"/>
+
+    </resultMap>
+
 </mapper>

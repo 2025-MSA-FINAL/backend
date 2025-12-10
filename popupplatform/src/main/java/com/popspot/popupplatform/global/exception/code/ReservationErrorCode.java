@@ -41,7 +41,7 @@ public enum ReservationErrorCode implements BaseErrorCode {
     INVALID_PEOPLE_COUNT(
             "RES_009",
                     "PEOPLE값이 유효하지 않습니다.",
-            HttpStatus.CONFLICT
+            HttpStatus.BAD_REQUEST
             ),
     ;
 

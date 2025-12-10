@@ -1,10 +1,13 @@
 package com.popspot.popupplatform.service.reservation;
 
+import com.popspot.popupplatform.domain.reservation.PopupReservation;
 import com.popspot.popupplatform.domain.reservation.PopupTimeSlot;
 import com.popspot.popupplatform.domain.reservation.ReservationHold;
 import com.popspot.popupplatform.domain.reservation.UserReservation;
+import com.popspot.popupplatform.dto.reservation.SlotWithReservationDto;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ReservationErrorCode;
+import com.popspot.popupplatform.mapper.reservation.PopupReservationMapper;
 import com.popspot.popupplatform.mapper.reservation.PopupTimeSlotMapper;
 import com.popspot.popupplatform.mapper.reservation.ReservationHoldMapper;
 import com.popspot.popupplatform.mapper.reservation.UserReservationMapper;
@@ -24,6 +27,8 @@ public class UserReservationService {
     private final PopupTimeSlotMapper popupTimeSlotMapper;
     private final UserReservationMapper userReservationMapper;
     private final ReservationHoldMapper reservationHoldMapper;
+    private final PopupReservationMapper popupReservationMapper;
+
     private final AtomicLong testUserId = new AtomicLong(1L);
 
     // TODO: 실제 로그인 사용자에서 받아오도록 교체
@@ -43,11 +48,11 @@ public class UserReservationService {
         LocalDate date = LocalDate.parse(dateStr); // "yyyy-MM-dd"
         Long userId = getCurrentUserId();
 
-        if (people == null || people <= 0) {
+        SlotWithReservationDto slot = popupTimeSlotMapper.findSlotWithPopupReservation(slotId);
+
+        if (people == null || people <= 0 || slot.getMaxUserCnt()<people) {
             throw new CustomException(ReservationErrorCode.INVALID_PEOPLE_COUNT);
         }
-        // 1) 슬롯 조회
-        PopupTimeSlot slot = popupTimeSlotMapper.findById(slotId);
         if (slot == null) {
             throw new CustomException(ReservationErrorCode.RESERVATION_SLOT_NOT_FOUND);
         }
@@ -56,7 +61,7 @@ public class UserReservationService {
             throw new CustomException(ReservationErrorCode.RESERVATION_SLOT_NOT_FOUND);
         }
 
-        int capacity = slot.getPtsCapacity();
+        int capacity = slot.getCapacity();
 
         // 2) 해당 날짜의 확정 예약 인원 합 (USER_RESERVATION)
         LocalDateTime startOfDay = date.atStartOfDay();
@@ -94,7 +99,7 @@ public class UserReservationService {
         Long holdId = hold.getRhId();
 
         // 5) USER_RESERVATION 즉시 확정
-        LocalDateTime visitDateTime = LocalDateTime.of(date, slot.getPtsStartTime());
+        LocalDateTime visitDateTime = LocalDateTime.of(date, slot.getStartTime());
 
         UserReservation reservation = UserReservation.builder()
                 .popId(popupId)
