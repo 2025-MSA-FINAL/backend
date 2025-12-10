@@ -8,12 +8,36 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/admin/popups")
 @RequiredArgsConstructor
 public class AdminPopupController {
 
     private final AdminPopupService popupService;
+
+
+    /**
+     * 🆕 팝업스토어 전체 통계 조회 (필터 무관)
+     * GET /api/admin/popups/stats
+     *
+     * 응답 예시:
+     * {
+     *   "total": 89,
+     *   "pending": 12,
+     *   "active": 45,
+     *   "ended": 32
+     * }
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getPopupStats() {
+        Map<String, Object> stats = popupService.getPopupStats();
+        return ResponseEntity.ok(stats);
+    }
+
+
+
 
     /**
      * 팝업스토어 목록 조회 (통합 검색/필터/페이징)
