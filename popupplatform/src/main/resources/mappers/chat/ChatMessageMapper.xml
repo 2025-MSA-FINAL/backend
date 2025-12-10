@@ -12,6 +12,7 @@
         <result column="senderId" property="senderId"/>
         <result column="senderNickname" property="senderNickname"/>
         <result column="senderProfileUrl" property="senderProfileUrl"/>
+        <result column="senderStatus" property="senderStatus"/>
 
         <result column="content" property="content"/>
         <result column="messageType" property="messageType"/>
@@ -43,6 +44,7 @@
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
+        u.user_status AS senderStatus,
         cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
         JOIN USER u ON cm.user_id = u.user_id
@@ -71,6 +73,7 @@
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
+        u.user_status AS senderStatus,
         cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
         JOIN USER u ON cm.user_id = u.user_id
@@ -92,6 +95,7 @@
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
+        u.user_status AS senderStatus,
         cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
         JOIN USER u ON cm.user_id = u.user_id
