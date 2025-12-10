@@ -7,4 +7,5 @@ import lombok.Data;
 public class ReportCategoryStatsDTO {
     private Long categoryId;
     private String categoryName;
+    private Long reportCount;
 }
