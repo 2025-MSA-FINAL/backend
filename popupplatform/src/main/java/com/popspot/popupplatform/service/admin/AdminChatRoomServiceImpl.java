@@ -1,5 +1,7 @@
 package com.popspot.popupplatform.service.admin;
 
+import com.popspot.popupplatform.dto.admin.AdminChatParticipantDTO;
+import com.popspot.popupplatform.dto.admin.AdminChatReportDTO;
 import com.popspot.popupplatform.dto.admin.AdminChatRoomDTO;
 import com.popspot.popupplatform.dto.admin.AdminChatRoomStatsDTO;
 import com.popspot.popupplatform.dto.common.PageDTO;
@@ -26,9 +28,10 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
     }
 
     @Override
-    public PageDTO<AdminChatRoomDTO> getChatRoomList(Boolean isDeleted, PageRequestDTO pageRequest) {
+    public PageDTO<AdminChatRoomDTO> getChatRoomList(Boolean isDeleted, String sort,PageRequestDTO pageRequest) {
         List<AdminChatRoomDTO> chatRooms = chatRoomMapper.getChatRoomList(
                 isDeleted,
+                sort,
                 pageRequest.getOffset(),
                 pageRequest.getSize()
         );
@@ -56,14 +59,26 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
     }
 
     @Override
-    public PageDTO<AdminChatRoomDTO> searchChatRooms(String keyword, PageRequestDTO pageRequest) {
+    public PageDTO<AdminChatRoomDTO> searchChatRooms(
+            String keyword,
+            Boolean isDeleted,
+            String searchType,
+            String sort,
+            PageRequestDTO pageRequest) {
         List<AdminChatRoomDTO> chatRooms = chatRoomMapper.searchChatRooms(
                 keyword,
+                isDeleted,
+                searchType,
+                sort,
                 pageRequest.getOffset(),
                 pageRequest.getSize()
         );
 
-        long totalCount = chatRoomMapper.countSearchChatRooms(keyword);
+        long totalCount = chatRoomMapper.countSearchChatRooms(
+                keyword,
+                isDeleted,
+                searchType
+        );
 
         return new PageDTO<>(
                 chatRooms,
@@ -72,4 +87,31 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
                 totalCount
         );
     }
+
+    @Override
+    public List<AdminChatParticipantDTO> getChatRoomParticipants(Long chatId) {
+        return chatRoomMapper.getChatRoomParticipants(chatId);
+    }
+
+
+    @Override
+    @Transactional
+    public boolean restoreChatRoom(Long chatId) {
+        return chatRoomMapper.restoreChatRoom(chatId) > 0;
+    }
+
+    @Override
+    public List<AdminChatReportDTO> getChatRoomReports(Long chatId) {
+        return chatRoomMapper.getChatRoomReports(chatId);
+    }
+
+    @Override
+    @Transactional
+    public boolean updateChatReportStatus(Long reportId, String status) {
+        return chatRoomMapper.updateChatReportStatus(reportId, status) > 0;
+    }
+
+
+
+
 }

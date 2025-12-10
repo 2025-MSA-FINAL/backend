@@ -1,45 +1,69 @@
 package com.popspot.popupplatform.controller.admin;
 
-import com.popspot.popupplatform.dto.admin.AdminChatRoomDTO;
-import com.popspot.popupplatform.dto.admin.AdminChatRoomStatsDTO;
+import com.popspot.popupplatform.dto.admin.*;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 import com.popspot.popupplatform.service.admin.AdminChatRoomService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/admin/chatrooms")
 @RequiredArgsConstructor
-@Tag(name = "Admin ChatRoom Management", description = "관리자 채팅방 관리 API")
 public class AdminChatRoomController {
 
     private final AdminChatRoomService chatRoomService;
 
+    /**
+     * 채팅방 통계 조회
+     * GET /api/admin/chatrooms/stats
+     */
     @GetMapping("/stats")
-    @Operation(summary = "채팅방 통계 조회")
     public ResponseEntity<AdminChatRoomStatsDTO> getChatRoomStats() {
-        AdminChatRoomStatsDTO stats = chatRoomService.getChatRoomStats();
-        return ResponseEntity.ok(stats);
+        return ResponseEntity.ok(chatRoomService.getChatRoomStats());
     }
 
+    /**
+     * 채팅방 목록 조회 (통합 검색/필터/정렬)
+     * GET /api/admin/chatrooms?page=0&size=10&keyword=&isDeleted=false&sort=createdAt
+     *
+     * @param pageRequest 페이징 정보
+     * @param keyword 검색어 (optional)
+     * @param isDeleted 삭제 여부 (optional)
+     * @param sort 정렬 기준 (createdAt, reportCount, participantCount, messageCount, name)
+     */
     @GetMapping
-    @Operation(summary = "채팅방 목록 조회")
     public ResponseEntity<PageDTO<AdminChatRoomDTO>> getChatRoomList(
-            @RequestParam(required = false, defaultValue = "false") Boolean isDeleted,
-            @ModelAttribute PageRequestDTO pageRequest
-    ) {
-        PageDTO<AdminChatRoomDTO> chatRooms = chatRoomService.getChatRoomList(isDeleted, pageRequest);
-        return ResponseEntity.ok(chatRooms);
-    }
+            PageRequestDTO pageRequest,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean isDeleted,
+            @RequestParam(required = false, defaultValue = "createdAt") String sort,
+            @RequestParam(required = false, defaultValue = "all") String searchType) { // searchType 추가!
 
+        PageDTO<AdminChatRoomDTO> result;
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            result = chatRoomService.searchChatRooms(
+                    keyword,
+                    isDeleted,
+                    searchType,
+                    sort,
+                    pageRequest); // searchType 전달
+        } else {
+            // ... (기존 목록 조회 로직)
+            result = chatRoomService.getChatRoomList(isDeleted, sort, pageRequest);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+    /**
+     * 채팅방 상세 조회
+     * GET /api/admin/chatrooms/{chatId}
+     */
     @GetMapping("/{chatId}")
-    @Operation(summary = "채팅방 상세 조회")
     public ResponseEntity<AdminChatRoomDTO> getChatRoomDetail(@PathVariable Long chatId) {
         AdminChatRoomDTO chatRoom = chatRoomService.getChatRoomDetail(chatId);
         if (chatRoom == null) {
@@ -48,40 +72,59 @@ public class AdminChatRoomController {
         return ResponseEntity.ok(chatRoom);
     }
 
+    /**
+     * 채팅방 삭제
+     * DELETE /api/admin/chatrooms/{chatId}
+     */
     @DeleteMapping("/{chatId}")
-    @Operation(summary = "채팅방 삭제")
     public ResponseEntity<String> deleteChatRoom(@PathVariable Long chatId) {
         boolean success = chatRoomService.deleteChatRoom(chatId);
-        return success ? ResponseEntity.ok("deleted") : ResponseEntity.badRequest().body("fail");
+        return success ?
+                ResponseEntity.ok("deleted") :
+                ResponseEntity.badRequest().body("fail");
     }
 
-    @DeleteMapping("/bulk")
-    @Operation(summary = "채팅방 일괄 삭제")
-    public ResponseEntity<String> bulkDeleteChatRooms(@RequestParam String ids) {
-        String[] idArray = ids.split(",");
-        int deletedCount = 0;
-
-        for (String id : idArray) {
-            try {
-                Long chatId = Long.parseLong(id.trim());
-                if (chatRoomService.deleteChatRoom(chatId)) {
-                    deletedCount++;
-                }
-            } catch (NumberFormatException e) {
-                log.error("Invalid chat ID: {}", id);
-            }
-        }
-
-        return ResponseEntity.ok(deletedCount + " chatrooms deleted");
+    /**
+     * 채팅방 복구
+     * PUT /api/admin/chatrooms/{chatId}/restore
+     */
+    @PutMapping("/{chatId}/restore")
+    public ResponseEntity<String> restoreChatRoom(@PathVariable Long chatId) {
+        boolean success = chatRoomService.restoreChatRoom(chatId);
+        return success ?
+                ResponseEntity.ok("restored") :
+                ResponseEntity.badRequest().body("fail");
     }
 
-    @GetMapping("/search")
-    @Operation(summary = "채팅방 검색")
-    public ResponseEntity<PageDTO<AdminChatRoomDTO>> searchChatRooms(
-            @RequestParam String keyword,
-            @ModelAttribute PageRequestDTO pageRequest
-    ) {
-        PageDTO<AdminChatRoomDTO> chatRooms = chatRoomService.searchChatRooms(keyword, pageRequest);
-        return ResponseEntity.ok(chatRooms);
+    /**
+     * 채팅방 참여자 목록
+     * GET /api/admin/chatrooms/{chatId}/participants
+     */
+    @GetMapping("/{chatId}/participants")
+    public ResponseEntity<List<AdminChatParticipantDTO>> getChatRoomParticipants(@PathVariable Long chatId) {
+        return ResponseEntity.ok(chatRoomService.getChatRoomParticipants(chatId));
+    }
+
+    /**
+     * 채팅방 신고 목록
+     * GET /api/admin/chatrooms/{chatId}/reports
+     */
+    @GetMapping("/{chatId}/reports")
+    public ResponseEntity<List<AdminChatReportDTO>> getChatRoomReports(@PathVariable Long chatId) {
+        return ResponseEntity.ok(chatRoomService.getChatRoomReports(chatId));
+    }
+
+    /**
+     * 채팅방 신고 상태 변경
+     * PUT /api/admin/chatrooms/reports/{reportId}/status?status=approved
+     */
+    @PutMapping("/reports/{reportId}/status")
+    public ResponseEntity<String> updateChatReportStatus(
+            @PathVariable Long reportId,
+            @RequestParam String status) {
+        boolean success = chatRoomService.updateChatReportStatus(reportId, status);
+        return success ?
+                ResponseEntity.ok("updated") :
+                ResponseEntity.badRequest().body("fail");
     }
 }

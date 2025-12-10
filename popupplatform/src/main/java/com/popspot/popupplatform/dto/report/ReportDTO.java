@@ -11,4 +11,5 @@ public class ReportDTO {
     private Long rcId;
     private Long userId;
     private String createdAt;
+    private String targetName;
 }
