@@ -53,7 +53,7 @@ jobs:
           ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "mkdir -p /home/ubuntu/app"
           scp -i private_key.pem -o StrictHostKeyChecking=no "${JAR_PATH}" "${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/app.jar"
           scp -i private_key.pem -o StrictHostKeyChecking=no Dockerfile "${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/Dockerfile"
-          scp -i private_key.pem -o StrictHostKeyChecking=no deploy.sh "${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/deploy.sh"
+       
       
       - name: Run deploy.sh on EC2
         env:
