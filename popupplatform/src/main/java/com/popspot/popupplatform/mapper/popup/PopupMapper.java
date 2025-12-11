@@ -85,6 +85,8 @@ public interface PopupMapper {
     void updatePopupAiSummary(@Param("popId") Long popId,
                               @Param("summary") String summary);
 
+    void updateIsReservation(@Param("popId") Long popId);
+
     // -------------------- [User Report] --------------------
 
     /**

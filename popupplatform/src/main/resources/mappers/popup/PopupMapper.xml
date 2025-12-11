@@ -436,6 +436,12 @@
         AND pop_is_deleted = FALSE
     </update>
 
+    <update id="updateIsReservation">
+        UPDATE POPUPSTORE
+        SET pop_is_reservation = TRUE
+        WHERE pop_id = #{popId}
+    </update>
+
     <update id="updateViewCount">
         UPDATE POPUPSTORE
         SET pop_view_count = IFNULL(pop_view_count, 0) + 1
