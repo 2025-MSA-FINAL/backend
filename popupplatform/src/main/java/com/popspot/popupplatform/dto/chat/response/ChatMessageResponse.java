@@ -19,6 +19,7 @@ public class ChatMessageResponse {
     private Long senderId;
     private String senderNickname;
     private String senderProfileUrl;
+    private String senderStatus; // 'ACTIVE', 'DELETED'
 
     private String content;
     private String messageType;
