@@ -35,26 +35,21 @@
         WHERE pop_owner_id = #{userId}
         AND pop_is_deleted = FALSE
 
-        <!-- 진행 상태 필터-->
+        <!-- 승인 상태 필터: status = ALL / PENDING / APPROVED / REJECTED -->
         <if test="status != null and status != 'ALL'">
-            AND pop_status = #{status}
-        </if>
-
-        <!-- 승인 상태 필터 -->
-        <if test="moderation != null and moderation != 'ALL'">
             <choose>
-                <!-- 승인 대기 -->
-                <when test="moderation == 'PENDING'">
+                <!-- 승인 대기: 아직 심사 전 / 심사 중 -->
+                <when test="status == 'PENDING'">
                     AND pop_moderation_status IS NULL
                 </when>
 
                 <!-- 승인 완료 -->
-                <when test="moderation == 'APPROVED'">
+                <when test="status == 'APPROVED'">
                     AND pop_moderation_status = TRUE
                 </when>
 
                 <!-- 승인 반려 -->
-                <when test="moderation == 'REJECTED'">
+                <when test="status == 'REJECTED'">
                     AND pop_moderation_status = FALSE
                 </when>
             </choose>
@@ -106,33 +101,26 @@
         LIMIT #{size} OFFSET #{offset}
     </select>
 
-
     <select id="countMyPopups" resultType="long">
         SELECT COUNT(*)
         FROM POPUPSTORE
         WHERE pop_owner_id = #{userId}
         AND pop_is_deleted = FALSE
 
-        <!-- 진행 상태 필터 -->
+        <!-- 승인 상태 필터: 목록 조회와 동일하게 -->
         <if test="status != null and status != 'ALL'">
-            AND pop_status = #{status}
-        </if>
-
-        <!-- 승인 상태 필터 -->
-        <if test="moderation != null and moderation != 'ALL'">
             <choose>
-                <when test="moderation == 'PENDING'">
+                <when test="status == 'PENDING'">
                     AND pop_moderation_status IS NULL
                 </when>
-                <when test="moderation == 'APPROVED'">
+                <when test="status == 'APPROVED'">
                     AND pop_moderation_status = TRUE
                 </when>
-                <when test="moderation == 'REJECTED'">
+                <when test="status == 'REJECTED'">
                     AND pop_moderation_status = FALSE
                 </when>
             </choose>
         </if>
     </select>
-
 
 </mapper>
