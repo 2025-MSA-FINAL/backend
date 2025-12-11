@@ -40,8 +40,7 @@ jobs:
         run: |
           JAR_PATH=$(ls -t build/libs/*SNAPSHOT.jar | head -n 1)
           echo "Using JAR: $JAR_PATH"
-
-          scp -i private_key.pem -o StrictHostKeyChecking=no "$JAR_PATH" ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/popupplatform.jar
+          scp -i private_key.pem -o StrictHostKeyChecking=no "$JAR_PATH" ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/app.jar
           scp -i private_key.pem -o StrictHostKeyChecking=no Dockerfile ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/Dockerfile
 
       - name: Run deploy.sh on EC2
