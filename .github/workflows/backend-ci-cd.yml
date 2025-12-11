@@ -26,7 +26,17 @@ jobs:
         run: chmod +x gradlew
       
       - name: Build with Gradle (skip tests)
-        run: ./gradlew clean build -x test
+        run: |
+          for i in 1 2 3 4 5; do
+            if ./gradlew clean build -x test; then
+              echo "✅ Build successful"
+              exit 0
+            fi
+            echo "⚠️ Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "❌ Build failed after 5 attempts"
+          exit 1
       
       - name: Prepare SSH key
         run: |
@@ -43,6 +53,7 @@ jobs:
           ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "mkdir -p /home/ubuntu/app"
           scp -i private_key.pem -o StrictHostKeyChecking=no "${JAR_PATH}" "${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/app.jar"
           scp -i private_key.pem -o StrictHostKeyChecking=no Dockerfile "${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/Dockerfile"
+          scp -i private_key.pem -o StrictHostKeyChecking=no deploy.sh "${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/deploy.sh"
       
       - name: Run deploy.sh on EC2
         env:
