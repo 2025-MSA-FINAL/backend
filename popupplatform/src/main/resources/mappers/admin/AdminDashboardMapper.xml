@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.admin.AdminDashboardMapper">
+
+    <!-- 기본 유저 통계 -->
+    <select id="countTotalUsers" resultType="long">
+        SELECT COUNT(*) FROM USER
+        WHERE user_status != 'deleted'
+    </select>
+
+    <select id="countNewUsersToday" resultType="long">
+        SELECT COUNT(*) FROM USER
+        WHERE DATE(created_at) = CURDATE()
+    </select>
+
+    <select id="countNewUsersThisWeek" resultType="long">
+        SELECT COUNT(*) FROM USER
+        WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
+    </select>
+
+    <select id="countNewUsersThisMonth" resultType="long">
+        SELECT COUNT(*) FROM USER
+        WHERE YEAR(created_at) = YEAR(CURDATE())
+        AND MONTH(created_at) = MONTH(CURDATE())
+    </select>
+
+    <!-- 팝업 통계 -->
+    <select id="countTotalPopups" resultType="long">
+        SELECT COUNT(*) FROM POPUPSTORE WHERE pop_is_deleted = FALSE
+    </select>
+
+    <select id="countActivePopups" resultType="long">
+        SELECT COUNT(*) FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+        AND pop_status = 'active'
+        AND CURDATE() BETWEEN DATE(pop_start_date) AND DATE(pop_end_date)
+    </select>
+
+    <select id="countPendingApprovalPopups" resultType="long">
+        SELECT COUNT(*) FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+        AND pop_moderation_status IS NULL
+    </select>
+
+    <select id="countEndingSoonPopups" resultType="long">
+        SELECT COUNT(*) FROM POPUPSTORE
+        WHERE pop_is_deleted = FALSE
+        AND pop_status = 'active'
+        AND DATEDIFF(pop_end_date, CURDATE()) BETWEEN 0 AND 7
+    </select>
+
+    <!-- 채팅방 통계 -->
+    <select id="countTotalChatRooms" resultType="long">
+        SELECT COUNT(*) FROM GROUP_CHAT_ROOM
+        WHERE gcr_is_deleted = FALSE
+    </select>
+
+
+
+
+
+    <!-- 신고 통계 -->
+    <select id="countTotalReports" resultType="long">
+        SELECT COUNT(*) FROM REPORT
+    </select>
+
+    <select id="countReportsByStatus" resultType="long">
+        SELECT COUNT(*) FROM REPORT
+        WHERE rep_status = #{status}
+    </select>
+
+    <!-- 1. 성별/연령별 분포 -->
+    <select id="getUserDemographics" resultType="com.popspot.popupplatform.dto.admin.UserDemographicsDTO">
+        SELECT
+        CASE
+        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 10 AND 19 THEN '10대'
+        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 20 AND 29 THEN '20대'
+        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 30 AND 39 THEN '30대'
+        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 40 AND 49 THEN '40대'
+        ELSE '50대+'
+        END AS ageGroup,
+        LOWER(user_gender) AS gender,
+        COUNT(*) AS userCount
+        FROM USER
+        WHERE user_status != 'deleted'
+        GROUP BY ageGroup, user_gender
+    </select>
+
+    <!-- 2. 이번 주 인기 팝업 Top 10 -->
+    <select id="getTopPopupsThisWeek" resultType="com.popspot.popupplatform.dto.admin.PopularPopupDTO">
+        SELECT
+        p.pop_id AS popId,
+        p.pop_name AS popName,
+        p.pop_thumbnail AS popThumbnail,
+        COUNT(pv.pv_id) AS viewCount
+        FROM POPUPSTORE p
+        LEFT JOIN POPUP_VIEWED pv ON p.pop_id = pv.pop_id
+        WHERE YEARWEEK(pv.pv_viewed_at, 1) = YEARWEEK(CURDATE(), 1)
+        GROUP BY p.pop_id
+        ORDER BY viewCount DESC
+        LIMIT 10
+    </select>
+
+    <!-- 3. 인기 해시태그 -->
+    <select id="getPopularHashtags" resultType="com.popspot.popupplatform.dto.admin.PopularHashtagDTO">
+        SELECT
+        h.hash_id AS hashId,
+        h.hash_name AS hashName,
+        COUNT(*) AS wishlistCount
+        FROM POPUP_HASHTAG ph
+        JOIN HASHTAG h ON ph.hash_id = h.hash_id
+        JOIN USER_WISHLIST uw ON ph.pop_id = uw.pop_id
+        GROUP BY h.hash_id, h.hash_name
+        ORDER BY wishlistCount DESC
+        LIMIT 20
+    </select>
+
+    <!-- 4. 카테고리별 신고 건수 -->
+    <select id="getReportCategoryStats" resultType="com.popspot.popupplatform.dto.admin.ReportCategoryStatsDTO">
+        SELECT
+        rc.rc_id AS categoryId,
+        rc.rc_name AS categoryName,
+        COUNT(r.rep_id) AS reportCount
+        FROM REPORT_CATEGORY rc
+        LEFT JOIN REPORT r ON rc.rc_id = r.rc_id
+        GROUP BY rc.rc_id
+        ORDER BY reportCount DESC
+    </select>
+
+    <!--  5. 월별 신규 가입자 추이 -->
+    <select id="getMonthlyUserGrowth" resultType="com.popspot.popupplatform.dto.admin.MonthlyUserGrowthDTO">
+        SELECT
+        DATE_FORMAT(created_at, '%Y-%m') AS month,
+        COUNT(*) AS newUsers
+        FROM USER
+        WHERE created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 MONTH), '%Y-%m-01')
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month ASC
+    </select>
+
+    <!-- 6. 지난 N일 간 일자별 조회수 - 수정 -->
+    <select id="getDailyViews" resultType="com.popspot.popupplatform.dto.admin.DailyViewStatsDTO">
+        SELECT
+        DATE(pv.pv_viewed_at) AS date,
+        DATE_FORMAT(pv.pv_viewed_at, '%m/%d(%a)') AS dayLabel,
+        DATE_FORMAT(pv.pv_viewed_at, '%Y-%m-%d') AS fullDate,
+        HOUR(pv.pv_viewed_at) AS hour,
+        COUNT(*) AS views
+        FROM POPUP_VIEWED pv
+        WHERE pv.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY DATE(pv.pv_viewed_at), HOUR(pv.pv_viewed_at)
+        ORDER BY DATE(pv.pv_viewed_at) ASC, hour ASC
+    </select>
+
+    <!-- 7. 조회 히트맵 (요일 × 시간대) -->
+    <select id="getViewHeatmap" resultType="com.popspot.popupplatform.dto.admin.ViewHeatmapDTO">
+        SELECT
+        HOUR(pv.pv_viewed_at) AS hour,
+        DAYNAME(pv.pv_viewed_at) AS weekday,
+        COUNT(*) AS viewCount
+        FROM POPUP_VIEWED pv
+        GROUP BY HOUR(pv.pv_viewed_at), DAYNAME(pv.pv_viewed_at)
+        ORDER BY weekday, hour
+    </select>
+
+    <!--  8. 히트맵 상세 -->
+    <!--  시간대 상세 조회수: 총 조회수 -->
+    <select id="getViewDetailTotalViews" resultType="int">
+        SELECT COUNT(*)
+        FROM POPUP_VIEWED
+        WHERE DATE(pv_viewed_at) = #{date}
+        AND HOUR(pv_viewed_at) = #{hour}
+    </select>
+
+    <!--  시간대 상세 조회: TOP 5 팝업 -->
+    <select id="getViewDetailTopPopups" resultType="com.popspot.popupplatform.dto.admin.ViewDetailPopupDTO">
+        SELECT
+        p.pop_id AS popId,
+        p.pop_name AS popName,
+        p.pop_thumbnail AS thumbnail,
+        COUNT(pv.pv_id) AS viewCount
+        FROM POPUP_VIEWED pv
+        JOIN POPUPSTORE p ON p.pop_id = pv.pop_id
+        WHERE DATE(pv.pv_viewed_at) = #{date}
+        AND HOUR(pv.pv_viewed_at) = #{hour}
+        GROUP BY p.pop_id, p.pop_name, p.pop_thumbnail
+        ORDER BY viewCount DESC
+        LIMIT 5
+    </select>
+
+    <!--  성별 비율 -->
+    <select id="getViewDetailGender" resultType="com.popspot.popupplatform.dto.admin.ViewDetailGenderDTO">
+        SELECT
+        u.user_gender AS gender,
+        COUNT(*) AS count
+        FROM POPUP_VIEWED pv
+        JOIN USER u ON pv.user_id = u.user_id
+        WHERE DATE(pv.pv_viewed_at) = #{date}
+        AND HOUR(pv.pv_viewed_at) = #{hour}
+        GROUP BY u.user_gender
+    </select>
+
+    <!--  연령대 비율 -->
+    <select id="getViewDetailAge" resultType="com.popspot.popupplatform.dto.admin.ViewDetailAgeDTO">
+        SELECT
+        CASE
+        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 10 AND 19 THEN '10대'
+        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 20 AND 29 THEN '20대'
+        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 30 AND 39 THEN '30대'
+        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 40 AND 49 THEN '40대'
+        ELSE '50대+'
+        END AS ageGroup,
+        COUNT(*) AS count
+        FROM POPUP_VIEWED pv
+        JOIN USER u ON pv.user_id = u.user_id
+        WHERE DATE(pv.pv_viewed_at) = #{date}
+        AND HOUR(pv.pv_viewed_at) = #{hour}
+        GROUP BY ageGroup
+    </select>
+
+    <!-- 9. 이번 주 인기 팝업 (주간 TOP10) -->
+    <select id="getWeeklyTopPopups" resultType="com.popspot.popupplatform.dto.admin.PopularPopupWeeklyDTO">
+        SELECT
+        p.pop_id AS popId,
+        p.pop_name AS popName,
+        p.pop_thumbnail AS popThumbnail,
+        COUNT(pv.pv_id) AS viewCount,
+        ROW_NUMBER() OVER (ORDER BY COUNT(pv.pv_id) DESC) AS popupRank
+        FROM POPUPSTORE p
+        LEFT JOIN POPUP_VIEWED pv ON p.pop_id = pv.pop_id
+        WHERE YEARWEEK(pv.pv_viewed_at, 1) = YEARWEEK(CURDATE(), 1)
+        GROUP BY p.pop_id, p.pop_name, p.pop_thumbnail
+        ORDER BY viewCount DESC
+        LIMIT 10
+    </select>
+
+</mapper>

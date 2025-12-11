@@ -1,0 +1,48 @@
+<!-- src/main/resources/mapper/reservation/UserReservationMapper.xml -->
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.UserReservationMapper">
+
+    <resultMap id="UserReservationResultMap"
+               type="com.popspot.popupplatform.domain.reservation.UserReservation">
+        <id     property="urId"       column="ur_id"/>
+        <result property="popId"      column="pop_id"/>
+        <result property="ptsId"      column="pts_id"/>
+        <result property="userId"     column="user_id"/>
+        <result property="urDateTime" column="ur_date_time"/>
+        <result property="urUserCnt"  column="ur_user_cnt"/>
+        <result property="urStatus"   column="ur_status"/>
+    </resultMap>
+
+    <!-- 해당 슬롯 + 날짜 범위의 확정 예약 인원 합 -->
+    <select id="sumConfirmedUserCount" resultType="int">
+        SELECT COALESCE(SUM(ur_user_cnt), 0)
+        FROM USER_RESERVATION
+        WHERE pts_id = #{ptsId}
+        AND ur_status = TRUE
+        AND ur_date_time BETWEEN #{start} AND #{end}
+        FOR UPDATE
+    </select>
+
+    <!-- UI 표시용: FOR UPDATE 없는 버전 -->
+    <select id="sumConfirmedUserCountForDisplay" resultType="int">
+        SELECT COALESCE(SUM(ur_user_cnt), 0)
+        FROM USER_RESERVATION
+        WHERE pts_id = #{ptsId}
+        AND ur_status = TRUE
+        AND ur_date_time BETWEEN #{start} AND #{end}
+    </select>
+
+    <insert id="insert"
+            parameterType="com.popspot.popupplatform.domain.reservation.UserReservation"
+            useGeneratedKeys="true"
+            keyProperty="urId">
+        INSERT INTO USER_RESERVATION
+        (pop_id, pts_id, user_id, ur_date_time, ur_user_cnt, ur_status)
+        VALUES
+        (#{popId}, #{ptsId}, #{userId}, #{urDateTime}, #{urUserCnt}, #{urStatus})
+    </insert>
+
+</mapper>

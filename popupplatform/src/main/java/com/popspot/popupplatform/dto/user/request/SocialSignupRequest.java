@@ -12,6 +12,7 @@ public class SocialSignupRequest {
     private String gender;
     private String phone;
     private Integer birthYear;
+    private String introduction;
 
     // 일반로그인 정보 추가 자동화 가능
     private String loginId;

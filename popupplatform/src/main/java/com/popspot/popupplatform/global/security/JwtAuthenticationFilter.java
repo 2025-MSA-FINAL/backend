@@ -14,20 +14,29 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserDetailsService userDetailsService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+
+        // WebSocket handshake 경로 완전 제외
+        return uri.startsWith("/ws-stomp") ||
+                uri.startsWith("/pub") ||
+                uri.startsWith("/sub");
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -42,32 +51,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtTokenProvider.parseAccessToken(token);
 
                 Object userIdObj = claims.get("userId");
-                String role = (String) claims.get("role");
 
-                if (userIdObj != null && StringUtils.hasText(role)) {
-                    String principal = String.valueOf(userIdObj);
-                    List<GrantedAuthority> authorities =
-                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role));
+                if (userIdObj != null) {
+                    Long userId = Long.valueOf(String.valueOf(userIdObj));
 
-                    Authentication authentication =
-                            new UsernamePasswordAuthenticationToken(principal, null, authorities);
+                    // DB에서 계정 정보 조회 (UserDetailsService 사용)
+                    UserDetails userDetails =
+                            userDetailsService.loadUserByUsername(String.valueOf(userId));
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    // 계정 상태가 비활성인 경우 (예: DELETED / PENDING 등)
+                    if (!userDetails.isEnabled()) {
+                        SecurityContextHolder.clearContext();
+                        request.setAttribute("authErrorCode", AuthErrorCode.INACTIVE_USER);
+                    } else {
+                        Authentication authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
                 }
             } catch (ExpiredJwtException e) {
-                // 🔴 토큰 만료: 인증만 지우고, 에러코드 심어둠
                 SecurityContextHolder.clearContext();
                 request.setAttribute("authErrorCode", AuthErrorCode.EXPIRED_TOKEN);
             } catch (JwtException e) {
-                // 🔴 유효하지 않은 토큰(서명, 형식 등)
                 SecurityContextHolder.clearContext();
                 request.setAttribute("authErrorCode", AuthErrorCode.INVALID_TOKEN);
             } catch (Exception e) {
-                // 기타 예외는 일단 인증만 제거 (에러코드 심지 않음)
                 SecurityContextHolder.clearContext();
             }
         } else {
-            // 토큰 자체가 없음 → 나중에 EntryPoint에서 NO_AUTH_TOKEN으로 쓸 수 있게 심어둘 수도 있음
+            // 토큰 자체 없음
             request.setAttribute("authErrorCode", AuthErrorCode.NO_AUTH_TOKEN);
         }
 
@@ -85,7 +102,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return header.substring(7);
         }
 
-        // 쿠키에서도 시도
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
                 if ("accessToken".equals(cookie.getName()) &&

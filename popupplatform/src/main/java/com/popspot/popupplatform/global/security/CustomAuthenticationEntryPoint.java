@@ -31,8 +31,14 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         if (attr instanceof BaseErrorCode) {
             errorCode = (BaseErrorCode) attr;
         } else {
-            // JwtAuthenticationFilter에서 아무 코드도 안 심어줬다면 토큰이 아예 없는 케이스로 처리
-            errorCode = AuthErrorCode.NO_AUTH_TOKEN;
+            // 인증 문제는 아님
+            errorCode = AuthErrorCode.UNKNOWN_AUTH_ERROR;
+            // 콘솔에 어떤 에러가 발생했는지 출력
+            System.err.println("Authentication failed: "
+                    + authException.getClass().getName()
+                    + " - " + authException.getMessage());
+            authException.printStackTrace(); // 스택트레이스까지 찍어줌
+
         }
 
         ErrorResponse body = new ErrorResponse(errorCode.getCode(), errorCode.getMessage());

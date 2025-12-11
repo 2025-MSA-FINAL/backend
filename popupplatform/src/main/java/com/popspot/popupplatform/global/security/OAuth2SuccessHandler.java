@@ -65,7 +65,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             authCookieService.addLoginCookies(res, accessToken, refreshToken);
 
             String redirect = UriComponentsBuilder.fromHttpUrl(frontend)
-                    .path("/login-success")
+                    .path("/")
                     .build(true).toUriString();
             res.sendRedirect(redirect);
         } else {

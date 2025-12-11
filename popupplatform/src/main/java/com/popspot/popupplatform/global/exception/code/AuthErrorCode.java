@@ -10,7 +10,8 @@ public enum AuthErrorCode implements BaseErrorCode {
 
     // 🔥 여기에 추가된 에러코드들 (기존 코드 수정 없음)
     NO_AUTH_TOKEN("AUTH_005", "인증 토큰이 제공되지 않았습니다.", HttpStatus.UNAUTHORIZED),
-    ACCESS_DENIED("AUTH_006", "해당 요청에 대한 권한이 없습니다.", HttpStatus.FORBIDDEN);
+    ACCESS_DENIED("AUTH_006", "해당 요청에 대한 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    UNKNOWN_AUTH_ERROR("AUTH_999","알 수 없는 에러",HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;

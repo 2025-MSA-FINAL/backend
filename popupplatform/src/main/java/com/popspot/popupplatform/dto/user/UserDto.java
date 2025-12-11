@@ -24,6 +24,7 @@ public class UserDto {
     private String email;       // USER.user_email
     private String status;      // USER.user_status (예: ACTIVE / BLOCK / DELETED)
     private String role;        // USER.user_role (예: USER / MANAGER / ADMIN)
+    private String introduction; // 자기소개
 
     // USER_SOCIAL
     private String provider;    // USER_SOCIAL.oauth_provider (예: NAVER)

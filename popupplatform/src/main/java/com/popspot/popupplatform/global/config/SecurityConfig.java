@@ -10,9 +10,11 @@ import com.popspot.popupplatform.service.auth.NaverOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -32,6 +34,7 @@ public class SecurityConfig {
     private final NaverOAuth2UserService naverOAuth2UserService;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final UserDetailsService userDetailsService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -43,16 +46,33 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        /* ===== WebSocket 허용 (핸드셰이크만 필요) ===== */
+                        .requestMatchers("/ws-stomp").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/ws-stomp").permitAll()
+                        /* ===== STOMP 내부 경로 ===== */
+                        .requestMatchers("/pub/**", "/sub/**").permitAll()
                         .requestMatchers(
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger",
+                                "/health"
                         ).permitAll()
-                        .requestMatchers("/api/auth/phone/**",
+                        .requestMatchers(
+                                "/api/auth/phone/**",
+                                "/api/reservations",
                                 "/api/auth/**",
                                 "/oauth2/**",
-                                "/api/files/**").permitAll()
+                                "/api/files/**"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/popups", "/api/popups/**").permitAll()
+                        .requestMatchers("/api/managers/**",
+                                "/api/popup/*/reservation-setting").hasRole("MANAGER")
+                        .requestMatchers(
+                                "/api/users/me",
+                                "/api/chat",
+                                "/api/chat/**"
+                        ).authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -64,7 +84,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider),
+                        new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService),
                         UsernamePasswordAuthenticationFilter.class
                 );
 
@@ -83,10 +103,6 @@ public class SecurityConfig {
         return source;
     }
 
-    /**
-     * 일반 로그인(아이디/비번)에서 사용
-     * - USER_GENERAL.login_pwd는 이 인코더로 암호화되어 있어야 함
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
