@@ -104,7 +104,7 @@ public class PopupService {
                 .popLongitude(longitude)
                 .popStartDate(request.getPopStartDate())
                 .popEndDate(request.getPopEndDate())
-                .popIsReservation(request.getPopIsReservation())
+                .popIsReservation(false)
                 .popPriceType(priceType)
                 .popPrice(price)
                 .popStatus(initialStatus)
