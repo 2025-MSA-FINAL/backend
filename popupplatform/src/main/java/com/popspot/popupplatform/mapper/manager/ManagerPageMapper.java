@@ -24,6 +24,7 @@ public interface ManagerPageMapper {
             @Param("offset") int offset,
             @Param("size") int size,
             @Param("status") String status,
+            @Param("moderation") String moderation,
             @Param("sort") String sort
     );
 
@@ -32,6 +33,7 @@ public interface ManagerPageMapper {
      */
     long countMyPopups(
             @Param("userId") Long userId,
-            @Param("status") String status
+            @Param("status") String status,
+            @Param("moderation") String moderation
     );
 }

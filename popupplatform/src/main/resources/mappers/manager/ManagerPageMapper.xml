@@ -20,22 +20,44 @@
 
     <select id="findMyPopups" resultType="com.popspot.popupplatform.dto.popup.response.PopupListItemResponse">
         SELECT
-        pop_id            AS popId,
-        pop_name          AS popName,
-        pop_thumbnail     AS popThumbnail,
-        pop_location      AS popLocation,
-        pop_start_date    AS popStartDate,
-        pop_end_date      AS popEndDate,
-        pop_status        AS popStatus,
-        pop_price_type    AS popPriceType,
-        pop_price         AS popPrice,
-        pop_view_count    AS popViewCount
+        pop_id                AS popId,
+        pop_name              AS popName,
+        pop_thumbnail         AS popThumbnail,
+        pop_location          AS popLocation,
+        pop_start_date        AS popStartDate,
+        pop_end_date          AS popEndDate,
+        pop_status            AS popStatus,
+        pop_moderation_status AS popModerationStatus,
+        pop_price_type        AS popPriceType,
+        pop_price             AS popPrice,
+        pop_view_count        AS popViewCount
         FROM POPUPSTORE
         WHERE pop_owner_id = #{userId}
         AND pop_is_deleted = FALSE
 
+        <!-- 진행 상태 필터-->
         <if test="status != null and status != 'ALL'">
             AND pop_status = #{status}
+        </if>
+
+        <!-- 승인 상태 필터 -->
+        <if test="moderation != null and moderation != 'ALL'">
+            <choose>
+                <!-- 승인 대기 -->
+                <when test="moderation == 'PENDING'">
+                    AND pop_moderation_status IS NULL
+                </when>
+
+                <!-- 승인 완료 -->
+                <when test="moderation == 'APPROVED'">
+                    AND pop_moderation_status = TRUE
+                </when>
+
+                <!-- 승인 반려 -->
+                <when test="moderation == 'REJECTED'">
+                    AND pop_moderation_status = FALSE
+                </when>
+            </choose>
         </if>
 
         ORDER BY
@@ -47,9 +69,7 @@
 
             <when test="sort == 'DEADLINE'">
                 CASE WHEN pop_status = 'ENDED' THEN 1 ELSE 0 END ASC,
-
                 CASE WHEN pop_end_date IS NULL THEN 1 ELSE 0 END ASC,
-
                 pop_end_date ASC,
                 pop_id DESC
             </when>
@@ -74,7 +94,6 @@
                 WHERE w.pop_id = POPUPSTORE.pop_id
                 ), 0)
                 ) DESC,
-
                 pop_id DESC
             </when>
 
@@ -87,14 +106,33 @@
         LIMIT #{size} OFFSET #{offset}
     </select>
 
+
     <select id="countMyPopups" resultType="long">
         SELECT COUNT(*)
         FROM POPUPSTORE
         WHERE pop_owner_id = #{userId}
         AND pop_is_deleted = FALSE
+
+        <!-- 진행 상태 필터 -->
         <if test="status != null and status != 'ALL'">
             AND pop_status = #{status}
         </if>
+
+        <!-- 승인 상태 필터 -->
+        <if test="moderation != null and moderation != 'ALL'">
+            <choose>
+                <when test="moderation == 'PENDING'">
+                    AND pop_moderation_status IS NULL
+                </when>
+                <when test="moderation == 'APPROVED'">
+                    AND pop_moderation_status = TRUE
+                </when>
+                <when test="moderation == 'REJECTED'">
+                    AND pop_moderation_status = FALSE
+                </when>
+            </choose>
+        </if>
     </select>
+
 
 </mapper>
