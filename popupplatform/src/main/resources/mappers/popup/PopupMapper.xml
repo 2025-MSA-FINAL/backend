@@ -219,10 +219,24 @@
         WHERE pop_is_deleted = FALSE
         <!-- AND pop_moderation_status = TRUE -->
 
-        <!-- 이름 검색 -->
-        <if test="keyword != null and keyword != ''">
-            AND pop_name LIKE CONCAT('%', #{keyword}, '%')
+        <!-- 이름 / 해시태그 검색 (다중 키워드 OR) -->
+        <if test="keywords != null and keywords.size() > 0">
+            AND (
+            <foreach collection="keywords" item="kw" separator=" OR ">
+                (
+                ps.pop_name LIKE CONCAT('%', #{kw}, '%')
+                OR EXISTS (
+                SELECT 1
+                FROM POPUP_HASHTAG ph
+                JOIN HASHTAG h ON h.hash_id = ph.hash_id
+                WHERE ph.pop_id = ps.pop_id
+                AND h.hash_name LIKE CONCAT('%', #{kw}, '%')
+                )
+                )
+            </foreach>
+            )
         </if>
+
 
         <!-- 지역 필터 -->
         <if test="regions != null and regions.size() > 0">
