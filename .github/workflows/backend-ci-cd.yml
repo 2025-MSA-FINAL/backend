@@ -26,12 +26,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle (skip tests)
-        run: |
-          for i in {1..3}; do
-            ./gradlew clean build -x test && break
-            echo "Gradle failed, retrying in 10 seconds..." >&2
-            sleep 10
-          done
+        run: ./gradlew clean build -x test
 
       - name: Prepare SSH key
         run: |
@@ -46,9 +41,13 @@ jobs:
           JAR_PATH=$(ls -t build/libs/*SNAPSHOT.jar | head -n 1)
           echo "Using JAR: $JAR_PATH"
 
+          # ✅ (1) 원격 서버에 디렉토리 강제 생성
           ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "mkdir -p /home/ubuntu/app"
 
+          # ✅ (2) JAR를 app.jar 이름으로 업로드
           scp -i private_key.pem -o StrictHostKeyChecking=no "$JAR_PATH" ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/app.jar
+
+          # Dockerfile 업로드
           scp -i private_key.pem -o StrictHostKeyChecking=no Dockerfile ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/Dockerfile
 
       - name: Run deploy.sh on EC2
