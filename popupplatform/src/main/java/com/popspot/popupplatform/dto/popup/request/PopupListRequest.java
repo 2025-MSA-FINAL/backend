@@ -6,6 +6,7 @@ import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 @Data
@@ -17,8 +18,11 @@ public class PopupListRequest {
     @Schema(description = "한 번에 가져올 개수", example = "10")
     private Integer size;
 
-    @Schema(description = "팝업 이름 검색 키워드", example = "팝업")
-    private String keyword;
+    @Schema(
+            description = "검색 키워드 목록 (팝업 이름/해시태그 대상, 쉼표 파싱 결과)",
+            example = "[\"굿즈\", \"카페\", \"팝업 스토어\"]"
+    )
+    private List<String> keywords;
 
     @Schema(description = "지역 필터 (여러 개 가능)", example = "[\"서울시 성동구\", \"서울시 강남구\"]")
     private List<String> regions;
@@ -101,5 +105,15 @@ public class PopupListRequest {
             return PopupSortOption.DEADLINE;
         }
         return sort;
+    }
+
+    /**
+     * null 대비용: 항상 비어있지 않은 리스트를 돌려주고 싶을 때 사용
+     */
+    public List<String> getSafeKeywords() {
+        if (keywords == null) {
+            return Collections.emptyList();
+        }
+        return keywords;
     }
 }

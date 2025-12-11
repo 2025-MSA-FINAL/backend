@@ -234,6 +234,9 @@ public class PopupService {
         // 4. 정렬 옵션 (Enum -> String 변환)
         String sortStr = (sortOption != null) ? sortOption.name() : null;
 
+        //키워드 리스트 준비 (null 방지용)
+        List<String> keywords = request.getSafeKeywords();
+
         // 5. DB 조회
         List<PopupStore> popupStores = popupMapper.selectPopupList(
                 cursorId,
@@ -241,7 +244,7 @@ public class PopupService {
                 cursorViewCount,
                 cursorStatusGroup,
                 size + 1,
-                request.getKeyword(),
+                keywords,
                 request.getRegions(),
                 safeStartDate,
                 safeEndDate,
