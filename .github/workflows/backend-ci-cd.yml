@@ -26,7 +26,12 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle (skip tests)
-        run: ./gradlew clean build -x test
+        run: |
+          for i in {1..3}; do
+            ./gradlew clean build -x test && break
+            echo "Gradle failed, retrying in 10 seconds..." >&2
+            sleep 10
+          done
 
       - name: Prepare SSH key
         run: |
@@ -40,6 +45,9 @@ jobs:
         run: |
           JAR_PATH=$(ls -t build/libs/*SNAPSHOT.jar | head -n 1)
           echo "Using JAR: $JAR_PATH"
+
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "mkdir -p /home/ubuntu/app"
+
           scp -i private_key.pem -o StrictHostKeyChecking=no "$JAR_PATH" ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/app.jar
           scp -i private_key.pem -o StrictHostKeyChecking=no Dockerfile ${EC2_USER}@${EC2_HOST}:/home/ubuntu/app/Dockerfile
 
@@ -50,7 +58,6 @@ jobs:
         run: |
           ssh -i private_key.pem -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
             cd /home/ubuntu/app && \
-            mv popupplatform.jar app.jar && \
             chmod +x deploy.sh && \
             ./deploy.sh
           "
