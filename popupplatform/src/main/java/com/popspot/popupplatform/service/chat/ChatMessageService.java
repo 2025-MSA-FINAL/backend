@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +60,7 @@ public class ChatMessageService {
         }
 
         // 4) Redis publish (⭐ 단일 출구 ⭐)
-        publish(saved);
+        publishMessage(saved);
 
         return saved;
     }
@@ -68,8 +70,20 @@ public class ChatMessageService {
     // ===============================
     @Async
     public void asyncAiReply(ChatMessageRequest userMsg) {
-
+        // AI 타이핑 시작
+        publishTyping(
+                "TYPING_START",
+                "PRIVATE",
+                userMsg.getRoomId(),
+                20251212L
+        );
+        try {
         String aiReply = aiChatService.getAiReply(userMsg.getContent());
+
+        // 타이핑 시간 보장
+        try {
+            Thread.sleep(Math.min(1500, aiReply.length() * 30L));
+        } catch (InterruptedException ignored) {}
 
         ChatMessageRequest aiMessage = new ChatMessageRequest();
         aiMessage.setRoomType("PRIVATE");
@@ -77,9 +91,9 @@ public class ChatMessageService {
         aiMessage.setSenderId(20251212L);
         aiMessage.setMessageType("TEXT");
         aiMessage.setContent(aiReply);
-        aiMessage.setClientMessageKey(System.currentTimeMillis());
+        aiMessage.setClientMessageKey(UUID.randomUUID().toString());
 
-        // DB 저장
+            // DB 저장
         chatMessageMapper.insertMessage(aiMessage);
 
         // 저장된 AI 메시지 조회
@@ -87,22 +101,49 @@ public class ChatMessageService {
                 chatMessageMapper.getMessageById("PRIVATE", aiMessage.getCmId());
 
         saved.setClientMessageKey(aiMessage.getClientMessageKey());
-
-        // Redis publish (⭐ STOMP 직접 호출 ❌)
-        publish(saved);
+        // Redis publish AI 메시지 publish
+        publishMessage(saved);
+    } catch (Exception e) {
+        e.printStackTrace();
+    } finally { // AI 타이핑 종료
+        publishTyping("TYPING_STOP", "PRIVATE", userMsg.getRoomId(), 20251212L);
+    }
     }
 
     // ===============================
-    // 🔥 Redis publish 공통 메서드
+    // Redis Typing
     // ===============================
-    private void publish(ChatMessageResponse msg) {
+    private void publishTyping(String type, String roomType, Long roomId, Long senderId) {
         try {
-            String channel =
-                    "chat-room-" + msg.getRoomType() + "-" + msg.getRoomId();
-
             redisPublisher.publish(
-                    channel,
-                    objectMapper.writeValueAsString(msg)
+                    "chat-room-" + roomType + "-" + roomId,
+                    objectMapper.writeValueAsString(
+                            Map.of(
+                                    "type", type,
+                                    "roomType", roomType,
+                                    "roomId", roomId,
+                                    "senderId", senderId
+                            )
+                    )
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // ===============================
+    // Redis Message
+    // ===============================
+    private void publishMessage(ChatMessageResponse msg) {
+        try {
+            redisPublisher.publish(
+                    "chat-room-" + msg.getRoomType() + "-" + msg.getRoomId(),
+                    objectMapper.writeValueAsString(
+                            Map.of(
+                                    "type", "MESSAGE",
+                                    "payload", msg
+                            )
+                    )
             );
         } catch (Exception e) {
             throw new RuntimeException(e);
