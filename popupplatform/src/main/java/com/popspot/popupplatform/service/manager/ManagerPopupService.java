@@ -123,15 +123,21 @@ public class ManagerPopupService {
             throw new CustomException(PopupErrorCode.INVALID_PRICE);
         }
 
-
+        //주소/좌표 처리 로직
         if (request.getPopLocation() != null) {
             boolean locationChanged =
                     !request.getPopLocation().equals(currentInfo.getPopLocation());
 
-            if (locationChanged) {
+            //DB에 좌표가 비어 있으면(둘 중 하나라도 null) 주소가 안 바뀌어도 지오코딩 시도
+            boolean coordinatesMissingInDb =
+                    currentInfo.getPopLatitude() == null || currentInfo.getPopLongitude() == null;
+
+            boolean needGeocoding = locationChanged || coordinatesMissingInDb;
+
+            if (needGeocoding) {
                 log.info(
-                        "[ManagerPopupUpdate] 주소 변경 감지 - popId={}, old='{}', new='{}'",
-                        popId, currentInfo.getPopLocation(), request.getPopLocation()
+                        "[ManagerPopupUpdate] 주소/좌표 업데이트 필요 - popId={}, locationChanged={}, coordinatesMissing={}",
+                        popId, locationChanged, coordinatesMissingInDb
                 );
 
                 log.info("[ManagerPopupUpdate] 지오코딩 시도 - address={}", request.getPopLocation());
@@ -147,7 +153,7 @@ public class ManagerPopupService {
                                     );
                                 },
                                 () -> {
-                                    // 주소는 바뀌었는데 좌표 못 구함 → 기존 좌표 신뢰 못 하니 NULL로 초기화
+                                    // 주소는 있는데 좌표 못 구함 → 정책대로 NULL로 유지
                                     request.setPopLatitude(null);
                                     request.setPopLongitude(null);
                                     log.warn(
@@ -157,9 +163,18 @@ public class ManagerPopupService {
                                 }
                         );
             } else {
-                log.info(format, popId);
+                //주소 안 바뀌고 DB에 좌표도 이미 있는 경우 기존 좌표를 유지
+                log.info("[ManagerPopupUpdate] 주소 변경 없음 & 좌표 이미 존재 - 기존 좌표 유지 popId={}", popId);
+
+                if (request.getPopLatitude() == null) {
+                    request.setPopLatitude(currentInfo.getPopLatitude());
+                }
+                if (request.getPopLongitude() == null) {
+                    request.setPopLongitude(currentInfo.getPopLongitude());
+                }
             }
         }
+        // ===== 주소 / 좌표 처리 끝 =====
 
         // 기본 정보 업데이트 (lat/lng도 함께 반영됨 - Mapper에서 pop_location 세트로 업데이트)
         int updatedRows = managerPopupMapper.updatePopup(popId, managerId, request);

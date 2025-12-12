@@ -55,7 +55,8 @@ public class SecurityConfig {
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger"
+                                "/swagger",
+                                "/health"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/phone/**",
@@ -94,7 +95,7 @@ public class SecurityConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowCredentials(true);
-        cfg.setAllowedOriginPatterns(List.of("*"));
+        cfg.setAllowedOriginPatterns(List.of("http://localhost:5173", "https://pop-spot.store" ));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

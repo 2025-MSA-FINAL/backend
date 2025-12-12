@@ -88,6 +88,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                 generateTimeSlots(popId, reservation, timetable);
             }
         }
+        popupMapper.updateIsReservation(popId);
 
         return PopupReservationSettingResponse.of(reservation, timetableEntities, blockEntities);
     }

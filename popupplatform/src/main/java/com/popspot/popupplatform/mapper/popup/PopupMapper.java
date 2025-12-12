@@ -41,7 +41,7 @@ public interface PopupMapper {
             @Param("cursorViewCount") Long cursorViewCount,
             @Param("cursorStatusGroup") Integer cursorStatusGroup,
             @Param("limit") int limit,
-            @Param("keyword") String keyword,
+            @Param("keywords") List<String> keywords,
             @Param("regions") List<String> regions,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
@@ -84,6 +84,8 @@ public interface PopupMapper {
     //AI 요약 업데이트 (비동기 처리가 끝난 후 실행)
     void updatePopupAiSummary(@Param("popId") Long popId,
                               @Param("summary") String summary);
+
+    void updateIsReservation(@Param("popId") Long popId);
 
     // -------------------- [User Report] --------------------
 
