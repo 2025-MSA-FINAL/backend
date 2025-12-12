@@ -75,7 +75,8 @@ public class ChatMessageService {
                 "TYPING_START",
                 "PRIVATE",
                 userMsg.getRoomId(),
-                20251212L
+                20251212L,
+                "POPBOT"
         );
         try {
         String aiReply = aiChatService.getAiReply(userMsg.getContent());
@@ -106,14 +107,20 @@ public class ChatMessageService {
     } catch (Exception e) {
         e.printStackTrace();
     } finally { // AI 타이핑 종료
-        publishTyping("TYPING_STOP", "PRIVATE", userMsg.getRoomId(), 20251212L);
-    }
+            publishTyping(
+                    "TYPING_STOP",
+                    "PRIVATE",
+                    userMsg.getRoomId(),
+                    20251212L,
+                    "POPBOT"
+            );
+        }
     }
 
     // ===============================
     // Redis Typing
     // ===============================
-    private void publishTyping(String type, String roomType, Long roomId, Long senderId) {
+    private void publishTyping(String type, String roomType, Long roomId, Long senderId, String nickname) {
         try {
             redisPublisher.publish(
                     "chat-room-" + roomType + "-" + roomId,
@@ -122,7 +129,8 @@ public class ChatMessageService {
                                     "type", type,
                                     "roomType", roomType,
                                     "roomId", roomId,
-                                    "senderId", senderId
+                                    "senderId", senderId,
+                                    "senderNickname", nickname
                             )
                     )
             );
