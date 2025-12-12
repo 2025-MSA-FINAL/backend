@@ -118,4 +118,6 @@ public interface UserMapper {
 
     /** 채팅에서 사용할 유저 기본 정보 조회 */
     Optional<UserDto> findById(Long userId);
+
+    int updateIntroduction(@Param("userId")Long userId, @Param("introduction")String introduction);
 }

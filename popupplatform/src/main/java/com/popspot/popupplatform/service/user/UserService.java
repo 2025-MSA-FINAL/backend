@@ -38,6 +38,7 @@ public class UserService {
                 .name(user.getName())
                 .gender(user.getGender())
                 .nickname(user.getNickname())
+                .introduction(user.getIntroduction())
                 .profileImage(user.getProfileImage())
                 .email(user.getEmail())
                 .phone(user.getPhone())
@@ -180,5 +181,11 @@ public class UserService {
         if (!passwordEncoder.matches(dto.getPassword(), loginUser.getPassword())) {
             throw new CustomException(UserErrorCode.INVALID_PASSWORD);
         }
+    }
+
+    public void updateIntroduction(Long userId, UpdateIntroductionRequest request) {
+        UserDto user = userMapper.findByUserId(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+        int updated = userMapper.updateIntroduction(userId, request.getIntroduction());
     }
 }
