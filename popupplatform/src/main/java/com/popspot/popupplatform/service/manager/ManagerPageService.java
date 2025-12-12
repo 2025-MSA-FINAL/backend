@@ -39,7 +39,12 @@ public class ManagerPageService {
     /**
      * 2. 내가 등록한 팝업 목록 조회
      */
-    public PageDTO<PopupListItemResponse> getMyPopups(Long userId, PageRequestDTO pageRequest, String status) {
+    public PageDTO<PopupListItemResponse> getMyPopups(
+            Long userId,
+            PageRequestDTO pageRequest,
+            String status,
+            String moderation
+    ) {
         int page = Math.max(pageRequest.getPage(), 0);
         int size = Math.max(pageRequest.getSize(), 1);
         int offset = page * size;
@@ -55,14 +60,16 @@ public class ManagerPageService {
         };
 
         String effectiveStatus = (status == null || status.isEmpty()) ? "ALL" : status;
+        String effectiveModeration = (moderation == null || moderation.isEmpty()) ? "ALL" : moderation;
 
         List<PopupListItemResponse> content = managerPageMapper.findMyPopups(
-                userId, offset, size, effectiveStatus, sort
+                userId, offset, size, effectiveStatus, effectiveModeration, sort
         );
-        long total = managerPageMapper.countMyPopups(userId, effectiveStatus);
+        long total = managerPageMapper.countMyPopups(userId, effectiveStatus, effectiveModeration);
 
         return new PageDTO<>(content, page, size, total);
     }
+
 
 
     /**
