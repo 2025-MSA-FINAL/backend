@@ -22,6 +22,7 @@ public class CurrentUserResponse {
     private String email;
     private String phone;
     private String gender;
+    private String introduction;
 
     private String role;   // USER.user_role
     private String status; // USER.user_status
