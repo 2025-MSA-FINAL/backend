@@ -10,4 +10,5 @@ public class ChatMessageRequest {
     private Long senderId;     // user_id
     private String content;    // 메시지 내용
     private String messageType; // TEXT / IMAGE / NOTICE 등
+    private Long clientMessageKey;
 }

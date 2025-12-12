@@ -21,16 +21,6 @@ public class RedisConfig {
         return new LettuceConnectionFactory("localhost", 6379);
     }
 
-    // Redis pub/sub 메시지를 받는 Listener Container
-    @Bean
-    public RedisMessageListenerContainer redisMessageListenerContainer(
-            RedisConnectionFactory connectionFactory) {
-
-        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
-        return container;
-    }
-
     // RedisTemplate (문자열 기반)
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
@@ -43,6 +33,7 @@ public class RedisConfig {
 
         return template;
     }
+    // Redis pub/sub 메시지를 받는 Listener Container
     //Redis Listener 등록
     @Bean
     public RedisMessageListenerContainer redisContainer(
