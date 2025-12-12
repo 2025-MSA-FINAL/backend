@@ -62,13 +62,20 @@ public class ManagerPageController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "내가 등록한 팝업 목록 조회", description = "필터 status: ALL(전체), UPCOMING(오픈예정), ONGOING(진행중), ENDED(종료)")
+    @Operation(
+            summary = "내가 등록한 팝업 목록 조회",
+            description = "status: 진행 상태, moderation: 승인 상태 필터"
+    )
     @GetMapping("/popups")
     public ResponseEntity<PageDTO<PopupListItemResponse>> getMyPopups(
             @AuthenticationPrincipal CustomUserDetails user,
             @ModelAttribute PageRequestDTO pageRequest,
-            @RequestParam(required = false, defaultValue = "ALL") String status
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "ALL", name = "moderation") String moderation
     ) {
-        return ResponseEntity.ok(managerPageService.getMyPopups(user.getUserId(), pageRequest, status));
+        return ResponseEntity.ok(
+                managerPageService.getMyPopups(user.getUserId(), pageRequest, status, moderation)
+        );
     }
+
 }

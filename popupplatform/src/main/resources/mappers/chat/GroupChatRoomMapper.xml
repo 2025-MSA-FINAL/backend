@@ -75,6 +75,7 @@
         SELECT
         g.gcr_id           AS gcrId,
         g.pop_id           AS popId,
+        p.pop_name         AS popName,
         g.user_id          AS ownerId,
         g.gcr_title        AS title,
         g.gcr_description  AS description,
@@ -88,6 +89,7 @@
         WHERE cp.gcr_id = g.gcr_id
         ) AS currentUserCnt
         FROM GROUP_CHAT_ROOM g
+        JOIN POPUPSTORE p ON p.pop_id = g.pop_id
         WHERE g.gcr_id = #{gcrId}
         LIMIT 1
     </select>
