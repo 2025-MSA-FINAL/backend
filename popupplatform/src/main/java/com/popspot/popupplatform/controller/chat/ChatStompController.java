@@ -71,6 +71,7 @@ public class ChatStompController {
             String type,       // TYPING_START / TYPING_STOP
             String roomType,
             Long roomId,
-            Long senderId
+            Long senderId,
+            String senderNickname
     ) {}
 }
