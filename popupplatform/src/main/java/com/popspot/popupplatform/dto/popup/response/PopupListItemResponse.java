@@ -38,6 +38,9 @@ public class PopupListItemResponse {
     @Schema(description = "팝업 진행 상태", example = "ONGOING")
     private PopupStatus popStatus;
 
+    @Schema(description = "관리자 승인 상태 (null: 승인 대기, true: 승인 완료, false: 승인 반려)")
+    private Boolean popModerationStatus;
+
     @Schema(description = "가격 타입 (무료/유료)", example = "FREE")
     private PopupPriceType popPriceType;
 
