@@ -18,17 +18,29 @@ public class RedisSubscriber implements MessageListener {
 
     @Override
     public void onMessage(Message message, byte[] pattern) {
+
         try {
             String channel = new String(message.getChannel());
-            String msg = new String(message.getBody());
+            String body = new String(message.getBody());
 
-            log.info("🔥 RedisSubscriber Received [{}] : {}", channel, msg);
+            // chat-room-PRIVATE-7
+            String[] parts = channel.split("-");
+            String roomType = parts[2];
+            String roomId = parts[3];
 
-            template.convertAndSend("/sub/" + channel, msg);
+            Object payload = objectMapper.readTree(body);
+
+            String destination =
+                    "/sub/chat-room-" + roomType + "-" + roomId;
+
+            template.convertAndSend(destination, payload);
+
+            log.info("🚀 STOMP PUSH {}", destination);
 
         } catch (Exception e) {
-            log.error("RedisSubscriber ERROR: {}", e.getMessage());
+            log.error("RedisSubscriber ERROR", e);
         }
     }
 }
+
 

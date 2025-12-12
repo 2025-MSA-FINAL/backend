@@ -1,15 +1,16 @@
 package com.popspot.popupplatform.service.chat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
+import com.popspot.popupplatform.global.redis.RedisPublisher;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -20,54 +21,106 @@ public class ChatMessageService {
     private final PrivateChatRoomService privateChatRoomService;
     private final ChatReadService chatReadService;
     private final AiChatService aiChatService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RedisPublisher redisPublisher;
+    private final ObjectMapper objectMapper;
 
-    //메세지 전송
+    // ===============================
+    // 🔥 일반 메시지 저장 → Redis publish
+    // ===============================
     @Transactional
     public ChatMessageResponse saveMessage(ChatMessageRequest req) {
 
-        // 1) 메시지 INSERT
+        // 1) DB 저장
         chatMessageMapper.insertMessage(req);
 
-        // 2) INSERT 결과 조회
-        ChatMessageResponse saved = chatMessageMapper.getMessageById(
-                req.getRoomType(),
-                req.getCmId()
-        );
+        // 2) 저장된 메시지 조회
+        ChatMessageResponse saved =
+                chatMessageMapper.getMessageById(req.getRoomType(), req.getCmId());
+
         if (saved == null) {
             throw new RuntimeException("메시지 조회 실패");
         }
 
-        /* 🔥 3) PRIVATE이면 자동 restore 처리 */
+        saved.setClientMessageKey(req.getClientMessageKey());
+
+        // 3) PRIVATE 채팅이면 방 복구 + AI 여부 확인
         if ("PRIVATE".equals(req.getRoomType())) {
-            Long pcrId = req.getRoomId();
-            Long senderId = req.getSenderId();
 
-            // 상대방 userId 조회 (반드시 필요)
-            Long otherUserId = privateChatRoomService.getOtherUserId(pcrId, senderId);
+            Long otherUserId =
+                    privateChatRoomService.getOtherUserId(req.getRoomId(), req.getSenderId());
 
-            // 만약 상대방이 삭제한 상태였다면 → 즉시 자동 복구
-            privateChatRoomService.restorePrivateRoomOnNewMessage(otherUserId, pcrId);
+            privateChatRoomService.restorePrivateRoomOnNewMessage(
+                    otherUserId, req.getRoomId()
+            );
 
-            // AI 자동응답
-            handleAiIfNeeded(req);
+            // 상대가 AI면 비동기로 AI 메시지 생성
+            if (otherUserId.equals(20251212L)) {
+                asyncAiReply(req);
+            }
         }
+
+        // 4) Redis publish (⭐ 단일 출구 ⭐)
+        publish(saved);
 
         return saved;
     }
 
+    // ===============================
+    // 🔥 AI 응답 비동기 처리 (Redis로만 publish)
+    // ===============================
+    @Async
+    public void asyncAiReply(ChatMessageRequest userMsg) {
 
-    private String formatTime(LocalDateTime time) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("a hh:mm");
-        return time.format(formatter);
+        String aiReply = aiChatService.getAiReply(userMsg.getContent());
+
+        ChatMessageRequest aiMessage = new ChatMessageRequest();
+        aiMessage.setRoomType("PRIVATE");
+        aiMessage.setRoomId(userMsg.getRoomId());
+        aiMessage.setSenderId(20251212L);
+        aiMessage.setMessageType("TEXT");
+        aiMessage.setContent(aiReply);
+        aiMessage.setClientMessageKey(System.currentTimeMillis());
+
+        // DB 저장
+        chatMessageMapper.insertMessage(aiMessage);
+
+        // 저장된 AI 메시지 조회
+        ChatMessageResponse saved =
+                chatMessageMapper.getMessageById("PRIVATE", aiMessage.getCmId());
+
+        saved.setClientMessageKey(aiMessage.getClientMessageKey());
+
+        // Redis publish (⭐ STOMP 직접 호출 ❌)
+        publish(saved);
     }
 
-    private String formatDate(LocalDateTime date) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 E요일");
-        return date.format(formatter);
+    // ===============================
+    // 🔥 Redis publish 공통 메서드
+    // ===============================
+    private void publish(ChatMessageResponse msg) {
+        try {
+            String channel =
+                    "chat-room-" + msg.getRoomType() + "-" + msg.getRoomId();
+
+            redisPublisher.publish(
+                    channel,
+                    objectMapper.writeValueAsString(msg)
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public List<ChatMessageResponse> getMessages(String roomType, Long roomId, Long lastMessageId, int limit, Long userId) {
+    // ===============================
+    // 메시지 조회 (변경 없음)
+    // ===============================
+    public List<ChatMessageResponse> getMessages(
+            String roomType,
+            Long roomId,
+            Long lastMessageId,
+            int limit,
+            Long userId
+    ) {
 
         LocalDateTime lastDeletedAt = null;
 
@@ -90,11 +143,8 @@ public class ChatMessageService {
 
         for (ChatMessageResponse msg : messages) {
 
-            int readCount = chatReadService.getReadCount(msg.getCmId());
-            msg.setReadCount(readCount);
-
-            boolean isRead = msg.getCmId() <= lastReadId;
-            msg.setIsRead(isRead);
+            msg.setReadCount(chatReadService.getReadCount(msg.getCmId()));
+            msg.setIsRead(msg.getCmId() <= lastReadId);
 
             if (!separatorInserted && msg.getCmId() > lastReadId) {
                 msg.setUnreadSeparator(true);
@@ -103,41 +153,5 @@ public class ChatMessageService {
         }
 
         return messages;
-    }
-    //AI 응답 필요 여부 확인
-    @Transactional
-    public void handleAiIfNeeded(ChatMessageRequest userMsg) {
-        Long senderId = userMsg.getSenderId();
-        Long otherUserId = privateChatRoomService.getOtherUserId(userMsg.getRoomId(), senderId);
-        // AI 유저가 아니면 종료
-        if (!otherUserId.equals(20251212L)) {
-            return;
-        }
-
-        // AI 답변 생성
-        String aiReply = aiChatService.getAiReply(userMsg.getContent());
-        // AI 메시지 저장 + push
-        saveAiMessage(userMsg.getRoomId(), aiReply);
-    }
-    //AI 메시지 생성 → DB 저장 → STOMP push
-    @Transactional
-    public void saveAiMessage(Long roomId, String aiReply) {
-
-        ChatMessageRequest aiMessage = new ChatMessageRequest();
-        aiMessage.setRoomType("PRIVATE");
-        aiMessage.setRoomId(roomId);
-        aiMessage.setSenderId(20251212L);   // AI USER ID
-        aiMessage.setMessageType("TEXT");
-        aiMessage.setContent(aiReply);
-
-        chatMessageMapper.insertMessage(aiMessage);
-
-        ChatMessageResponse saved = chatMessageMapper.getMessageById("PRIVATE", aiMessage.getCmId());
-
-        // STOMP PUSH
-        messagingTemplate.convertAndSend(
-                "/sub/chat/PRIVATE/" + roomId,
-                saved
-        );
     }
 }
