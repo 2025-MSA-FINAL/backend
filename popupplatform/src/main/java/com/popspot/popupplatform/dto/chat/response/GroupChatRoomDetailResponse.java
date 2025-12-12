@@ -18,6 +18,7 @@ public class GroupChatRoomDetailResponse {
 
     private Long gcrId; //그룹채팅방PK
     private Long popId; //팝업스토어PK
+    private String popName; //팝업스토어이름
     private Long ownerId; //방장
     private String title; //그룹채팅방이름
     private String description; //그룹채팅방설명
