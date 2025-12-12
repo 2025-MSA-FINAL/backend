@@ -57,4 +57,20 @@ public class ChatStompController {
 
     // 읽음 이벤트 response DTO
     record ReadReceiptPayload(Long roomId, String roomType, Long messageId, Long readerUserId) {}
+
+    //타이핑API
+    @MessageMapping("/chat/typing")
+    public void typing(ChatTypingPayload payload) throws Exception {
+        redisPublisher.publish(
+                "chat-room-" + payload.roomType() + "-" + payload.roomId(),
+                objectMapper.writeValueAsString(payload)
+        );
+    }
+    // 타이핑 이벤트 DTO
+    public record ChatTypingPayload(
+            String type,       // TYPING_START / TYPING_STOP
+            String roomType,
+            Long roomId,
+            Long senderId
+    ) {}
 }
