@@ -24,14 +24,8 @@ public class ChatStompController {
     private final ChatReadService chatReadService;
 
     @MessageMapping("/chat/message")
-    public void sendMessage(ChatMessageRequest request) throws Exception {
-
-        var savedMessage = chatMessageService.saveMessage(request);
-
-        String channel = "chat-room-" + request.getRoomType() + "-" + request.getRoomId();
-        redisPublisher.publish(channel, objectMapper.writeValueAsString(savedMessage));
-
-        log.info("📨 메시지 전송 완료 → Redis Publish");
+    public void sendMessage(ChatMessageRequest request) {
+        chatMessageService.saveMessage(request);
     }
 
     @MessageMapping("/chat.read")
@@ -55,13 +49,28 @@ public class ChatStompController {
                 userId
         );
 
-        String channel = "chat-room-" + req.getRoomType() + "-" + req.getRoomId();
-        redisPublisher.publish(channel, objectMapper.writeValueAsString(payload));
-
-        log.info("👁 읽음 처리 → user={} room={} msg={}",
-                userId, req.getRoomId(), req.getLastReadMessageId());
+        redisPublisher.publish(
+                "chat-room-" + req.getRoomType() + "-" + req.getRoomId(),
+                objectMapper.writeValueAsString(payload)
+        );
     }
 
     // 읽음 이벤트 response DTO
     record ReadReceiptPayload(Long roomId, String roomType, Long messageId, Long readerUserId) {}
+
+    //타이핑API
+    @MessageMapping("/chat/typing")
+    public void typing(ChatTypingPayload payload) throws Exception {
+        redisPublisher.publish(
+                "chat-room-" + payload.roomType() + "-" + payload.roomId(),
+                objectMapper.writeValueAsString(payload)
+        );
+    }
+    // 타이핑 이벤트 DTO
+    public record ChatTypingPayload(
+            String type,       // TYPING_START / TYPING_STOP
+            String roomType,
+            Long roomId,
+            Long senderId
+    ) {}
 }

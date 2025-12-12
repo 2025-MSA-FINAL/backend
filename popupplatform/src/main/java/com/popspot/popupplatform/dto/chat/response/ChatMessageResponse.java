@@ -29,4 +29,5 @@ public class ChatMessageResponse {
     private Integer readCount; // 읽은 사람 수
     private Boolean isRead; // 현재 유저 기준 읽음 여부
     private Boolean unreadSeparator; // 구분선 추가 여부
+    private String clientMessageKey;
 }
