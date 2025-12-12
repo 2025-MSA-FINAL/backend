@@ -48,6 +48,16 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "자기소개 변경", description = "현재 로그인한 사용자의 자기소개를 변경합니다.")
+    @PatchMapping("/me/introduction")
+    public ResponseEntity<Void> updateIntroduction(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody UpdateIntroductionRequest request
+    ) {
+        userService.updateIntroduction(userDetails.getUserId(), request);
+        return ResponseEntity.ok().build();
+    }
+
     @Operation(summary = "이메일 변경", description = "현재 로그인한 사용자의 이메일을 변경합니다.")
     @PutMapping("/me/email")
     public ResponseEntity<Void> updateEmail(
