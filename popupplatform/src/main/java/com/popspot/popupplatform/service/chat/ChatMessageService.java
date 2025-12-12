@@ -3,8 +3,8 @@ package com.popspot.popupplatform.service.chat;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
-import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +19,10 @@ public class ChatMessageService {
     private final ChatMessageMapper chatMessageMapper;
     private final PrivateChatRoomService privateChatRoomService;
     private final ChatReadService chatReadService;
+    private final AiChatService aiChatService;
+    private final SimpMessagingTemplate messagingTemplate;
 
+    //메세지 전송
     @Transactional
     public ChatMessageResponse saveMessage(ChatMessageRequest req) {
 
@@ -45,6 +48,9 @@ public class ChatMessageService {
 
             // 만약 상대방이 삭제한 상태였다면 → 즉시 자동 복구
             privateChatRoomService.restorePrivateRoomOnNewMessage(otherUserId, pcrId);
+
+            // AI 자동응답
+            handleAiIfNeeded(req);
         }
 
         return saved;
@@ -97,5 +103,41 @@ public class ChatMessageService {
         }
 
         return messages;
+    }
+    //AI 응답 필요 여부 확인
+    @Transactional
+    public void handleAiIfNeeded(ChatMessageRequest userMsg) {
+        Long senderId = userMsg.getSenderId();
+        Long otherUserId = privateChatRoomService.getOtherUserId(userMsg.getRoomId(), senderId);
+        // AI 유저가 아니면 종료
+        if (!otherUserId.equals(20251212L)) {
+            return;
+        }
+
+        // AI 답변 생성
+        String aiReply = aiChatService.getAiReply(userMsg.getContent());
+        // AI 메시지 저장 + push
+        saveAiMessage(userMsg.getRoomId(), aiReply);
+    }
+    //AI 메시지 생성 → DB 저장 → STOMP push
+    @Transactional
+    public void saveAiMessage(Long roomId, String aiReply) {
+
+        ChatMessageRequest aiMessage = new ChatMessageRequest();
+        aiMessage.setRoomType("PRIVATE");
+        aiMessage.setRoomId(roomId);
+        aiMessage.setSenderId(20251212L);   // AI USER ID
+        aiMessage.setMessageType("TEXT");
+        aiMessage.setContent(aiReply);
+
+        chatMessageMapper.insertMessage(aiMessage);
+
+        ChatMessageResponse saved = chatMessageMapper.getMessageById("PRIVATE", aiMessage.getCmId());
+
+        // STOMP PUSH
+        messagingTemplate.convertAndSend(
+                "/sub/chat/PRIVATE/" + roomId,
+                saved
+        );
     }
 }

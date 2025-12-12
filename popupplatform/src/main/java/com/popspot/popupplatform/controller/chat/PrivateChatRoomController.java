@@ -56,4 +56,22 @@ public class PrivateChatRoomController {
         privateChatRoomService.deletePrivateRoom(user.getUserId(), pcrId);
         return ResponseEntity.ok("1:1 채팅방 삭제완료");
     }
+    @PostMapping("/start-ai")
+    @Operation(
+            summary = "ai채팅 시작",
+            description = """
+            ai와 1:1 채팅을 시작합니다.
+            기존 방이 없으면 새로운 1:1 채팅방을 생성합니다.
+            """
+    )
+    public ResponseEntity<Long> startAiChat(
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        Long roomId = privateChatRoomService.startPrivateChat(
+                user.getUserId(),      // 현재 로그인한 사용자
+                20251212L              // AI 유저 고정 ID
+        );
+
+        return ResponseEntity.ok(roomId);
+    }
 }
