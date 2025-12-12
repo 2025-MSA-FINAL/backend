@@ -46,14 +46,12 @@ public class ChatMessageService {
         // 3) PRIVATE 채팅이면 방 복구 + AI 여부 확인
         if ("PRIVATE".equals(req.getRoomType())) {
 
-            Long otherUserId =
-                    privateChatRoomService.getOtherUserId(req.getRoomId(), req.getSenderId());
+            Long senderId = req.getSenderId();
+            Long otherUserId = privateChatRoomService.getOtherUserId(req.getRoomId(), senderId);
 
-            privateChatRoomService.restorePrivateRoomOnNewMessage(
-                    otherUserId, req.getRoomId()
-            );
+            privateChatRoomService.restorePrivateRoomOnNewMessage(senderId, req.getRoomId()); //AI 챗봇 삭제시 필요
+            privateChatRoomService.restorePrivateRoomOnNewMessage(otherUserId, req.getRoomId());
 
-            // 상대가 AI면 비동기로 AI 메시지 생성
             if (otherUserId.equals(20251212L)) {
                 asyncAiReply(req);
             }
