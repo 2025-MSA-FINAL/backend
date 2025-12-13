@@ -6,36 +6,30 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @Tag(name = "User Reservation", description = "사용자 예약 API")
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class UserReservationController {
 
     private final UserReservationService userReservationService;
 
-    @Operation(summary = "예약 생성 (결제 없음, HOLD + 즉시 확정)")
-    @PostMapping
-    public ResponseEntity<?> createReservation(
+    @Operation(summary = "사용자 예약 생성 (결제 없이 즉시 확정 / inventory 차감)")
+    @PostMapping("/reservations")
+    public ResponseEntity<Map<String, Object>> createReservation(
             @RequestBody UserReservationCreateRequest request
     ) {
-
-        Long reservationId = userReservationService.createReservationWithHold(
+        Long reservationId = userReservationService.createReservationConfirmed(
                 request.getPopupId(),
                 request.getSlotId(),
-                request.getDate(),
+                request.getDate(),     // "yyyy-MM-dd"
                 request.getPeople()
         );
 
-        return ResponseEntity.ok(Map.of(
-                "reservationId", reservationId
-        ));
+        return ResponseEntity.ok(Map.of("reservationId", reservationId));
     }
 }

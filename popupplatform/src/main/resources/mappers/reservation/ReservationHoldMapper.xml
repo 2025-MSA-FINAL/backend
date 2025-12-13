@@ -16,25 +16,8 @@
         <result property="rhExpiresAt" column="rh_expires_at"/>
     </resultMap>
 
-    <!-- 해당 슬롯 + 날짜의 ACTIVE HOLD 인원 합산 -->
-    <select id="sumActiveHoldUserCount" resultType="int">
-        SELECT COALESCE(SUM(rh_user_cnt), 0)
-        FROM RESERVATION_HOLD
-        WHERE pts_id        = #{ptsId}
-        AND rh_date       = #{rhDate}
-        AND rh_status     = 'ACTIVE'
-        AND rh_expires_at > #{now}
-        FOR UPDATE
-    </select>
 
-    <select id="sumActiveHoldUserCountForDisplay" resultType="int">
-        SELECT COALESCE(SUM(rh_user_cnt), 0)
-        FROM RESERVATION_HOLD
-        WHERE pts_id        = #{ptsId}
-        AND rh_date       = #{rhDate}
-        AND rh_status     = 'ACTIVE'
-        AND rh_expires_at > #{now}
-    </select>
+
 
     <insert id="insert"
             parameterType="com.popspot.popupplatform.domain.reservation.ReservationHold"
