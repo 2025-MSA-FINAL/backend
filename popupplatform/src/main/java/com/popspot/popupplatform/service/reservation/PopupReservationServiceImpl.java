@@ -47,6 +47,12 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     @Override
     public PopupReservationSettingResponse saveReservationSetting(Long popId, PopupReservationSettingRequest req) {
 
+        Optional<PopupStore> popupStore = popupMapper.selectPopupDetail(popId);
+        if(popupStore.isEmpty()){
+            throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
+        }
+        PopupStore ps = popupStore.get();
+
         PopupReservation existed = popupReservationMapper.findByPopId(popId);
         if (existed != null) {
             throw new CustomException(ReservationErrorCode.RESERVATION_ALREADY_EXISTS);
@@ -79,7 +85,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         }
 
         // ✅ inventory 생성
-        generateSlotInventory(popId, reservation, req);
+        generateSlotInventory(popId,req,ps);
 
         popupMapper.updateIsReservation(popId);
 
@@ -214,7 +220,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     // ====================================================
     // ✅ SLOT_INVENTORY 생성 (남은좌석만)
     // ====================================================
-    private void generateSlotInventory(Long popId, PopupReservation reservation, PopupReservationSettingRequest req) {
+    private void generateSlotInventory(Long popId, PopupReservationSettingRequest req,PopupStore ps) {
 
         slotInventoryMapper.deleteByPopId(popId);
 
@@ -228,8 +234,8 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         List<PopupTimeSlot> slots = popupTimeSlotMapper.findByPopId(popId);
         if (slots == null || slots.isEmpty()) return;
 
-        LocalDate start = reservation.getPrStartTime().toLocalDate();
-        LocalDate end = reservation.getPrEndTime().toLocalDate();
+        LocalDate start = ps.getPopStartDate().toLocalDate();
+        LocalDate end = ps.getPopEndDate().toLocalDate();
 
         List<SlotInventory> batch = new ArrayList<>();
 
@@ -338,9 +344,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         LocalTime start = timetable.getPtStartDateTime().toLocalTime();
         LocalTime end = timetable.getPtEndDateTime().toLocalTime();
 
-        int cap = timetable.getPtCapacity() != null
-                ? timetable.getPtCapacity()
-                : reservation.getPrMaxUserCnt();
+        int cap = timetable.getPtCapacity();
 
         if (unit == EntryTimeUnit.ALL_DAY) {
             PopupTimeSlot slot = new PopupTimeSlot();
