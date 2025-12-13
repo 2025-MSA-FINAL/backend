@@ -16,24 +16,7 @@
         <result property="urStatus"   column="ur_status"/>
     </resultMap>
 
-    <!-- 해당 슬롯 + 날짜 범위의 확정 예약 인원 합 -->
-    <select id="sumConfirmedUserCount" resultType="int">
-        SELECT COALESCE(SUM(ur_user_cnt), 0)
-        FROM USER_RESERVATION
-        WHERE pts_id = #{ptsId}
-        AND ur_status = TRUE
-        AND ur_date_time BETWEEN #{start} AND #{end}
-        FOR UPDATE
-    </select>
 
-    <!-- UI 표시용: FOR UPDATE 없는 버전 -->
-    <select id="sumConfirmedUserCountForDisplay" resultType="int">
-        SELECT COALESCE(SUM(ur_user_cnt), 0)
-        FROM USER_RESERVATION
-        WHERE pts_id = #{ptsId}
-        AND ur_status = TRUE
-        AND ur_date_time BETWEEN #{start} AND #{end}
-    </select>
 
     <insert id="insert"
             parameterType="com.popspot.popupplatform.domain.reservation.UserReservation"
