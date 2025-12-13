@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.SlotInventoryMapper">
+
+    <!-- popId 기준으로 해당 팝업의 inventory 전체 삭제 -->
+    <delete id="deleteByPopId">
+        DELETE si
+        FROM SLOT_INVENTORY si
+        JOIN POPUP_TIME_SLOT ts ON si.pts_id = ts.pts_id
+        WHERE ts.pop_id = #{popId}
+    </delete>
+
+    <insert id="insertBatch">
+        INSERT INTO SLOT_INVENTORY (pts_id, inv_date, remain_capacity)
+        VALUES
+        <foreach collection="list" item="it" separator=",">
+            (#{it.ptsId}, #{it.invDate}, #{it.remainCapacity})
+        </foreach>
+    </insert>
+
+    <!-- ✅ 예약 시: 남은 좌석 충분할 때만 차감 -->
+    <update id="decreaseIfAvailable">
+        UPDATE SLOT_INVENTORY
+        SET remain_capacity = remain_capacity - #{cnt}
+        WHERE pts_id = #{ptsId}
+        AND inv_date = #{invDate}
+        AND remain_capacity >= #{cnt}
+    </update>
+
+    <!-- ✅ 조회 시: 슬롯 목록 IN으로 한 번에 remain_capacity 조회 -->
+    <select id="findByPtsIdsAndDate"
+            resultType="com.popspot.popupplatform.domain.reservation.SlotInventory">
+        SELECT pts_id     AS ptsId,
+        inv_date   AS invDate,
+        remain_capacity AS remainCapacity
+        FROM SLOT_INVENTORY
+        WHERE inv_date = #{invDate}
+        AND pts_id IN
+        <foreach collection="ptsIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+</mapper>
