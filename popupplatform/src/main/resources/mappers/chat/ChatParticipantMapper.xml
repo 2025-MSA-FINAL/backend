@@ -29,7 +29,8 @@
         u.user_id AS userId,
         u.user_name AS userName,
         u.user_nickname AS nickname,
-        u.user_photo AS photoUrl
+        u.user_photo AS photoUrl,
+        cp.cm_id AS lastReadMessageId
         FROM CHAT_PARTICIPANT cp
         JOIN USER u ON cp.user_id = u.user_id
         JOIN GROUP_CHAT_ROOM g ON g.gcr_id = cp.gcr_id
@@ -43,4 +44,10 @@
         WHERE gcr_id = #{gcrId}
         AND user_id = #{userId}
     </delete>
+    <update id="updateLastRead">
+        UPDATE CHAT_PARTICIPANT
+        SET cm_id = #{cmId}
+        WHERE gcr_id = #{gcrId}
+        AND user_id = #{userId}
+    </update>
 </mapper>

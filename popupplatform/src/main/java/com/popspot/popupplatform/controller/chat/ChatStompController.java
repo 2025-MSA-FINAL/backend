@@ -5,6 +5,8 @@ import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.request.ChatReadRequest;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
+import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
+import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.service.chat.ChatMessageService;
 import com.popspot.popupplatform.service.chat.ChatReadService;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+
+import java.util.Map;
 
 @Slf4j
 @Controller
@@ -22,17 +26,34 @@ public class ChatStompController {
     private final ObjectMapper objectMapper;
     private final ChatMessageService chatMessageService;
     private final ChatReadService chatReadService;
+    private final ChatMessageMapper chatMessageMapper;
+    private final ChatParticipantMapper participantMapper;
 
     @MessageMapping("/chat/message")
     public void sendMessage(ChatMessageRequest request) {
         chatMessageService.saveMessage(request);
     }
 
-    @MessageMapping("/chat.read")
-    public void readMessage(ChatReadRequest req,
-                            @AuthenticationPrincipal CustomUserDetails user) throws Exception {
+    @MessageMapping("/chat/read")
+    public void readMessage(ChatReadRequest req) throws Exception {
 
-        Long userId = user.getUserId();
+        Long userId = req.getSenderId(); // 🔥 다시 사용
+        if (userId == null) return;
+        if (userId.equals(20251212L)) return;
+
+        Long messageSenderId =
+                chatMessageMapper.getSenderIdByMessageId(req.getLastReadMessageId());
+
+        // 자기 메시지 읽음 방지
+        if (userId.equals(messageSenderId)) return;
+
+        if ("GROUP".equals(req.getRoomType())) {
+            participantMapper.updateLastRead(
+                    req.getRoomId(),
+                    userId,
+                    req.getLastReadMessageId()
+            );
+        }
 
         chatReadService.updateLastRead(
                 req.getRoomType(),
@@ -41,23 +62,26 @@ public class ChatStompController {
                 req.getLastReadMessageId()
         );
 
-        // 읽음 이벤트 브로드캐스트
-        ReadReceiptPayload payload = new ReadReceiptPayload(
-                req.getRoomId(),
-                req.getRoomType(),
-                req.getLastReadMessageId(),
-                userId
-        );
-
         redisPublisher.publish(
                 "chat-room-" + req.getRoomType() + "-" + req.getRoomId(),
-                objectMapper.writeValueAsString(payload)
+                objectMapper.writeValueAsString(
+                        Map.of(
+                                "type", "READ",
+                                "readerUserId", userId,
+                                "lastReadMessageId", req.getLastReadMessageId()
+                        )
+                )
         );
     }
 
     // 읽음 이벤트 response DTO
-    record ReadReceiptPayload(Long roomId, String roomType, Long messageId, Long readerUserId) {}
-
+    record ReadReceiptPayload(
+            String type,
+            String roomType,
+            Long roomId,
+            Long lastReadMessageId,
+            Long readerUserId
+    ) {}
     //타이핑API
     @MessageMapping("/chat/typing")
     public void typing(ChatTypingPayload payload) throws Exception {

@@ -16,4 +16,5 @@ public class GroupChatParticipantResponse {
     private String userName;
     private String nickName;
     private String photoUrl;
+    private Long lastReadMessageId;
 }

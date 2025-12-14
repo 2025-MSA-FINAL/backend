@@ -1,8 +1,12 @@
 package com.popspot.popupplatform.controller.chat;
 
+import com.popspot.popupplatform.dto.chat.response.ChatMessageListResponse;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
+import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
+import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.service.chat.ChatMessageService;
+import com.popspot.popupplatform.service.chat.ChatReadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,7 +20,8 @@ import java.util.List;
 public class ChatMessageQueryController {
 
     private final ChatMessageService chatMessageService;
-
+    private final ChatReadService chatReadService;
+    private final ChatParticipantMapper participantMapper;
     /**
      * 채팅 메시지 불러오기 API
      * 예)
@@ -24,7 +29,7 @@ public class ChatMessageQueryController {
      * /api/chat/messages?roomType=GROUP&roomId=1&lastMessageId=100&limit=20
      */
     @GetMapping
-    public ResponseEntity<List<ChatMessageResponse>> getMessages(
+    public ResponseEntity<ChatMessageListResponse> getMessages(
             @RequestParam String roomType,
             @RequestParam Long roomId,
             @RequestParam(required = false) Long lastMessageId,
@@ -33,8 +38,22 @@ public class ChatMessageQueryController {
     ) {
         Long userId = user.getUserId();
 
+        List<ChatMessageResponse> messages =
+                chatMessageService.getMessages(roomType, roomId, lastMessageId, limit, userId);
+
+        Long lastReadId = chatReadService.getLastRead(roomType, roomId, userId);
+
+        List<GroupChatParticipantResponse> participants = null;
+        if ("GROUP".equals(roomType)) {
+            participants = participantMapper.findParticipants(roomId);
+        }
+
         return ResponseEntity.ok(
-                chatMessageService.getMessages(roomType, roomId, lastMessageId, limit, userId)
+                new ChatMessageListResponse(
+                        messages,
+                        lastReadId,
+                        participants
+                )
         );
     }
 }

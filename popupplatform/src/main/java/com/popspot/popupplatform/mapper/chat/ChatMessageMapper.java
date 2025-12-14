@@ -37,4 +37,5 @@ public interface ChatMessageMapper {
             @Param("roomId") Long roomId,
             @Param("lastReadId") Long lastReadId
     );
+    Long getSenderIdByMessageId(@Param("cmId") Long cmId);
 }

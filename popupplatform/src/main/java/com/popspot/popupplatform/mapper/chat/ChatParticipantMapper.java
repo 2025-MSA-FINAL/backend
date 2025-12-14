@@ -19,4 +19,9 @@ public interface ChatParticipantMapper {
     List<GroupChatParticipantResponse> findParticipants(Long gcrId);
     //채팅방 나가기
     void deleteParticipant(@Param("gcrId") Long gcrId, @Param("userId") Long userId);
+    void updateLastRead(
+            @Param("gcrId") Long gcrId,
+            @Param("userId") Long userId,
+            @Param("cmId") Long cmId
+    );
 }
