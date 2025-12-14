@@ -1,10 +1,7 @@
 package com.popspot.popupplatform.service.reservation;
 
 import com.popspot.popupplatform.domain.popup.PopupStore;
-import com.popspot.popupplatform.domain.reservation.PopupBlock;
-import com.popspot.popupplatform.domain.reservation.PopupReservation;
-import com.popspot.popupplatform.domain.reservation.PopupTimeSlot;
-import com.popspot.popupplatform.domain.reservation.PopupTimetable;
+import com.popspot.popupplatform.domain.reservation.*;
 import com.popspot.popupplatform.dto.reservation.enums.DayOfWeekType;
 import com.popspot.popupplatform.dto.reservation.enums.EntryTimeUnit;
 import com.popspot.popupplatform.dto.reservation.request.PopupExcludeDateRequest;
@@ -40,8 +37,8 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     private final PopupBlockMapper popupBlockMapper;
     private final PopupTimeSlotMapper popupTimeSlotMapper;
     private final PopupMapper popupMapper;
-    private final UserReservationMapper userReservationMapper;
-    private final ReservationHoldMapper reservationHoldMapper;
+
+    private final SlotInventoryMapper slotInventoryMapper;
 
     /**
      * 예약 설정 저장 (최초 1회만 허용)
@@ -50,20 +47,19 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     @Override
     public PopupReservationSettingResponse saveReservationSetting(Long popId, PopupReservationSettingRequest req) {
 
-        // 이미 설정이 있으면 수정 불가
+        Optional<PopupStore> popupStore = popupMapper.selectPopupDetail(popId);
+        if(popupStore.isEmpty()){
+            throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
+        }
+        PopupStore ps = popupStore.get();
+
         PopupReservation existed = popupReservationMapper.findByPopId(popId);
         if (existed != null) {
             throw new CustomException(ReservationErrorCode.RESERVATION_ALREADY_EXISTS);
         }
 
-        // -------------------------
-        // 🔥 에러 코드 기반 검증
-        // -------------------------
         validateReservationRequest(popId, req);
 
-        // -------------------------
-        // 예약 설정 저장
-        // -------------------------
         PopupReservationRequest reservationReq = req.getReservationInfo();
         PopupReservation reservation = toReservationEntity(popId, reservationReq);
         popupReservationMapper.insertPopupReservation(reservation);
@@ -84,18 +80,18 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                 popupTimetableMapper.insertTimetable(timetable);
                 timetableEntities.add(timetable);
 
-                // 요일 시간표 기반으로 실제 슬롯 생성
                 generateTimeSlots(popId, reservation, timetable);
             }
         }
+
+        // ✅ inventory 생성
+        generateSlotInventory(popId,req,ps);
+
         popupMapper.updateIsReservation(popId);
 
         return PopupReservationSettingResponse.of(reservation, timetableEntities, blockEntities);
     }
 
-    /**
-     * 조회
-     */
     @Transactional(readOnly = true)
     @Override
     public PopupReservationSettingResponse getReservationSetting(Long popId) {
@@ -124,7 +120,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         }
 
         Optional<PopupStore> popupStore = popupMapper.selectPopupDetail(popId);
-        if(popupStore.isEmpty()){
+        if (popupStore.isEmpty()) {
             throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
         }
         PopupStore ps = popupStore.get();
@@ -135,13 +131,11 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         List<PopupTimetable> timetables = popupTimetableMapper.findByPopId(popId);
         List<PopupBlock> blocks = popupBlockMapper.findByPopId(popId);
 
-        // 운영 요일 Set
         Set<DayOfWeekType> openDays = new HashSet<>();
         for (PopupTimetable tt : timetables) {
             openDays.add(tt.getPtDayOfWeek());
         }
 
-        // 제외일 Set
         Set<LocalDate> blockedDates = new HashSet<>();
         for (PopupBlock b : blocks) {
             blockedDates.add(b.getPbDateTime().toLocalDate());
@@ -164,9 +158,9 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     }
 
     // ====================================================
-// 2) 특정 날짜 슬롯 목록
-//    ✅ POPUP_TIME_SLOT(pts_id) + USER_RESERVATION + RESERVATION_HOLD 기반 remainingCount 계산
-// ====================================================
+    // 2) 특정 날짜 슬롯 목록
+    //    ✅ SLOT_INVENTORY 기반 remainingCount 조회 (SUM 제거)
+    // ====================================================
     @Transactional(readOnly = true)
     @Override
     public PopupTimeSlotListResponse getTimeSlotsByDate(Long popId, LocalDate date) {
@@ -179,12 +173,9 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                     .build();
         }
 
-        // 1) 요일 구해서 해당 요일의 슬롯 템플릿 조회
         DayOfWeekType targetDow = toDayOfWeekType(date.getDayOfWeek());
 
-        List<PopupTimeSlot> slots =
-                popupTimeSlotMapper.findByPopIdAndDayOfWeek(popId, targetDow);
-
+        List<PopupTimeSlot> slots = popupTimeSlotMapper.findByPopIdAndDayOfWeek(popId, targetDow);
         if (slots == null || slots.isEmpty()) {
             return PopupTimeSlotListResponse.builder()
                     .date(date)
@@ -192,43 +183,30 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                     .build();
         }
 
-        // 2) 이 날짜의 하루 범위 및 현재 시간
-        LocalDateTime startOfDay = date.atStartOfDay();
-        LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-        LocalDateTime now = LocalDateTime.now();
-
-        // 3) 슬롯별로 확정예약 + ACTIVE HOLD 합산해서 remaining 계산
-        List<PopupTimeSlotResponse> result = new ArrayList<>();
-
+        // ✅ inventory를 IN으로 한 번에 조회해서 map으로 구성
+        List<Long> ptsIds = new ArrayList<>();
         for (PopupTimeSlot s : slots) {
-            Long ptsId = s.getPtsId();
-            int capacity = s.getPtsCapacity();
+            ptsIds.add(s.getPtsId());
+        }
 
-            // USER_RESERVATION 에서 확정 예약 인원
-            Integer confirmed = userReservationMapper.sumConfirmedUserCountForDisplay(
-                    ptsId,
-                    startOfDay,
-                    endOfDay
-            );
-            if (confirmed == null) confirmed = 0;
+        List<SlotInventory> inventories = slotInventoryMapper.findByPtsIdsAndDate(ptsIds, date);
+        Map<Long, Integer> remainMap = new HashMap<>();
+        if (inventories != null) {
+            for (SlotInventory inv : inventories) {
+                remainMap.put(inv.getPtsId(), inv.getRemainCapacity());
+            }
+        }
 
-            // RESERVATION_HOLD 에서 아직 ACTIVE 이고, 만료 안 된 HOLD 인원
-            Integer holding = reservationHoldMapper.sumActiveHoldUserCountForDisplay(
-                    ptsId,
-                    date,
-                    now
-            );
-            if (holding == null) holding = 0;
-
-            int remaining = capacity - confirmed - holding;
-            if (remaining < 0) remaining = 0; // 혹시라도 음수 방지
+        List<PopupTimeSlotResponse> result = new ArrayList<>();
+        for (PopupTimeSlot s : slots) {
+            int remaining = remainMap.getOrDefault(s.getPtsId(), 0);
 
             result.add(
                     PopupTimeSlotResponse.builder()
                             .slotId(s.getPtsId())
                             .startTime(s.getPtsStartTime().toString())
                             .endTime(s.getPtsEndTime().toString())
-                            .remainingCount(remaining)
+                            .remainingCount(Math.max(remaining, 0))
                             .build()
             );
         }
@@ -237,6 +215,47 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                 .date(date)
                 .timeSlots(result)
                 .build();
+    }
+
+    // ====================================================
+    // ✅ SLOT_INVENTORY 생성 (남은좌석만)
+    // ====================================================
+    private void generateSlotInventory(Long popId, PopupReservationSettingRequest req,PopupStore ps) {
+
+        slotInventoryMapper.deleteByPopId(popId);
+
+        Set<LocalDate> excluded = new HashSet<>();
+        if (req.getExcludeDates() != null) {
+            for (PopupExcludeDateRequest ex : req.getExcludeDates()) {
+                excluded.add(ex.getDate());
+            }
+        }
+
+        List<PopupTimeSlot> slots = popupTimeSlotMapper.findByPopId(popId);
+        if (slots == null || slots.isEmpty()) return;
+
+        LocalDate start = ps.getPopStartDate().toLocalDate();
+        LocalDate end = ps.getPopEndDate().toLocalDate();
+
+        List<SlotInventory> batch = new ArrayList<>();
+
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            if (excluded.contains(d)) continue;
+
+            for (PopupTimeSlot s : slots) {
+                batch.add(
+                        SlotInventory.builder()
+                                .ptsId(s.getPtsId())
+                                .invDate(d)
+                                .remainCapacity(s.getPtsCapacity())
+                                .build()
+                );
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            slotInventoryMapper.insertBatch(batch);
+        }
     }
 
     // ====================================================
@@ -254,39 +273,31 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         };
     }
 
-
     // ========================================================
-    // 🔥 여기부터 검증(Validation) 메서드 — 기존 로직 손대지 않음
+    // Validation
     // ========================================================
-
     private void validateReservationRequest(Long popId, PopupReservationSettingRequest req) {
 
-        // (1) 예약 단위 시간 검증
         if (req.getReservationInfo() == null ||
                 req.getReservationInfo().getEntryTimeUnit() == null) {
             throw new CustomException(ReservationErrorCode.INVALID_ENTRY_TIME_UNIT);
         }
 
-        // (2) 시간표 검증
         if (req.getTimetables() != null) {
 
-            // 중복 요일 체크
             Set<DayOfWeekType> daySet = new HashSet<>();
             for (PopupTimetableRequest tt : req.getTimetables()) {
 
-                // 요일 중복 검증
                 if (!daySet.add(tt.getDayOfWeek())) {
                     throw new CustomException(ReservationErrorCode.DUPLICATE_TIMETABLE_DAY);
                 }
 
-                // 시간 범위 검증
                 if (tt.getStartTime().compareTo(tt.getEndTime()) >= 0) {
                     throw new CustomException(ReservationErrorCode.INVALID_TIMETABLE_TIME_RANGE);
                 }
             }
         }
 
-        // (3) 제외일 검증 (null, 과거 날짜 등은 정책 맞춰서 적용)
         if (req.getExcludeDates() != null) {
             for (PopupExcludeDateRequest exclude : req.getExcludeDates()) {
                 if (exclude.getDate() == null) {
@@ -297,9 +308,8 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     }
 
     // ========================================================
-    // 아래부터는 기존 로직 그대로 — 절대 손댄 것 없음
+    // 기존 변환/슬롯 생성 로직
     // ========================================================
-
     private PopupReservation toReservationEntity(Long popId, PopupReservationRequest req) {
         PopupReservation r = new PopupReservation();
         r.setPopId(popId);
@@ -334,9 +344,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         LocalTime start = timetable.getPtStartDateTime().toLocalTime();
         LocalTime end = timetable.getPtEndDateTime().toLocalTime();
 
-        int cap = timetable.getPtCapacity() != null
-                ? timetable.getPtCapacity()
-                : reservation.getPrMaxUserCnt();
+        int cap = timetable.getPtCapacity();
 
         if (unit == EntryTimeUnit.ALL_DAY) {
             PopupTimeSlot slot = new PopupTimeSlot();
