@@ -21,8 +21,6 @@ public class UserReservationService {
 
     private final PopupTimeSlotMapper popupTimeSlotMapper;
     private final UserReservationMapper userReservationMapper;
-
-    // ✅ 추가
     private final SlotInventoryMapper slotInventoryMapper;
 
     private final AtomicLong testUserId = new AtomicLong(1L);
