@@ -111,4 +111,10 @@
         AND cm.cm_room_id = #{roomId}
         AND cm.cm_id > #{lastReadId}
     </select>
+
+    <select id="getSenderIdByMessageId" resultType="long">
+        SELECT user_id
+        FROM CHAT_MESSAGE
+        WHERE cm_id = #{cmId}
+    </select>
 </mapper>
