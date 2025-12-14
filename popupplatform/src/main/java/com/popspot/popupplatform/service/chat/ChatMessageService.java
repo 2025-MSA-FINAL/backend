@@ -5,6 +5,7 @@ import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
+import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -18,7 +19,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ChatMessageService {
-
+    private final ChatParticipantMapper participantMapper;
     private final ChatMessageMapper chatMessageMapper;
     private final PrivateChatRoomService privateChatRoomService;
     private final ChatReadService chatReadService;
@@ -175,6 +176,12 @@ public class ChatMessageService {
             lastDeletedAt = privateChatRoomService.getLastDeletedAt(userId, roomId);
         }
 
+        Integer totalUserCount = null;
+
+        if ("GROUP".equals(roomType)) {
+            totalUserCount = participantMapper.countParticipants(roomId);
+        }
+
         List<ChatMessageResponse> messages =
                 chatMessageMapper.getMessagesByRoom(
                         roomType,
@@ -186,19 +193,17 @@ public class ChatMessageService {
 
         Long lastReadId = chatReadService.getLastRead(roomType, roomId, userId);
 
-        boolean separatorInserted = false;
-
         for (ChatMessageResponse msg : messages) {
-
-            msg.setReadCount(chatReadService.getReadCount(msg.getCmId()));
             msg.setIsRead(msg.getCmId() <= lastReadId);
 
-            if (!separatorInserted && msg.getCmId() > lastReadId) {
-                msg.setUnreadSeparator(true);
-                separatorInserted = true;
+            if ("GROUP".equals(roomType)) {
+                msg.setTotalUserCount(totalUserCount);
             }
         }
 
         return messages;
+    }
+    private Long getMessageSenderId(Long messageId) {
+        return chatMessageMapper.getSenderIdByMessageId(messageId);
     }
 }
