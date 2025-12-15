@@ -9,7 +9,8 @@ import java.util.List;
 @AllArgsConstructor
 public class ChatMessageListResponse {
     private List<ChatMessageResponse> messages;
-    private Long lastReadMessageId;
+    private Long lastReadMessageId; // 내 lastRead
+    private Long otherLastReadMessageId; // 상대 lastRead
     private List<GroupChatParticipantResponse> participants;
 }
 

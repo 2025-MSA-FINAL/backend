@@ -37,7 +37,7 @@ public class ChatStompController {
     @MessageMapping("/chat/read")
     public void readMessage(ChatReadRequest req) throws Exception {
 
-        Long userId = req.getSenderId(); // 🔥 다시 사용
+        Long userId = req.getSenderId();
         if (userId == null) return;
         if (userId.equals(20251212L)) return;
 
@@ -46,14 +46,6 @@ public class ChatStompController {
 
         // 자기 메시지 읽음 방지
         if (userId.equals(messageSenderId)) return;
-
-        if ("GROUP".equals(req.getRoomType())) {
-            participantMapper.updateLastRead(
-                    req.getRoomId(),
-                    userId,
-                    req.getLastReadMessageId()
-            );
-        }
 
         chatReadService.updateLastRead(
                 req.getRoomType(),
