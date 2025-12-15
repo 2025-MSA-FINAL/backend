@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 "/health"
                         ).permitAll()
                         .requestMatchers(
+                                "/api/main/*",
                                 "/api/auth/phone/**",
                                 "/api/reservations",
                                 "/api/auth/**",
