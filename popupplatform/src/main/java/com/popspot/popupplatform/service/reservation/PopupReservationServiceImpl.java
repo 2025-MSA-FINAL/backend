@@ -16,17 +16,22 @@ import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.PopupErrorCode;
 import com.popspot.popupplatform.global.exception.code.ReservationErrorCode;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
-import com.popspot.popupplatform.mapper.reservation.*;
+import com.popspot.popupplatform.mapper.reservation.PopupBlockMapper;
+import com.popspot.popupplatform.mapper.reservation.PopupReservationMapper;
+import com.popspot.popupplatform.mapper.reservation.PopupTimeSlotMapper;
+import com.popspot.popupplatform.mapper.reservation.PopupTimetableMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
-
 
 @Service
 @RequiredArgsConstructor
@@ -38,17 +43,38 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     private final PopupTimeSlotMapper popupTimeSlotMapper;
     private final PopupMapper popupMapper;
 
-    private final SlotInventoryMapper slotInventoryMapper;
+    // ✅ Redis (remain 관리)
+    private final StringRedisTemplate stringRedisTemplate;
+
+    /**
+     * Redis remain key 포맷
+     * - "inv:{popId}:{yyyyMMdd}:{ptsId}" -> 남은 좌석(int)
+     *
+     * 예) inv:10:20250115:123 = 20
+     *
+     * ⚠️ 여기서는 slotInventory(DB)를 사용하지 않고 Redis를 “실시간 remain 저장소”로 사용한다.
+     */
+    private String invKey(Long popId, LocalDate date, Long ptsId) {
+        String ymd = date.toString().replace("-", "");
+        return "inv:" + popId + ":" + ymd + ":" + ptsId;
+    }
 
     /**
      * 예약 설정 저장 (최초 1회만 허용)
+     *
+     * 변경 포인트:
+     * 1) 기존에는 SLOT_INVENTORY 테이블에 전기간 remain을 생성했음 :contentReference[oaicite:2]{index=2}
+     * 2) 이제는 “전기간 remain 초기값”을 Redis에 생성한다.
+     *
+     * ⚠️ Redis 초기화는 DB 트랜잭션 커밋 이후(afterCommit)에 수행해야
+     * DB 롤백 시 Redis만 남는 불일치가 생기지 않는다.
      */
     @Transactional
     @Override
     public PopupReservationSettingResponse saveReservationSetting(Long popId, PopupReservationSettingRequest req) {
 
         Optional<PopupStore> popupStore = popupMapper.selectPopupDetail(popId);
-        if(popupStore.isEmpty()){
+        if (popupStore.isEmpty()) {
             throw new CustomException(PopupErrorCode.POPUP_NOT_FOUND);
         }
         PopupStore ps = popupStore.get();
@@ -64,6 +90,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         PopupReservation reservation = toReservationEntity(popId, reservationReq);
         popupReservationMapper.insertPopupReservation(reservation);
 
+        // 1) 제외일(블락) 저장
         List<PopupBlock> blockEntities = new ArrayList<>();
         if (req.getExcludeDates() != null) {
             for (PopupExcludeDateRequest excludeReq : req.getExcludeDates()) {
@@ -73,6 +100,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
             }
         }
 
+        // 2) 타임테이블 저장 + 타임슬롯 생성(ptsId 생성됨) :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4}
         List<PopupTimetable> timetableEntities = new ArrayList<>();
         if (req.getTimetables() != null) {
             for (PopupTimetableRequest ttReq : req.getTimetables()) {
@@ -84,8 +112,14 @@ public class PopupReservationServiceImpl implements PopupReservationService {
             }
         }
 
-        // ✅ inventory 생성
-        generateSlotInventory(popId,req,ps);
+        // ✅ (변경) inventory(DB) 생성 대신 Redis remain 초기화
+        // - 커밋 이후(afterCommit)에 Redis SET 해야 안전함
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                initRedisInventory(popId, req, ps);
+            }
+        });
 
         popupMapper.updateIsReservation(popId);
 
@@ -159,7 +193,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
 
     // ====================================================
     // 2) 특정 날짜 슬롯 목록
-    //    ✅ SLOT_INVENTORY 기반 remainingCount 조회 (SUM 제거)
+    //    ✅ Redis remain 기반 remainingCount 조회
     // ====================================================
     @Transactional(readOnly = true)
     @Override
@@ -175,6 +209,7 @@ public class PopupReservationServiceImpl implements PopupReservationService {
 
         DayOfWeekType targetDow = toDayOfWeekType(date.getDayOfWeek());
 
+        // 요일에 해당하는 슬롯 정의(ptsId 목록) 조회 :contentReference[oaicite:5]{index=5} :contentReference[oaicite:6]{index=6}
         List<PopupTimeSlot> slots = popupTimeSlotMapper.findByPopIdAndDayOfWeek(popId, targetDow);
         if (slots == null || slots.isEmpty()) {
             return PopupTimeSlotListResponse.builder()
@@ -183,18 +218,34 @@ public class PopupReservationServiceImpl implements PopupReservationService {
                     .build();
         }
 
-        // ✅ inventory를 IN으로 한 번에 조회해서 map으로 구성
-        List<Long> ptsIds = new ArrayList<>();
+        // ✅ Redis MGET로 remain을 한 번에 가져온다 (DB IN 조회 대체)
+        List<String> keys = new ArrayList<>(slots.size());
         for (PopupTimeSlot s : slots) {
-            ptsIds.add(s.getPtsId());
+            keys.add(invKey(popId, date, s.getPtsId()));
         }
 
-        List<SlotInventory> inventories = slotInventoryMapper.findByPtsIdsAndDate(ptsIds, date);
+        List<String> values = stringRedisTemplate.opsForValue().multiGet(keys);
+
+        // ptsId -> remain map 구성 (values는 keys와 동일한 순서)
         Map<Long, Integer> remainMap = new HashMap<>();
-        if (inventories != null) {
-            for (SlotInventory inv : inventories) {
-                remainMap.put(inv.getPtsId(), inv.getRemainCapacity());
+        for (int i = 0; i < slots.size(); i++) {
+            PopupTimeSlot s = slots.get(i);
+            String v = (values == null ? null : values.get(i));
+            int remain = 0;
+
+            // Redis에 키가 없다면:
+            // - 아직 초기화가 안 됐거나(설정 직후 레이스),
+            // - 이미 기간 종료/정리된 상태일 수 있다.
+            // 여기서는 안전하게 0으로 보여준다(예약 불가).
+            if (v != null) {
+                try {
+                    remain = Integer.parseInt(v);
+                } catch (NumberFormatException ignore) {
+                    remain = 0;
+                }
             }
+
+            remainMap.put(s.getPtsId(), remain);
         }
 
         List<PopupTimeSlotResponse> result = new ArrayList<>();
@@ -218,16 +269,22 @@ public class PopupReservationServiceImpl implements PopupReservationService {
     }
 
     // ====================================================
-    // ✅ SLOT_INVENTORY 생성 (남은좌석만)
+    // ✅ Redis inventory 초기화 (예약 설정 시 1회)
     // ====================================================
-    private void generateSlotInventory(Long popId, PopupReservationSettingRequest req,PopupStore ps) {
-
-        slotInventoryMapper.deleteByPopId(popId);
+    private void initRedisInventory(Long popId, PopupReservationSettingRequest req, PopupStore ps) {
 
         Set<LocalDate> excluded = new HashSet<>();
         if (req.getExcludeDates() != null) {
             for (PopupExcludeDateRequest ex : req.getExcludeDates()) {
                 excluded.add(ex.getDate());
+            }
+        }
+
+        // ✅ openDays(운영 요일) 만들기: timetables 기준
+        Set<DayOfWeekType> openDays = new HashSet<>();
+        if (req.getTimetables() != null) {
+            for (PopupTimetableRequest tt : req.getTimetables()) {
+                openDays.add(tt.getDayOfWeek());
             }
         }
 
@@ -237,24 +294,26 @@ public class PopupReservationServiceImpl implements PopupReservationService {
         LocalDate start = ps.getPopStartDate().toLocalDate();
         LocalDate end = ps.getPopEndDate().toLocalDate();
 
-        List<SlotInventory> batch = new ArrayList<>();
+        Map<String, String> kv = new HashMap<>();
 
         for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            DayOfWeekType dow = toDayOfWeekType(d.getDayOfWeek());
+
+            // ✅ 요일이 운영 요일이 아니면 skip (캘린더 로직과 동일)
+            if (!openDays.contains(dow)) continue;
+
+            // ✅ 제외일이면 skip
             if (excluded.contains(d)) continue;
 
+            // ✅ 그 날짜 요일에 해당하는 슬롯만 생성
             for (PopupTimeSlot s : slots) {
-                batch.add(
-                        SlotInventory.builder()
-                                .ptsId(s.getPtsId())
-                                .invDate(d)
-                                .remainCapacity(s.getPtsCapacity())
-                                .build()
-                );
+                if (s.getPtsDayOfWeek() != dow) continue;
+                kv.put(invKey(popId, d, s.getPtsId()), String.valueOf(s.getPtsCapacity()));
             }
         }
 
-        if (!batch.isEmpty()) {
-            slotInventoryMapper.insertBatch(batch);
+        if (!kv.isEmpty()) {
+            stringRedisTemplate.opsForValue().multiSet(kv);
         }
     }
 

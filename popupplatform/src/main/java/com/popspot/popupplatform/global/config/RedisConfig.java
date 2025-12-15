@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -47,6 +48,13 @@ public class RedisConfig {
         container.addMessageListener(subscriber, new PatternTopic("chat-room-*"));
 
         return container;
+    }
+
+    // 🔹 재고 / hold / 카운터용 (필수)
+    @Bean
+    public StringRedisTemplate stringRedisTemplate(
+            RedisConnectionFactory connectionFactory) {
+        return new StringRedisTemplate(connectionFactory);
     }
 
 }
