@@ -83,14 +83,14 @@ public class ChatMessageQueryController {
         try {
             Long userId = user.getUserId();
 
-            // 1️⃣ 이미지 업로드
+            // 이미지 업로드
             UploadResultDto uploadResult =
                     objectStorageService.upload(
                             "chat/user",
                             image
                     );
 
-            // 2️⃣ 메시지 생성
+            // 메시지 생성
             ChatMessageRequest req = new ChatMessageRequest();
             req.setRoomType(roomType);
             req.setRoomId(roomId);
@@ -99,7 +99,7 @@ public class ChatMessageQueryController {
             req.setContent(uploadResult.getUrl());
             req.setClientMessageKey(clientMessageKey);
 
-            // 3️⃣ 저장 + Redis publish
+            // 저장 + Redis publish
             ChatMessageResponse saved = chatMessageService.saveMessage(req);
 
             return ResponseEntity.ok(saved);
