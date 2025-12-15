@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.main.MainPopupMapper">
+
+
+    <!-- 최근 생성된 팝업 n개 -->
+    <select id="selectLatestPopups"  resultType="com.popspot.popupplatform.dto.main.MainPopupCardDto">
+        SELECT
+        p.pop_id,
+        p.pop_name,
+        p.pop_thumbnail,
+        p.pop_location,
+        p.pop_start_date,
+        p.pop_end_date,
+        p.pop_price_type
+        FROM POPUPSTORE p
+        WHERE p.pop_is_deleted = FALSE
+        AND p.pop_moderation_status = TRUE
+        AND p.pop_status != 'ENDED'
+        ORDER BY p.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 종료 임박 팝업 n개 -->
+    <select id="selectEndingSoonPopups" resultType="com.popspot.popupplatform.dto.main.MainPopupCardDto">
+        SELECT
+        p.pop_id,
+        p.pop_name,
+        p.pop_thumbnail,
+        p.pop_location,
+        p.pop_start_date,
+        p.pop_end_date,
+        p.pop_price_type
+        FROM POPUPSTORE p
+        WHERE p.pop_is_deleted = FALSE
+        AND p.pop_moderation_status = TRUE
+        AND p.pop_status != 'ENDED'
+        AND p.pop_end_date >= NOW()
+        ORDER BY p.pop_end_date ASC, p.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
