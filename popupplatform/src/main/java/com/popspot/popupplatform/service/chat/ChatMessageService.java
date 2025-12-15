@@ -3,6 +3,7 @@ package com.popspot.popupplatform.service.chat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
+import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
@@ -80,7 +81,30 @@ public class ChatMessageService {
                 "POPBOT"
         );
         try {
-        String aiReply = aiChatService.getAiReply(userMsg.getContent());
+            // 🖼 AI 이미지 생성
+            if (aiChatService.isImageRequest(userMsg.getContent())) {
+                UploadResultDto image =
+                        aiChatService.generateImage(userMsg.getContent());
+
+                ChatMessageRequest aiImageMsg = new ChatMessageRequest();
+                aiImageMsg.setRoomType("PRIVATE");
+                aiImageMsg.setRoomId(userMsg.getRoomId());
+                aiImageMsg.setSenderId(20251212L);
+                aiImageMsg.setMessageType("IMAGE");
+                aiImageMsg.setContent(image.getUrl());
+                aiImageMsg.setClientMessageKey(UUID.randomUUID().toString());
+
+                chatMessageMapper.insertMessage(aiImageMsg);
+
+                ChatMessageResponse saved =
+                        chatMessageMapper.getMessageById("PRIVATE", aiImageMsg.getCmId());
+
+                saved.setClientMessageKey(aiImageMsg.getClientMessageKey());
+                publishMessage(saved);
+                return;
+            }
+
+            String aiReply = aiChatService.getAiReply(userMsg.getContent());
 
         // 타이핑 시간 보장
         try {
