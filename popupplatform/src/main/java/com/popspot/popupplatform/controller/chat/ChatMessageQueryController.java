@@ -102,7 +102,7 @@ public class ChatMessageQueryController {
             // 3️⃣ 저장 + Redis publish
             ChatMessageResponse saved = chatMessageService.saveMessage(req);
 
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(saved);
 
         } catch (Exception e) {
             throw new RuntimeException("이미지 메시지 업로드 실패", e);
