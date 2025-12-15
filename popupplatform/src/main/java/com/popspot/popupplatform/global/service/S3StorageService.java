@@ -58,6 +58,45 @@ public class S3StorageService implements ObjectStorageService {
         String url = buildPublicUrl(key);
         return new UploadResultDto(url, key);
     }
+    @Override
+    public UploadResultDto uploadBytes(
+            String keyPrefix,
+            byte[] bytes,
+            String contentType,
+            String extension
+    ) {
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("bytes is empty");
+        }
+
+        LocalDate d = LocalDate.now();
+        String key = String.format("%s/%04d/%02d/%02d/%s.%s",
+                clean(keyPrefix),
+                d.getYear(), d.getMonthValue(), d.getDayOfMonth(),
+                UUID.randomUUID(),
+                extension != null ? extension : "bin"
+        );
+
+        try {
+            s3.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .contentType(
+                                    StringUtils.hasText(contentType)
+                                            ? contentType
+                                            : MediaType.APPLICATION_OCTET_STREAM_VALUE
+                            )
+                            .build(),
+                    RequestBody.fromBytes(bytes)
+            );
+        } catch (S3Exception e) {
+            throw new RuntimeException("S3 upload failed: " + e.awsErrorDetails().errorMessage(), e);
+        }
+
+        String url = buildPublicUrl(key);
+        return new UploadResultDto(url, key);
+    }
 
     @Override
     public void deleteByKey(String key) {
