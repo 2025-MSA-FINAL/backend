@@ -5,5 +5,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface ObjectStorageService {
     UploadResultDto upload(String keyPrefix, MultipartFile file);
+    UploadResultDto uploadBytes(
+            String keyPrefix,
+            byte[] bytes,
+            String contentType,
+            String extension
+    );
     void deleteByKey(String key);
 }

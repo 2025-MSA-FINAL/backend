@@ -1,9 +1,12 @@
 package com.popspot.popupplatform.controller.chat;
 
+import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageListResponse;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
+import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
+import com.popspot.popupplatform.global.service.ObjectStorageService;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.service.chat.ChatMessageService;
 import com.popspot.popupplatform.service.chat.ChatReadService;
@@ -12,8 +15,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,6 +29,8 @@ public class ChatMessageQueryController {
     private final ChatReadService chatReadService;
     private final ChatParticipantMapper participantMapper;
     private final PrivateChatRoomService privateChatRoomService;
+    private final ObjectStorageService objectStorageService;
+
     /**
      * 채팅 메시지 불러오기 API
      * 예)
@@ -63,5 +70,42 @@ public class ChatMessageQueryController {
                         participants
                 )
         );
+    }
+
+    @PostMapping("/image")
+    public ResponseEntity<ChatMessageResponse> uploadImageMessage(
+            @RequestParam String roomType,
+            @RequestParam Long roomId,
+            @RequestParam("image") MultipartFile image,
+            @RequestParam String clientMessageKey,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        try {
+            Long userId = user.getUserId();
+
+            // 1️⃣ 이미지 업로드
+            UploadResultDto uploadResult =
+                    objectStorageService.upload(
+                            "chat/user",
+                            image
+                    );
+
+            // 2️⃣ 메시지 생성
+            ChatMessageRequest req = new ChatMessageRequest();
+            req.setRoomType(roomType);
+            req.setRoomId(roomId);
+            req.setSenderId(userId);
+            req.setMessageType("IMAGE");
+            req.setContent(uploadResult.getUrl());
+            req.setClientMessageKey(clientMessageKey);
+
+            // 3️⃣ 저장 + Redis publish
+            ChatMessageResponse saved = chatMessageService.saveMessage(req);
+
+            return ResponseEntity.noContent().build();
+
+        } catch (Exception e) {
+            throw new RuntimeException("이미지 메시지 업로드 실패", e);
+        }
     }
 }
