@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.global.controller;
 
 import com.popspot.popupplatform.dto.global.UploadResultDto;
+import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.global.service.ObjectStorageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -86,5 +88,27 @@ public class FileController {
         System.out.println(defaultProfileKey);
         return key.equals(defaultProfileKey)
                 || key.equals("/" + defaultProfileKey);
+    }
+
+    @Operation(summary = "채팅 이미지 업로드", description = "채팅에서 사용할 이미지를 업로드합니다.")
+    @PostMapping(value = "/chat", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UploadResultDto> uploadChatImage(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        if(file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().build(); //400
+        }
+
+        if(file.getContentType() == null || !file.getContentType().startsWith("image/")) {
+            return ResponseEntity.badRequest().build(); //400
+        }
+
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return ResponseEntity.status(413).build(); // Payload Too Large
+        }
+
+        UploadResultDto r = storage.upload("chat", file);
+        return ResponseEntity.ok(new UploadResultDto(r.getUrl(),r.getKey()));
     }
 }
