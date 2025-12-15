@@ -4,6 +4,7 @@ import com.popspot.popupplatform.domain.chat.PrivateChatRoom;
 import com.popspot.popupplatform.domain.chat.PrivateChatRoomDelete;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
+import com.popspot.popupplatform.mapper.chat.PrivateChatParticipantMapper;
 import com.popspot.popupplatform.mapper.chat.PrivateChatRoomDeleteMapper;
 import com.popspot.popupplatform.mapper.chat.PrivateChatRoomMapper;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 public class PrivateChatRoomService {
     private final PrivateChatRoomMapper privateChatRoomMapper;
     private final PrivateChatRoomDeleteMapper privateChatRoomDeleteMapper;
+    private final PrivateChatParticipantMapper privateChatParticipantMapper;
 
     //1:1채팅시작
     //현재로그인유저currentUserId, 채팅하는상대방targetUserId
@@ -39,6 +41,10 @@ public class PrivateChatRoomService {
         } catch (Exception e) {
             throw new CustomException(ChatErrorCode.PRIVATE_ROOM_NOT_FOUND);
         }
+
+        privateChatParticipantMapper.insertParticipant(newRoom.getPcrId(), currentUserId);
+        privateChatParticipantMapper.insertParticipant(newRoom.getPcrId(), targetUserId);
+
         return newRoom.getPcrId();
     }
     //1대1채팅삭제

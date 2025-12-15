@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.PrivateChatParticipantMapper">
+    <insert id="insertParticipant">
+        INSERT INTO PRIVATE_CHAT_PARTICIPANT (pcr_id, user_id, last_read_message_id)
+        VALUES (#{pcrId}, #{userId}, 0)
+        ON DUPLICATE KEY UPDATE pcr_id = pcr_id
+    </insert>
+    <update id="updateLastRead">
+        UPDATE PRIVATE_CHAT_PARTICIPANT
+        SET last_read_message_id = #{lastReadMessageId}
+        WHERE pcr_id = #{pcrId}
+        AND user_id = #{userId}
+    </update>
+    <select id="findLastRead" resultType="long">
+        SELECT last_read_message_id
+        FROM PRIVATE_CHAT_PARTICIPANT
+        WHERE pcr_id = #{pcrId}
+        AND user_id = #{userId}
+    </select>
+</mapper>
