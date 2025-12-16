@@ -16,6 +16,7 @@ public class MainPageServiceImpl implements MainPageService {
     @Override
     public MainPageResponse getMainPagePopups(int limit) {
         return MainPageResponse.builder()
+                .hero(mainPopupMapper.selectTopViewedPopups(7))
                 .latest(mainPopupMapper.selectLatestPopups(limit))
                 .endingSoon(mainPopupMapper.selectEndingSoonPopups(limit))
                 .build();
