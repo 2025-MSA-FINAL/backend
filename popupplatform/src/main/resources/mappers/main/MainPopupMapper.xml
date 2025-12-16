@@ -5,8 +5,17 @@
 <mapper namespace="com.popspot.popupplatform.mapper.main.MainPopupMapper">
 
 
+    <resultMap id="MainPopupCardMap" type="com.popspot.popupplatform.dto.main.MainPopupCardDto">
+        <id     property="popId"        column="pop_id"/>
+        <result property="popName"      column="pop_name"/>
+        <result property="popThumbnail" column="pop_thumbnail"/>
+        <result property="popLocation"  column="pop_location"/>
+        <result property="popStartDate" column="pop_start_date"/>
+        <result property="popEndDate"   column="pop_end_date"/>
+        <result property="popPriceType" column="pop_price_type"/>
+    </resultMap>
     <!-- 최근 생성된 팝업 n개 -->
-    <select id="selectLatestPopups"  resultType="com.popspot.popupplatform.dto.main.MainPopupCardDto">
+    <select id="selectLatestPopups"   resultMap="MainPopupCardMap">
         SELECT
         p.pop_id,
         p.pop_name,
@@ -24,7 +33,7 @@
     </select>
 
     <!-- 종료 임박 팝업 n개 -->
-    <select id="selectEndingSoonPopups" resultType="com.popspot.popupplatform.dto.main.MainPopupCardDto">
+    <select id="selectEndingSoonPopups"  resultMap="MainPopupCardMap">
         SELECT
         p.pop_id,
         p.pop_name,
