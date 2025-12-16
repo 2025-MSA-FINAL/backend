@@ -51,4 +51,25 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 메인 HERO: 조회수 TOP n -->
+    <select id="selectTopViewedPopups" resultMap="MainPopupCardMap">
+        SELECT
+        p.pop_id,
+        p.pop_name,
+        p.pop_thumbnail,
+        p.pop_location,
+        p.pop_start_date,
+        p.pop_end_date,
+        p.pop_price_type
+        FROM POPUPSTORE p
+        WHERE p.pop_is_deleted = FALSE
+        AND p.pop_moderation_status = TRUE
+        AND p.pop_status != 'ENDED'
+        AND p.pop_end_date >= NOW()
+        AND p.pop_view_count > 0
+        ORDER BY p.pop_view_count DESC
+        LIMIT #{limit}
+    </select>
+
+
 </mapper>

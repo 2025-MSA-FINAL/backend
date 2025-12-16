@@ -8,6 +8,7 @@ import java.util.List;
 @Data
 @Builder
 public class MainPageResponse {
+    private List<MainPopupCardDto> hero;
     private List<MainPopupCardDto> latest;
     private List<MainPopupCardDto> endingSoon;
 }
