@@ -30,12 +30,21 @@ public class PostgresDataSourceConfig {
     public SqlSessionFactory postgresSqlSessionFactory(
             @Qualifier("postgresDataSource") DataSource dataSource
     ) throws Exception {
+
         SqlSessionFactoryBean factory = new SqlSessionFactoryBean();
         factory.setDataSource(dataSource);
+
         factory.setMapperLocations(
                 new PathMatchingResourcePatternResolver()
                         .getResources("classpath:/mappers-postgres/**/*.xml")
         );
+
+        // ✅ 동일 적용
+        org.apache.ibatis.session.Configuration mybatisConfig =
+                new org.apache.ibatis.session.Configuration();
+        mybatisConfig.setMapUnderscoreToCamelCase(true);
+        factory.setConfiguration(mybatisConfig);
+
         return factory.getObject();
     }
 
