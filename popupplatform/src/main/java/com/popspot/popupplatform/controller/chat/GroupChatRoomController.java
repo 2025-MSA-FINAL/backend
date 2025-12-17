@@ -1,7 +1,6 @@
 package com.popspot.popupplatform.controller.chat;
 
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
-import com.popspot.popupplatform.dto.chat.request.GroupChatJoinRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
@@ -59,17 +58,17 @@ public class GroupChatRoomController {
     }
 
     //그룹채팅방 참여 API
-    @PostMapping("/join")
+    @PostMapping("/{gcrId}/join")
     @Operation(
             summary = "그룹 채팅방 참여",
             description = "유저가 그룹채팅방에 참여합니다."
     )
     public ResponseEntity<String> joinRoom(
-            @RequestBody GroupChatJoinRequest req, //채팅방참여요청정보 req - 그룹채팅방ID
-            @AuthenticationPrincipal CustomUserDetails user //현재 로그인한 사용자정보 user
+            @PathVariable Long gcrId,
+            @AuthenticationPrincipal CustomUserDetails user
     ) {
         //서비스에서 채팅방 참여 처리
-        roomService.joinRoom(req.getGcrId(), user.getUserId());
+        roomService.joinRoom(gcrId, user.getUserId());
         return ResponseEntity.ok("참여 완료");
     }
 
