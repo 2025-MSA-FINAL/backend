@@ -17,4 +17,7 @@ public class GroupChatParticipantResponse {
     private String nickName;
     private String photoUrl;
     private Long lastReadMessageId;
+    private boolean isOwner;
+    private boolean isMe;
+    private boolean online; //온라인 유/무
 }

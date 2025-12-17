@@ -23,21 +23,29 @@
         WHERE gcr_id = #{gcrId}
     </select>
     <select id="findParticipants"
-            parameterType="long"
             resultType="com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse">
         SELECT
         u.user_id AS userId,
         u.user_name AS userName,
-        u.user_nickname AS nickname,
+        u.user_nickname AS nickName,
         u.user_photo AS photoUrl,
-        cp.cm_id AS lastReadMessageId
+        COALESCE(cp.cm_id, 0) AS lastReadMessageId,
+        (u.user_id = g.user_id) AS isOwner,
+        (u.user_id = #{currentUserId}) AS isMe
         FROM CHAT_PARTICIPANT cp
         JOIN USER u ON cp.user_id = u.user_id
         JOIN GROUP_CHAT_ROOM g ON g.gcr_id = cp.gcr_id
         WHERE cp.gcr_id = #{gcrId}
         ORDER BY
         (u.user_id = g.user_id) DESC,
+        (u.user_id = #{currentUserId}) DESC,
         u.user_nickname ASC
+    </select>
+    <select id="findLastRead" resultType="long">
+        SELECT cm_id
+        FROM CHAT_PARTICIPANT
+        WHERE gcr_id = #{gcrId}
+        AND user_id = #{userId}
     </select>
     <delete id="deleteParticipant">
         DELETE FROM CHAT_PARTICIPANT

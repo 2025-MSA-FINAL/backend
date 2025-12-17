@@ -183,7 +183,7 @@ public class GroupChatRoomService {
     //채팅방 참여자 목록 조회
     //조회할 그룹채팅방 gcrId
     @Transactional(readOnly = true)
-    public List<GroupChatParticipantResponse> getParticipants(Long gcrId) {
+    public List<GroupChatParticipantResponse> getParticipants(Long gcrId, Long userId) {
         GroupChatRoom room = roomMapper.findById(gcrId);
         //존재하지 않는 방 불가 버그
         if (room == null) {
@@ -193,7 +193,12 @@ public class GroupChatRoomService {
         if (Boolean.TRUE.equals(room.getGcrIsDeleted())) {
             throw new CustomException(ChatErrorCode.ROOM_ALREADY_DELETED);
         }
-        return participantMapper.findParticipants(gcrId);
+        //열람 권한 체크
+        Integer exists = participantMapper.exists(gcrId, userId);
+        if (exists == null || exists == 0) {
+            throw new CustomException(ChatErrorCode.NOT_JOINED_ROOM);
+        }
+        return participantMapper.findParticipants(gcrId, userId);
     }
     //채팅방 나가기
     //나갈 채팅방 gcrId, 나갈 유저 userId

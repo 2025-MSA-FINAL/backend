@@ -5,6 +5,8 @@ import com.popspot.popupplatform.dto.chat.response.ChatMessageListResponse;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.dto.global.UploadResultDto;
+import com.popspot.popupplatform.global.exception.CustomException;
+import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.global.service.ObjectStorageService;
 import com.popspot.popupplatform.global.utils.HeicConverter;
@@ -49,6 +51,13 @@ public class ChatMessageQueryController {
             @AuthenticationPrincipal CustomUserDetails user
     ) {
         Long userId = user.getUserId();
+        //채팅 메시지 조회 참여자 권한 체크
+        if ("GROUP".equals(roomType)) {
+            Integer exists = participantMapper.exists(roomId, userId);
+            if (exists == null || exists == 0) {
+                throw new CustomException(ChatErrorCode.NOT_JOINED_ROOM);
+            }
+        }
 
         List<ChatMessageResponse> messages =
                 chatMessageService.getMessages(roomType, roomId, lastMessageId, limit, userId);
@@ -62,7 +71,7 @@ public class ChatMessageQueryController {
         }
         List<GroupChatParticipantResponse> participants = null;
         if ("GROUP".equals(roomType)) {
-            participants = participantMapper.findParticipants(roomId);
+            participants = participantMapper.findParticipants(roomId, userId);
         }
 
         return ResponseEntity.ok(
