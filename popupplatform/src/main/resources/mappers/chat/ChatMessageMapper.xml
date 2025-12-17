@@ -117,4 +117,31 @@
         FROM CHAT_MESSAGE
         WHERE cm_id = #{cmId}
     </select>
+
+    <insert id="insertImages">
+        INSERT INTO CHAT_MESSAGE_IMG (cm_id, cmi_order, cmi_url)
+        VALUES
+        <foreach collection="urls" item="url" index="idx" separator=",">
+            (#{cmId}, #{idx}, #{url})
+        </foreach>
+    </insert>
+
+    <!-- 이미지전송 -->
+    <select id="selectImageUrlsByCmId" resultType="string">
+        SELECT cmi_url
+        FROM CHAT_MESSAGE_IMG
+        WHERE cm_id = #{cmId}
+        ORDER BY cmi_order ASC
+    </select>
+
+    <select id="selectImagesByCmIds"
+            resultType="com.popspot.popupplatform.dto.chat.response.ChatMessageImageRow">
+        SELECT cm_id AS cmId, cmi_url AS url
+        FROM CHAT_MESSAGE_IMG
+        WHERE cm_id IN
+        <foreach collection="cmIds" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        ORDER BY cm_id, cmi_order
+    </select>
 </mapper>
