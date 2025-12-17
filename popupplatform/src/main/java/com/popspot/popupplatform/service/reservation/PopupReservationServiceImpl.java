@@ -27,10 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.*;
 
 @Service
@@ -314,6 +311,18 @@ public class PopupReservationServiceImpl implements PopupReservationService {
 
         if (!kv.isEmpty()) {
             stringRedisTemplate.opsForValue().multiSet(kv);
+
+            // ✅ 예약 만료일(=팝업 종료일) 기준으로 TTL(EXPIREAT) 설정
+            // - 종료일 다음날 00:00에 일괄 만료(원하면 plusDays(0)로 “종료일 23:59:59” 느낌도 가능)
+            Instant expireAt = ps.getPopEndDate()
+                    .toLocalDate()
+                    .plusDays(1)
+                    .atStartOfDay(ZoneId.systemDefault())
+                    .toInstant();
+
+            for (String k : kv.keySet()) {
+                stringRedisTemplate.expireAt(k, expireAt);
+            }
         }
     }
 
