@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -24,6 +25,7 @@ public class ChatMessageResponse {
     private String content;
     private String messageType;
 
+    private List<String> imageUrls;
     private LocalDateTime createdAt;
 
     private Boolean isRead; // 현재 유저 기준 읽음 여부

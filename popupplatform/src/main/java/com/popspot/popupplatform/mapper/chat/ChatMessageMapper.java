@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.mapper.chat;
 
 
+import com.popspot.popupplatform.dto.chat.response.ChatMessageImageRow;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import org.apache.ibatis.annotations.Mapper;
@@ -38,4 +39,15 @@ public interface ChatMessageMapper {
             @Param("lastReadId") Long lastReadId
     );
     Long getSenderIdByMessageId(@Param("cmId") Long cmId);
+
+    void insertImages(
+            @Param("cmId") Long cmId,
+            @Param("urls") List<String> urls
+    );
+
+    List<String> selectImageUrlsByCmId(@Param("cmId") Long cmId);
+
+    List<ChatMessageImageRow> selectImagesByCmIds(
+            @Param("cmIds") List<Long> cmIds
+    );
 }
