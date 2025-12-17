@@ -131,4 +131,21 @@ public class S3StorageService implements ObjectStorageService {
                         .build())
                 .toExternalForm(); // or .toString()
     }
+/*
+ private String buildPublicUrl(String key) {
+        if (StringUtils.hasText(publicBaseUrl)) {
+            // ❌ URLEncoder 절대 쓰지 말 것
+            return publicBaseUrl.endsWith("/")
+                    ? publicBaseUrl + key
+                    : publicBaseUrl + "/" + key;
+        }
+
+        return s3.utilities()
+                .getUrl(GetUrlRequest.builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .build())
+                .toExternalForm();
+    }
+*/
 }
