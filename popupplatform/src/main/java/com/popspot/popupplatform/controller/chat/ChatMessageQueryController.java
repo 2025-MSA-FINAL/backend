@@ -128,6 +128,7 @@ public class ChatMessageQueryController {
             req.setRoomId(roomId);
             req.setSenderId(userId);
             req.setMessageType("IMAGE");
+            req.setContent("[IMAGE]");
             req.setImageUrls(urls);
             req.setClientMessageKey(clientMessageKey);
 

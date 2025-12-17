@@ -40,6 +40,11 @@ public class ChatMessageService {
         // 1) DB 저장
         chatMessageMapper.insertMessage(req);
 
+        Long cmId = req.getCmId();
+        if (cmId == null) {
+            throw new RuntimeException("cmId 생성 실패");
+        }
+
         // 2) 저장된 메시지 조회
         ChatMessageResponse saved =
                 chatMessageMapper.getMessageById(req.getRoomType(), req.getCmId());
