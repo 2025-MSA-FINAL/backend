@@ -124,10 +124,11 @@ public class GroupChatRoomController {
             description = "해당 그룹 채팅방에 참여 중인 사용자들의 목록을 반환합니다."
     )
     public ResponseEntity<List<GroupChatParticipantResponse>> getParticipants (
-            @PathVariable Long gcrId
+            @PathVariable Long gcrId,
+            @AuthenticationPrincipal CustomUserDetails user
     ) {
         //서비스에서 참여자 목록 조회
-        List<GroupChatParticipantResponse> participants = roomService.getParticipants(gcrId);
+        List<GroupChatParticipantResponse> participants = roomService.getParticipants(gcrId, user.getUserId());
         return ResponseEntity.ok(participants);
     }
 

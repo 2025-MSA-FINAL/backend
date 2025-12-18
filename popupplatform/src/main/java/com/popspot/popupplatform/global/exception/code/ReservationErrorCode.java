@@ -43,6 +43,9 @@ public enum ReservationErrorCode implements BaseErrorCode {
                     "PEOPLE값이 유효하지 않습니다.",
             HttpStatus.BAD_REQUEST
             ),
+    RESERVATION_FAIL(
+            "RES_010","예약에 실패했습니다",HttpStatus.BAD_REQUEST
+    )
     ;
 
 
