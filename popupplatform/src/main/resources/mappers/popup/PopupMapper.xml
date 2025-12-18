@@ -523,6 +523,12 @@
         WHERE pop_id = #{popId}
     </select>
 
+    <select id="selectReservationEndTime" resultType="java.time.LocalDateTime">
+        SELECT pr_end_time
+        FROM POPUP_RESERVATION
+        WHERE pop_id = #{popId}
+    </select>
+
 
     <!-- 팝업 AI 요약 업데이트 -->
     <update id="updatePopupAiSummary">
