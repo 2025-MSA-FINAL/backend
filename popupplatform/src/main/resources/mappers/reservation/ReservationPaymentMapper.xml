@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.reservation.ReservationPaymentMapper">
+
+    <select id="existsByMerchantUid" resultType="boolean">
+        SELECT EXISTS(
+        SELECT 1
+        FROM RESERVATION_PAYMENT
+        WHERE merchant_uid = #{merchantUid}
+        )
+    </select>
+
+    <insert id="insertPending">
+        INSERT INTO RESERVATION_PAYMENT
+        (merchant_uid, payment_id, pop_id, pts_id, user_id, amount, status)
+        VALUES
+        (#{merchantUid}, #{paymentId}, #{popId}, #{ptsId}, #{userId}, #{amount}, 'PENDING')
+    </insert>
+
+    <update id="markPaid">
+        UPDATE RESERVATION_PAYMENT
+        SET status = 'PAID',
+        paid_at = NOW()
+        WHERE merchant_uid = #{merchantUid}
+    </update>
+
+    <update id="markFailed">
+        UPDATE RESERVATION_PAYMENT
+        SET status = 'FAILED'
+        WHERE merchant_uid = #{merchantUid}
+    </update>
+
+    <select id="selectAmountByMerchantUid" resultType="int">
+        SELECT amount
+        FROM RESERVATION_PAYMENT
+        WHERE merchant_uid = #{merchantUid}
+        LIMIT 1
+    </select>
+
+</mapper>
