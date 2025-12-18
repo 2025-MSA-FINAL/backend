@@ -424,9 +424,10 @@ public class PopupService {
         // 5. 예약 상태 계산
         String reservationStatus = "NONE";
         LocalDateTime reservationStartTime = null;
-
+        LocalDateTime reservationEndTime =null;
         if (Boolean.TRUE.equals(popup.getPopIsReservation())) {
             reservationStartTime = popupMapper.selectReservationStartTime(popupId);
+            reservationEndTime = popupMapper.selectReservationEndTime(popupId);
             LocalDateTime now = LocalDateTime.now();
 
             if (now.isAfter(popup.getPopEndDate())) {
@@ -465,6 +466,7 @@ public class PopupService {
                 .hashtags(hashtags)
                 .isLiked(isLiked)
                 .reservationStartTime(reservationStartTime)
+                .reservationEndTime(reservationEndTime)
                 .reservationStatus(reservationStatus)
                 .build();
     }
