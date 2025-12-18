@@ -26,10 +26,24 @@ public class UserReservationController {
         Long reservationId = userReservationService.createReservationConfirmed(
                 request.getPopupId(),
                 request.getSlotId(),
-                request.getDate(),     // "yyyy-MM-dd"
+                request.getDate(),
                 request.getPeople()
         );
 
         return ResponseEntity.ok(Map.of("reservationId", reservationId));
+    }
+
+    @Operation(summary = "결제 연동용 HOLD 생성 (Redis-only / inventory 차감)")
+    @PostMapping("/reservations/hold")
+    public ResponseEntity<Map<String, Object>> createHold(
+            @RequestBody UserReservationCreateRequest request
+    ) {
+        Map<String, Object> hold = userReservationService.createReservationHold(
+                request.getPopupId(),
+                request.getSlotId(),
+                request.getDate(),
+                request.getPeople()
+        );
+        return ResponseEntity.ok(hold);
     }
 }

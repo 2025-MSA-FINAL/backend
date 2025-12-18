@@ -3,6 +3,8 @@ package com.popspot.popupplatform.dto.reservation.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 @Schema(description = "사용자 예약 생성 요청")
 public class UserReservationCreateRequest {
@@ -14,7 +16,7 @@ public class UserReservationCreateRequest {
     private Long slotId;
 
     @Schema(description = "예약 날짜 (yyyy-MM-dd)", example = "2025-12-09")
-    private String date;
+    private LocalDate date;
 
     @Schema(description = "예약 인원 수", example = "3")
     private Integer people;

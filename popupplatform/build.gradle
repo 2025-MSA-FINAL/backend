@@ -33,6 +33,9 @@ dependencies {
 	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
     implementation 'org.postgresql:postgresql'
 
+    //포트원
+    implementation "io.portone:server-sdk:0.12.0"
+
     // JWT (jjwt 0.11.x)
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
