@@ -1,14 +1,11 @@
 package com.popspot.popupplatform.domain.reservation;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
-@Builder
+
+@Data
 public class UserReservation {
 
     private Long urId;
