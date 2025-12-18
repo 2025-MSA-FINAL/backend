@@ -796,4 +796,66 @@
         LIMIT #{limit}
     </select>
 
+
+
+
+
+
+    <select id="selectPopupsForGeoSync" resultMap="PopupStoreResultMap">
+        SELECT
+        pop_id,
+        pop_name,
+        pop_thumbnail,
+        pop_location,
+        pop_latitude,
+        pop_longitude,
+        pop_price_type,
+        pop_price,
+        pop_status,
+        pop_is_deleted
+        FROM POPUPSTORE
+        WHERE pop_id > #{lastId}
+        ORDER BY pop_id ASC
+        LIMIT #{limit}
+    </select>
+
+
+    <select id="selectPopupIdsToOngoing" resultType="long">
+        SELECT pop_id
+        FROM POPUPSTORE
+        WHERE pop_is_deleted = false
+        AND pop_status = 'UPCOMING'
+        AND pop_start_date &lt;= #{now}
+    </select>
+
+    <select id="selectPopupIdsToEnded" resultType="long">
+        SELECT pop_id
+        FROM POPUPSTORE
+        WHERE pop_is_deleted = false
+        AND pop_status IN ('ONGOING','UPCOMING')
+        AND pop_end_date &lt; #{now}
+    </select>
+
+    <select id="selectPopupStoresForGeoByIds"
+            resultType="com.popspot.popupplatform.domain.popup.PopupStore">
+        SELECT
+        pop_id         AS popId,
+        pop_name       AS popName,
+        pop_thumbnail  AS popThumbnail,
+        pop_location   AS popLocation,
+        pop_latitude   AS popLatitude,
+        pop_longitude  AS popLongitude,
+        pop_price_type AS popPriceType,
+        pop_price      AS popPrice,
+        pop_status     AS popStatus,
+        pop_is_deleted AS popIsDeleted
+        FROM POPUPSTORE
+        WHERE pop_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+
+
 </mapper>
