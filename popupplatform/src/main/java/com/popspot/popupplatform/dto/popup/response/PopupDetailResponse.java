@@ -82,6 +82,9 @@ public class PopupDetailResponse {
     @Schema(description = "예약 시작 가능 일시", example = "2025-11-17T14:00:00")
     private LocalDateTime reservationStartTime;
 
+    @Schema(description = "예약 종료 일시", example = "2025-11-17T14:00:00")
+    private LocalDateTime reservationEndTime;
+
     @Schema(description = "예약 상태 (UPCOMING/OPEN/CLOSED 등)", example = "UPCOMING")
     private String reservationStatus;
 
