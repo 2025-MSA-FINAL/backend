@@ -1,5 +1,6 @@
 package com.popspot.popupplatform.service.chat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
@@ -11,22 +12,28 @@ import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
+import com.popspot.popupplatform.global.redis.RedisPublisher;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.mapper.chat.GroupChatRoomMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupChatRoomService {
     private final GroupChatRoomMapper roomMapper;
     private final ChatParticipantMapper participantMapper;
     private final UserMapper userMapper;
+    private final RedisPublisher redisPublisher;   // 🔥 추가
+    private final ObjectMapper objectMapper;
 
     //공통검증메서드
     private GroupChatRoom validateRoomOwnership(Long gcrId, Long userId) {
@@ -141,6 +148,24 @@ public class GroupChatRoomService {
                 .build();
         //참여자저장
         participantMapper.insertParticipant(participant);
+
+        try {
+            redisPublisher.publish(
+                    "chat-room-GROUP-" + gcrId,
+                    objectMapper.writeValueAsString(
+                            Map.of(
+                                    "type", "PARTICIPANT_JOIN",
+                                    "roomType", "GROUP",
+                                    "roomId", gcrId,
+                                    "payload", Map.of(
+                                            "userId", userId
+                                    )
+                            )
+                    )
+            );
+        } catch (Exception e) {
+            log.error("PARTICIPANT_JOIN publish failed", e);
+        }
     }
     //채팅방 수정
     //수정할 채팅방 gcrId, 수정권한을 위한 방장ID userId, 채팅방수정정보 req
@@ -219,5 +244,23 @@ public class GroupChatRoomService {
             throw new CustomException(ChatErrorCode.NOT_JOINED_ROOM);
         }
         participantMapper.deleteParticipant(gcrId, userId);
+
+        try {
+            redisPublisher.publish(
+                    "chat-room-GROUP-" + gcrId,
+                    objectMapper.writeValueAsString(
+                            Map.of(
+                                    "type", "PARTICIPANT_LEAVE",
+                                    "roomType", "GROUP",
+                                    "roomId", gcrId,
+                                    "payload", Map.of(
+                                            "userId", userId
+                                    )
+                            )
+                    )
+            );
+        } catch (Exception e) {
+            log.error("PARTICIPANT_LEAVE publish failed", e);
+        }
     }
 }
