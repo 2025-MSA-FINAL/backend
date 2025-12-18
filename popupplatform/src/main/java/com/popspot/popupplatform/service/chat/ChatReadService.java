@@ -39,22 +39,26 @@ public class ChatReadService {
     // 유저의 마지막 읽은 메시지 ID 조회
     public Long getLastRead(String roomType, Long roomId, Long userId) {
 
-        Object cached = redisTemplate.opsForValue().get(userLastReadKey(roomType, roomId, userId));
-        if (cached != null) return Long.parseLong(cached.toString());
+        Object cached = redisTemplate.opsForValue()
+                .get(userLastReadKey(roomType, roomId, userId));
+        if (cached != null) {
+            return Long.parseLong(cached.toString());
+        }
 
         Long dbValue;
         if ("GROUP".equals(roomType)) {
-            dbValue = chatParticipantMapper.findParticipants(roomId).stream()
-                    .filter(p -> p.getUserId().equals(userId))
-                    .map(GroupChatParticipantResponse::getLastReadMessageId)
-                    .findFirst()
-                    .orElse(0L);
+            Long v = chatParticipantMapper.findLastRead(roomId, userId);
+            dbValue = v == null ? 0L : v;
         } else {
             Long v = privateChatParticipantMapper.findLastRead(roomId, userId);
             dbValue = v == null ? 0L : v;
         }
 
-        redisTemplate.opsForValue().set(userLastReadKey(roomType, roomId, userId), dbValue.toString());
+        redisTemplate.opsForValue().set(
+                userLastReadKey(roomType, roomId, userId),
+                dbValue.toString()
+        );
+
         return dbValue;
     }
 }
