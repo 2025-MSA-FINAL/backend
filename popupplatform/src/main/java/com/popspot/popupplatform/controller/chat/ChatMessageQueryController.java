@@ -7,6 +7,7 @@ import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.global.service.ObjectStorageService;
+import com.popspot.popupplatform.global.utils.HeicConverter;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.service.chat.ChatMessageService;
 import com.popspot.popupplatform.service.chat.ChatReadService;
@@ -17,6 +18,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.UUID;
 
@@ -72,11 +75,11 @@ public class ChatMessageQueryController {
         );
     }
 
-    @PostMapping("/image")
-    public ResponseEntity<ChatMessageResponse> uploadImageMessage(
+    @PostMapping("/images")
+    public ResponseEntity<ChatMessageResponse> uploadImages(
             @RequestParam String roomType,
             @RequestParam Long roomId,
-            @RequestParam("image") MultipartFile image,
+            @RequestParam("images") List<MultipartFile> images,
             @RequestParam String clientMessageKey,
             @AuthenticationPrincipal CustomUserDetails user
     ) {
@@ -84,11 +87,40 @@ public class ChatMessageQueryController {
             Long userId = user.getUserId();
 
             // 이미지 업로드
-            UploadResultDto uploadResult =
-                    objectStorageService.upload(
-                            "chat/user",
-                            image
-                    );
+            List<String> urls = images.stream().map(file -> {
+                try {
+                    String contentType = file.getContentType();
+                    String originalName = file.getOriginalFilename();
+
+                    boolean isHeic =
+                            (contentType != null && contentType.contains("heic")) ||
+                                    (originalName != null && originalName.toLowerCase().endsWith(".heic"));
+
+                    // 🔥 HEIC → JPG 변환
+                    if (isHeic) {
+                        File tempHeic = File.createTempFile("upload-", ".heic");
+                        file.transferTo(tempHeic);
+
+                        File jpg = HeicConverter.convertHeicToJpg(tempHeic);
+
+                        byte[] bytes = Files.readAllBytes(jpg.toPath());
+
+                        return objectStorageService.uploadBytes(
+                                "chat/user",
+                                bytes,
+                                "image/jpeg",
+                                "jpg"
+                        ).getUrl();
+                    }
+
+                    // 일반 이미지
+                    return objectStorageService.upload("chat/user", file).getUrl();
+
+                } catch (Exception e) {
+                    throw new RuntimeException("이미지 처리 실패", e);
+                }
+            }).toList();
+
 
             // 메시지 생성
             ChatMessageRequest req = new ChatMessageRequest();
@@ -96,7 +128,8 @@ public class ChatMessageQueryController {
             req.setRoomId(roomId);
             req.setSenderId(userId);
             req.setMessageType("IMAGE");
-            req.setContent(uploadResult.getUrl());
+            req.setContent("[IMAGE]");
+            req.setImageUrls(urls);
             req.setClientMessageKey(clientMessageKey);
 
             // 저장 + Redis publish

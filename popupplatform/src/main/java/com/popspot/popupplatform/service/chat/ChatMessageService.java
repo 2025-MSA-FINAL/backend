@@ -2,6 +2,7 @@ package com.popspot.popupplatform.service.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
+import com.popspot.popupplatform.dto.chat.response.ChatMessageImageRow;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
@@ -13,9 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +40,11 @@ public class ChatMessageService {
         // 1) DB 저장
         chatMessageMapper.insertMessage(req);
 
+        Long cmId = req.getCmId();
+        if (cmId == null) {
+            throw new RuntimeException("cmId 생성 실패");
+        }
+
         // 2) 저장된 메시지 조회
         ChatMessageResponse saved =
                 chatMessageMapper.getMessageById(req.getRoomType(), req.getCmId());
@@ -46,6 +54,11 @@ public class ChatMessageService {
         }
 
         saved.setClientMessageKey(req.getClientMessageKey());
+
+        if (req.getImageUrls() != null && !req.getImageUrls().isEmpty()) {
+            chatMessageMapper.insertImages(req.getCmId(), req.getImageUrls());
+            saved.setImageUrls(req.getImageUrls());
+        }
 
         // 3) PRIVATE 채팅이면 방 복구 + AI 여부 확인
         if ("PRIVATE".equals(req.getRoomType())) {
@@ -217,8 +230,28 @@ public class ChatMessageService {
 
         Long lastReadId = chatReadService.getLastRead(roomType, roomId, userId);
 
+        List<Long> cmIds = messages.stream()
+                .map(ChatMessageResponse::getCmId)
+                .toList();
+
+        Map<Long, List<String>> imageMap = Collections.emptyMap();
+
+        if (!cmIds.isEmpty()) {
+            imageMap =
+                    chatMessageMapper.selectImagesByCmIds(cmIds)
+                            .stream()
+                            .collect(Collectors.groupingBy(
+                                    ChatMessageImageRow::getCmId,
+                                    Collectors.mapping(ChatMessageImageRow::getUrl, Collectors.toList())
+                            ));
+        }
+
         for (ChatMessageResponse msg : messages) {
             msg.setIsRead(msg.getCmId() <= lastReadId);
+
+            if (imageMap.containsKey(msg.getCmId())) {
+                msg.setImageUrls(imageMap.get(msg.getCmId()));
+            }
 
             if ("GROUP".equals(roomType)) {
                 msg.setTotalUserCount(totalUserCount);
@@ -227,6 +260,7 @@ public class ChatMessageService {
 
         return messages;
     }
+
     private Long getMessageSenderId(Long messageId) {
         return chatMessageMapper.getSenderIdByMessageId(messageId);
     }

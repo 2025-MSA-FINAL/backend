@@ -95,6 +95,7 @@ public class GroupChatRoomService {
     @Transactional
     public void joinRoom(Long gcrId, Long userId) {
         GroupChatRoom room = roomMapper.findById(gcrId);
+        System.out.println("JOIN gcrId=" + gcrId + ", room=" + room);
         //존재하지 않는 방 수정 불가 버그
         if (room == null) {
             throw new CustomException(ChatErrorCode.ROOM_NOT_FOUND);
