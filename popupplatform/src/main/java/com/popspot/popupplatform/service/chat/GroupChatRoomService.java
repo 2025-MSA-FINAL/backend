@@ -1,7 +1,6 @@
 package com.popspot.popupplatform.service.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.dto.chat.UserLimitInfoDto;
@@ -10,6 +9,7 @@ import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomDetailResponse;
 import com.popspot.popupplatform.dto.chat.response.GroupChatRoomListResponse;
+import com.popspot.popupplatform.dto.user.UserDto;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
@@ -150,6 +150,14 @@ public class GroupChatRoomService {
         participantMapper.insertParticipant(participant);
 
         try {
+            UserDto userDto = userMapper.findById(userId)
+                    .orElseThrow(() -> new CustomException(ChatErrorCode.USER_NOT_FOUND));
+
+            Map<String, Object> payload = Map.of(
+                    "userId", userId,
+                    "nickname", userDto.getNickname()
+            );
+
             redisPublisher.publish(
                     "chat-room-GROUP-" + gcrId,
                     objectMapper.writeValueAsString(
@@ -157,9 +165,7 @@ public class GroupChatRoomService {
                                     "type", "PARTICIPANT_JOIN",
                                     "roomType", "GROUP",
                                     "roomId", gcrId,
-                                    "payload", Map.of(
-                                            "userId", userId
-                                    )
+                                    "payload", payload
                             )
                     )
             );
@@ -246,6 +252,14 @@ public class GroupChatRoomService {
         participantMapper.deleteParticipant(gcrId, userId);
 
         try {
+            UserDto userDto = userMapper.findById(userId)
+                    .orElseThrow(() -> new CustomException(ChatErrorCode.USER_NOT_FOUND));
+
+            Map<String, Object> payload = Map.of(
+                    "userId", userId,
+                    "nickname", userDto.getNickname()
+            );
+
             redisPublisher.publish(
                     "chat-room-GROUP-" + gcrId,
                     objectMapper.writeValueAsString(
@@ -253,9 +267,7 @@ public class GroupChatRoomService {
                                     "type", "PARTICIPANT_LEAVE",
                                     "roomType", "GROUP",
                                     "roomId", gcrId,
-                                    "payload", Map.of(
-                                            "userId", userId
-                                    )
+                                    "payload", payload
                             )
                     )
             );

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.postgres.PopupGeoMapper">
+
+    <!--
+      [내 주변 팝업 조회 - Postgres + PostGIS]
+      - geography(Point,4326) + GiST 인덱스 기반
+      - distanceKm는 km 단위로 내려줌
+    -->
+    <select id="selectNearbyPopups"
+            resultType="com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse">
+
+        SELECT
+        pop_id         AS "popId",
+        pop_name       AS "popName",
+        pop_thumbnail  AS "popThumbnail",
+        pop_location   AS "popLocation",
+        pop_latitude   AS "popLatitude",
+        pop_longitude  AS "popLongitude",
+        pop_price_type AS "popPriceType",
+        pop_price      AS "popPrice",
+        pop_status     AS "popStatus",
+
+        (ST_Distance(
+        geog,
+        ST_SetSRID(ST_MakePoint(#{longitude}, #{latitude}), 4326)::geography
+        ) / 1000.0) AS "distanceKm"
+
+        FROM popupstore_geo
+        WHERE pop_is_deleted = FALSE
+        AND pop_status != 'ENDED'
+        AND geog IS NOT NULL
+        AND ST_DWithin(
+        geog,
+        ST_SetSRID(ST_MakePoint(#{longitude}, #{latitude}), 4326)::geography,
+        (#{radiusKm} * 1000)
+        )
+        ORDER BY "distanceKm" ASC, pop_id DESC
+        LIMIT #{limit}
+
+    </select>
+
+    <!--
+      [단건 upsert]
+      - MySQL의 POPUPSTORE 변경사항을 Postgres popupstore_geo에 반영
+      - pop_is_deleted도 함께 동기화 (COALESCE)
+    -->
+    <insert id="upsertPopupGeo">
+        INSERT INTO popupstore_geo (
+        pop_id, pop_name, pop_thumbnail, pop_location,
+        pop_latitude, pop_longitude,
+        pop_price_type, pop_price,
+        pop_status, pop_is_deleted
+        ) VALUES (
+        #{p.popId}, #{p.popName}, #{p.popThumbnail}, #{p.popLocation},
+        #{p.popLatitude}, #{p.popLongitude},
+        #{p.popPriceType}, #{p.popPrice},
+        #{p.popStatus}, COALESCE(#{p.popIsDeleted}, FALSE)
+        )
+        ON CONFLICT (pop_id) DO UPDATE SET
+        pop_name       = EXCLUDED.pop_name,
+        pop_thumbnail  = EXCLUDED.pop_thumbnail,
+        pop_location   = EXCLUDED.pop_location,
+        pop_latitude   = EXCLUDED.pop_latitude,
+        pop_longitude  = EXCLUDED.pop_longitude,
+        pop_price_type = EXCLUDED.pop_price_type,
+        pop_price      = EXCLUDED.pop_price,
+        pop_status     = EXCLUDED.pop_status,
+        pop_is_deleted = EXCLUDED.pop_is_deleted;
+    </insert>
+
+    <!--
+      [배치용 bulk upsert]
+      - 초기 1회 동기화 / 재동기화에 사용
+    -->
+    <insert id="bulkUpsertPopupGeo">
+        INSERT INTO popupstore_geo (
+        pop_id, pop_name, pop_thumbnail, pop_location,
+        pop_latitude, pop_longitude,
+        pop_price_type, pop_price,
+        pop_status, pop_is_deleted
+        )
+        VALUES
+        <foreach collection="list" item="p" separator=",">
+            (
+            #{p.popId}, #{p.popName}, #{p.popThumbnail}, #{p.popLocation},
+            #{p.popLatitude}, #{p.popLongitude},
+            #{p.popPriceType}, #{p.popPrice},
+            #{p.popStatus}, COALESCE(#{p.popIsDeleted}, FALSE)
+            )
+        </foreach>
+        ON CONFLICT (pop_id) DO UPDATE SET
+        pop_name       = EXCLUDED.pop_name,
+        pop_thumbnail  = EXCLUDED.pop_thumbnail,
+        pop_location   = EXCLUDED.pop_location,
+        pop_latitude   = EXCLUDED.pop_latitude,
+        pop_longitude  = EXCLUDED.pop_longitude,
+        pop_price_type = EXCLUDED.pop_price_type,
+        pop_price      = EXCLUDED.pop_price,
+        pop_status     = EXCLUDED.pop_status,
+        pop_is_deleted = EXCLUDED.pop_is_deleted;
+    </insert>
+
+    <!--
+      [삭제(soft delete) 반영]
+      - MySQL에서 pop_is_deleted = TRUE로 바뀌는 시점에 같이 호출하면 됨
+      - (굳이 하드 delete 하지 말고 soft delete 유지하는 게 안전)
+    -->
+    <update id="softDeletePopupGeo">
+        UPDATE popupstore_geo
+        SET pop_is_deleted = TRUE
+        WHERE pop_id = #{popId}
+    </update>
+
+</mapper>
