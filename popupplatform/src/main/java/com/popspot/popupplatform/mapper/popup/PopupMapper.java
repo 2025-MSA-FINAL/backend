@@ -127,4 +127,6 @@ public interface PopupMapper {
             @Param("limit") Integer limit
     );
 
+    int selectPriceByPopId(@Param("popId")  Long popId);
+
 }
