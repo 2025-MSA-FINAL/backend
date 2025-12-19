@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.popspot.popupplatform.domain.chat.ChatParticipant;
 import com.popspot.popupplatform.domain.chat.GroupChatRoom;
 import com.popspot.popupplatform.dto.chat.UserLimitInfoDto;
+import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.request.CreateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.request.UpdateGroupChatRoomRequest;
 import com.popspot.popupplatform.dto.chat.response.GroupChatParticipantResponse;
@@ -13,6 +14,7 @@ import com.popspot.popupplatform.dto.user.UserDto;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
+import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.mapper.chat.GroupChatRoomMapper;
 import com.popspot.popupplatform.mapper.user.UserMapper;
@@ -31,8 +33,9 @@ import java.util.Map;
 public class GroupChatRoomService {
     private final GroupChatRoomMapper roomMapper;
     private final ChatParticipantMapper participantMapper;
+    private final ChatMessageMapper chatMessageMapper;
     private final UserMapper userMapper;
-    private final RedisPublisher redisPublisher;   // 🔥 추가
+    private final RedisPublisher redisPublisher;
     private final ObjectMapper objectMapper;
 
     //공통검증메서드
@@ -152,10 +155,25 @@ public class GroupChatRoomService {
         try {
             UserDto userDto = userMapper.findById(userId)
                     .orElseThrow(() -> new CustomException(ChatErrorCode.USER_NOT_FOUND));
+            // ===============================
+            // 🔥 SYSTEM 메시지 생성 (DB 저장)
+            // ===============================
+            ChatMessageRequest systemMsg = new ChatMessageRequest();
+            systemMsg.setRoomType("GROUP");
+            systemMsg.setRoomId(gcrId);
+            systemMsg.setSenderId(userId); //  SYSTEM은 유저 아님
+            systemMsg.setMessageType("SYSTEM");
+            systemMsg.setContent(userDto.getNickname() + "님이 채팅방에 입장했습니다");
+
+            chatMessageMapper.insertMessage(systemMsg);
 
             Map<String, Object> payload = Map.of(
                     "userId", userId,
-                    "nickname", userDto.getNickname()
+                    "nickName", userDto.getNickname(),
+                    "photoUrl", userDto.getProfileImage(),
+                    "isOwner", room.getUserId().equals(userId),
+                    "isMe", false,
+                    "online", true
             );
 
             redisPublisher.publish(
@@ -255,9 +273,25 @@ public class GroupChatRoomService {
             UserDto userDto = userMapper.findById(userId)
                     .orElseThrow(() -> new CustomException(ChatErrorCode.USER_NOT_FOUND));
 
+            // ===============================
+            // 🔥 SYSTEM 메시지 생성 (DB 저장)
+            // ===============================
+            ChatMessageRequest systemMsg = new ChatMessageRequest();
+            systemMsg.setRoomType("GROUP");
+            systemMsg.setRoomId(gcrId);
+            systemMsg.setSenderId(userId); //  SYSTEM은 유저 아님
+            systemMsg.setMessageType("SYSTEM");
+            systemMsg.setContent(userDto.getNickname() + "님이 채팅방을 나갔습니다");
+
+            chatMessageMapper.insertMessage(systemMsg);
+
             Map<String, Object> payload = Map.of(
                     "userId", userId,
-                    "nickname", userDto.getNickname()
+                    "nickName", userDto.getNickname(),
+                    "photoUrl", userDto.getProfileImage(),
+                    "isOwner", room.getUserId().equals(userId),
+                    "isMe", false,
+                    "online", true
             );
 
             redisPublisher.publish(
