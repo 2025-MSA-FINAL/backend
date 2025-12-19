@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.service.reservation;
 
 import com.popspot.popupplatform.domain.reservation.UserReservation;
+import com.popspot.popupplatform.mapper.popup.PopupMapper;
 import com.popspot.popupplatform.mapper.reservation.ReservationPaymentMapper;
 import com.popspot.popupplatform.mapper.reservation.UserReservationMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class UserReservationServiceImpl implements UserReservationService {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ReservationPaymentMapper reservationPaymentMapper;
+    private final PopupMapper popupMapper;
 
     // ✅ 추가: USER_RESERVATION insert용 mapper
     private final UserReservationMapper userReservationMapper;
@@ -59,7 +61,7 @@ public class UserReservationServiceImpl implements UserReservationService {
             );
 
     @Override
-    public Long createReservationConfirmed(Long popupId, Long slotId, LocalDate date, int people) {
+    public Long createReservationConfirmed(Long popupId, Long slotId, LocalDate date, int people,Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
         }
@@ -87,7 +89,6 @@ public class UserReservationServiceImpl implements UserReservationService {
             r.setPopId(popupId);
             r.setPtsId(slotId);
 
-            Long userId = getCurrentUserIdFallback();
             r.setUserId(userId);
 
             LocalDateTime urDateTime = date.atStartOfDay();
@@ -112,7 +113,7 @@ public class UserReservationServiceImpl implements UserReservationService {
      * ✅ 결제 연동 확정 전용:
      * HOLD에서 이미 재고가 차감된 상태이므로 Redis 차감 없이 DB insert만 수행.
      */
-    public Long createReservationConfirmedFromHold(Long popupId, Long slotId, LocalDate date, int people) {
+    public Long createReservationConfirmedFromHold(Long popupId, Long slotId, LocalDate date, int people,Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
         }
@@ -124,7 +125,6 @@ public class UserReservationServiceImpl implements UserReservationService {
         r.setPopId(popupId);
         r.setPtsId(slotId);
 
-        Long userId = getCurrentUserIdFallback();
         r.setUserId(userId);
 
         LocalDateTime urDateTime = date.atStartOfDay();
@@ -138,7 +138,7 @@ public class UserReservationServiceImpl implements UserReservationService {
     }
 
     @Override
-    public Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people) {
+    public Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people,Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
         }
@@ -200,7 +200,6 @@ public class UserReservationServiceImpl implements UserReservationService {
         stringRedisTemplate.opsForZSet().add(HOLD_EXPIRY_ZSET, holdId, expireAtMillis);
 
         // 8) 결제 테이블 PENDING
-        Long userId = getCurrentUserIdFallback();
         reservationPaymentMapper.insertPending(
                 merchantUid,
                 paymentId,
@@ -230,13 +229,8 @@ public class UserReservationServiceImpl implements UserReservationService {
     }
 
     private int computeAmountFallback(Long popupId, int people) {
-        int unitPrice = 1;
+        int unitPrice = popupMapper.selectPriceByPopId(popupId);
         return unitPrice * Math.max(1, people);
-    }
-
-    private Long getCurrentUserIdFallback() {
-        // TODO: 실제 로그인 유저 ID로 교체
-        return 1L;
     }
 
     private Long safeParseLongHoldId(String holdId) {

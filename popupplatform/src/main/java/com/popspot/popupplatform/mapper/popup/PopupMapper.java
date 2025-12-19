@@ -127,4 +127,19 @@ public interface PopupMapper {
             @Param("limit") Integer limit
     );
 
+    List<PopupStore> selectPopupsForGeoSync(Long lastId, int limit);
+
+
+    // 오픈 예정 -> 진행 중으로 바뀔 대상 pop_id들
+    List<Long> selectPopupIdsToOngoing(@Param("now") LocalDateTime now);
+
+    // 진행 중/오픈 예정 -> 종료로 바뀔 대상 pop_id들
+    List<Long> selectPopupIdsToEnded(@Param("now") LocalDateTime now);
+
+    // Postgres geo upsert에 필요한 칼럼만 POPUPSTORE에서 조회
+    List<PopupStore> selectPopupStoresForGeoByIds(@Param("ids") List<Long> ids);
+
+
+    int selectPriceByPopId(@Param("popId")  Long popId);
+
 }
