@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 public interface UserReservationService {
-    Long createReservationConfirmed(Long popupId, Long slotId, LocalDate date, int people);
+    Long createReservationConfirmed(Long popupId, Long slotId, LocalDate date, int people,Long userId);
 
-    Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people);
+    Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people,Long userId);
 }

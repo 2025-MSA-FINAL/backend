@@ -140,4 +140,6 @@ public interface PopupMapper {
     List<PopupStore> selectPopupStoresForGeoByIds(@Param("ids") List<Long> ids);
 
 
+    int selectPriceByPopId(@Param("popId")  Long popId);
+
 }
