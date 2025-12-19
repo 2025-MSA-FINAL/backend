@@ -35,7 +35,7 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     @Override
-    public void handleWebhook(String rawBody, String webhookId, String timestamp, String signature) {
+    public void handleWebhook(String rawBody, String webhookId, String timestamp, String signature,Long userId) {
         // (권장) webhook signature 검증 자리
 
         String paymentId = extractPaymentId(rawBody);
@@ -43,11 +43,11 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
             throw new IllegalArgumentException("paymentId missing");
         }
 
-        completePayment(paymentId);
+        completePayment(paymentId,userId);
     }
 
     @Override
-    public Map<String, Object> completePayment(String paymentId) {
+    public Map<String, Object> completePayment(String paymentId,Long userId) {
         if (paymentId == null || paymentId.isBlank()) {
             throw new IllegalArgumentException("paymentId missing");
         }
@@ -90,7 +90,7 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
             throw new IllegalStateException("HOLD not found or expired");
         }
 
-        Long reservationId = confirmReservationFromHold(hold);
+        Long reservationId = confirmReservationFromHold(hold,userId);
 
         // ✅ HOLD 정리
         stringRedisTemplate.delete(holdKey);
@@ -153,7 +153,7 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
         }
     }
 
-    private Long confirmReservationFromHold(Map<Object, Object> hold) {
+    private Long confirmReservationFromHold(Map<Object, Object> hold,Long userId) {
         Long popId = Long.parseLong(String.valueOf(hold.get("popId")));
         Long slotId = Long.parseLong(String.valueOf(hold.get("ptsId")));
         LocalDate date = LocalDate.parse(String.valueOf(hold.get("date")));
@@ -161,6 +161,6 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
 
         // ✅ 결제 연동에서는 HOLD에서 이미 차감했으니, 추가 차감 없는 확정만 수행
         return ((UserReservationServiceImpl) userReservationService)
-                .createReservationConfirmedFromHold(popId, slotId, date, people);
+                .createReservationConfirmedFromHold(popId, slotId, date, people,userId);
     }
 }

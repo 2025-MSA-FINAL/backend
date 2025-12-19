@@ -858,4 +858,10 @@
 
 
 
+    <select id="selectPriceByPopId" resultType="int">
+        SELECT pop_price
+        FROM POPUPSTORE
+        WHERE pop_id = #{popId}
+    </select>
+
 </mapper>
