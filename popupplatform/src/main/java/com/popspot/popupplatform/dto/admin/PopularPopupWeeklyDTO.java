@@ -9,4 +9,5 @@ public class PopularPopupWeeklyDTO {
     private String popThumbnail;
     private int viewCount;
     private int popupRank;
+    private String category;
 }

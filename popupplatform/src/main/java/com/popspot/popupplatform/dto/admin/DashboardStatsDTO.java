@@ -47,9 +47,15 @@ public class DashboardStatsDTO {
     // 6. 조회수 분석 -----
     private List<DailyViewStatsDTO> dailyViews;            // 최근 7일
     private List<ViewHeatmapDTO> viewHeatmap; // day, fullDate, hour, views
+
+    // 7. 주간 인기 팝업 필드
     private List<PopularPopupWeeklyDTO> weeklyTopPopups;  // 주간 TOP10
 
+    // 8. 해시태그 통계
+    private List<HashtagCategoryStatsDTO> hashtagCategoryStats;
 
+    // 9. 카테고리 분석 데이터 Google Trends API 사용
+    private List<CategoryValidationDTO> categoryValidationStats;
 
 
 }

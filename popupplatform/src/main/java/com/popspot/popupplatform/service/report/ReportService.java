@@ -47,13 +47,20 @@ public interface ReportService {
     Map<String, Long> getReportStats();
 
     /**
-     * 신고 검색 (키워드 + 상태 필터 + 카테고리 필터)
+     * 신고 검색 (키워드 + searchType + 상태 필터 + 카테고리 필터)
      *
      * @param keyword 검색어
+     * @param searchType 검색 타입 (reporterName, reporterNickname, targetName, categoryName, all)
      * @param status 신고 상태
      * @param categoryId 신고 카테고리 ID
      * @param pageRequest 페이지 요청 정보
      * @return 검색 결과 페이지
      */
-    PageDTO<ReportListDTO> searchReports(String keyword, String status, Long categoryId, PageRequestDTO pageRequest);
+    PageDTO<ReportListDTO> searchReports(
+            String keyword,
+            String searchType,
+            String status,
+            Long categoryId,
+            PageRequestDTO pageRequest
+    );
 }
