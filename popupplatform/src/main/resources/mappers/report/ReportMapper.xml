@@ -395,7 +395,7 @@
     <insert id="insertReportImage">
         INSERT INTO REPORT_IMAGE (
         rep_id,
-        image_url,
+        ri_url,
         created_at
         ) VALUES (
         #{repId},
