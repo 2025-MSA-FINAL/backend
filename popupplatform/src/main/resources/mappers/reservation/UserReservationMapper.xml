@@ -28,4 +28,20 @@
         (#{popId}, #{ptsId}, #{userId}, #{urDateTime}, #{urUserCnt}, #{urStatus})
     </insert>
 
+    <select id="selectById" resultMap="UserReservationResultMap">
+        SELECT
+        ur_id, pop_id, pts_id, user_id, ur_date_time, ur_user_cnt, ur_status
+        FROM USER_RESERVATION
+        WHERE ur_id = #{urId}
+        LIMIT 1
+    </select>
+
+    <update id="cancelById">
+        UPDATE USER_RESERVATION
+        SET ur_status = FALSE
+        WHERE ur_id = #{urId}
+        AND ur_status = TRUE
+    </update>
+
+
 </mapper>

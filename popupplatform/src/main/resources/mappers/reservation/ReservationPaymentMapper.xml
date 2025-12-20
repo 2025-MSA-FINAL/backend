@@ -46,5 +46,20 @@
         WHERE merchant_uid = #{merchantUid}
     </update>
 
+    <update id="markCancelledByReservationId">
+        UPDATE RESERVATION_PAYMENT
+        SET status = 'CANCELLED'
+        WHERE reservation_id = #{reservationId}
+        AND status = 'PAID'
+    </update>
+
+
+    <select id="selectPaymentIdByReservationId" resultType="string">
+        SELECT payment_id
+        FROM RESERVATION_PAYMENT
+        WHERE reservation_id = #{reservationId}
+        LIMIT 1
+    </select>
+
 
 </mapper>

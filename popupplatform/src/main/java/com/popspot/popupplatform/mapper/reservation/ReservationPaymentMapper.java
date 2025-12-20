@@ -33,4 +33,9 @@ public interface ReservationPaymentMapper {
             @Param("reservationId") Long reservationId
     );
 
+    int markCancelledByReservationId(@Param("reservationId") Long reservationId);
+
+    String selectPaymentIdByReservationId(@Param("reservationId") Long reservationId);
+
+
 }
