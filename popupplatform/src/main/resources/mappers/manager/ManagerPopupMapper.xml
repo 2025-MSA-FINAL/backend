@@ -86,7 +86,7 @@
             <if test="request.popInstaUrl != null">
                 pop_insta_url = #{request.popInstaUrl},
             </if>
-            pop_moderation_status = FALSE,
+            pop_moderation_status = NULL,
             updated_at = CURRENT_TIMESTAMP
         </set>
         WHERE pop_id = #{popId}

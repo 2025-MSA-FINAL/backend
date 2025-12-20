@@ -99,7 +99,7 @@
         #{popPrice},
         #{popStatus},
         #{popInstaUrl},
-        FALSE,
+        NULL,
         FALSE,
         0,
         #{popAiSummary}
