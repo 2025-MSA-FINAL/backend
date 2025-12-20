@@ -17,7 +17,13 @@ public enum ChatErrorCode implements BaseErrorCode {
     PRIVATE_ROOM_ALREADY_DELETED("CHAT_012", "이미 삭제된 1:1 채팅방입니다.", HttpStatus.BAD_REQUEST),
     USER_NOT_FOUND("CHAT_013", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     GENDER_NOT_ALLOWED("CHAT_014", "성별 제한에 맞지 않습니다.", HttpStatus.FORBIDDEN),
-    AGE_NOT_ALLOWED("CHAT_015", "나이 제한에 맞지 않습니다.", HttpStatus.FORBIDDEN);
+    AGE_NOT_ALLOWED("CHAT_015", "나이 제한에 맞지 않습니다.", HttpStatus.FORBIDDEN),
+    INVALID_REPORT_TYPE("CHAT_016", "유효하지 않은 신고 유형입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_REPORT_TARGET("CHAT_017", "유효하지 않은 신고 대상입니다.", HttpStatus.BAD_REQUEST),
+    CHAT_ROOM_NOT_FOUND("CHAT_018", "신고 대상 채팅방을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    REPORT_SELF_NOT_ALLOWED("CHAT_019", "본인을 신고할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    DUPLICATE_REPORT("CHAT_020", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),
+    IMAGE_REQUIRED("CHAT_021", "신고 이미지가 필수입니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
