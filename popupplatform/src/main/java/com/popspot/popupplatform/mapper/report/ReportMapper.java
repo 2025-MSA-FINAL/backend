@@ -1,5 +1,6 @@
 package com.popspot.popupplatform.mapper.report;
 
+import com.popspot.popupplatform.dto.chat.request.ChatReportRequest;
 import com.popspot.popupplatform.dto.report.ReportDetailDTO;
 import com.popspot.popupplatform.dto.report.ReportListDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
@@ -13,6 +14,21 @@ import java.util.List;
  */
 @Mapper
 public interface ReportMapper {
+    // 신고 생성
+    int insertReport(ChatReportRequest req);
+
+    // 이미지 저장
+    int insertReportImage(
+            @Param("repId") Long repId,
+            @Param("imageUrl") String imageUrl
+    );
+
+    // 중복 신고 존재 여부
+    boolean existsPendingReport(
+            @Param("userId") Long userId,
+            @Param("reportType") String reportType,
+            @Param("targetId") Long targetId
+    );
 
     // 기존 메서드들
     List<ReportListDTO> findAllReports();
