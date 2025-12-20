@@ -79,12 +79,15 @@ public interface ReportMapper {
     );
 
     /**
-     * 검색 (키워드 + 상태 필터 + 카테고리 필터)
+     * 검색 (키워드 + searchType + 상태 필터 + 카테고리 필터)
+     * @param keyword 검색어
+     * @param searchType 검색 타입 (reporterName, reporterNickname, targetName, categoryName, all)
      * @param status "approved" 요청 시 approved + resolved 모두 포함
      * @param categoryId 신고 카테고리 ID (null이면 전체)
      */
     List<ReportListDTO> searchReports(
             @Param("keyword") String keyword,
+            @Param("searchType") String searchType,
             @Param("status") String status,
             @Param("categoryId") Long categoryId,
             @Param("pageRequest") PageRequestDTO pageRequest
@@ -92,11 +95,14 @@ public interface ReportMapper {
 
     /**
      * 검색 결과 수 조회 (카테고리 필터 포함)
+     * @param keyword 검색어
+     * @param searchType 검색 타입
      * @param status "approved" 요청 시 approved + resolved 합산
      * @param categoryId 신고 카테고리 ID (null이면 전체)
      */
     long countSearchReports(
             @Param("keyword") String keyword,
+            @Param("searchType") String searchType,
             @Param("status") String status,
             @Param("categoryId") Long categoryId
     );

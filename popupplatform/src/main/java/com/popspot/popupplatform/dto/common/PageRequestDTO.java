@@ -8,6 +8,8 @@ public class PageRequestDTO {
     private int size = 10;             // 페이지당 개수
     private String sortBy = "createdAt"; // 정렬 기준
     private String sortDir = "desc";   // 정렬 방향 (asc/desc)
+    private String keyword = "";
+    private String searchType = "all";
 
     // offset 계산
     public int getOffset() {

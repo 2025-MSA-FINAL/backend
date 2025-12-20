@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ViewHeatmapDTO {
-    private String day;       // "2/13(목)"
+    private String dayLabel;       // "2/13(목)"
     private String fullDate;  // "2025-02-13"
     private int hour;         // 0~23
     private int views;

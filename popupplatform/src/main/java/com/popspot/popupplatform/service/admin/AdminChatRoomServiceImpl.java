@@ -28,7 +28,10 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
     }
 
     @Override
-    public PageDTO<AdminChatRoomDTO> getChatRoomList(Boolean isDeleted, String sort,PageRequestDTO pageRequest) {
+    public PageDTO<AdminChatRoomDTO> getChatRoomList(Boolean isDeleted, String sort, PageRequestDTO pageRequest) {
+        log.info("=== getChatRoomList (검색 없음) ===");
+        log.info("isDeleted: {}, sort: {}, page: {}, size: {}", isDeleted, sort, pageRequest.getPage(), pageRequest.getSize());
+
         List<AdminChatRoomDTO> chatRooms = chatRoomMapper.getChatRoomList(
                 isDeleted,
                 sort,
@@ -37,6 +40,57 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
         );
 
         long totalCount = chatRoomMapper.getChatRoomCount(isDeleted);
+
+        log.info("결과: {} / {}", chatRooms.size(), totalCount);
+
+        return new PageDTO<>(
+                chatRooms,
+                pageRequest.getPage(),
+                pageRequest.getSize(),
+                totalCount
+        );
+    }
+
+    @Override
+    public PageDTO<AdminChatRoomDTO> searchChatRooms(
+            String keyword,
+            Boolean isDeleted,
+            String searchType,
+            String sort,
+            PageRequestDTO pageRequest) {
+
+        log.info("=== searchChatRooms (검색 있음) ===");
+        log.info("keyword: [{}]", keyword);
+        log.info("searchType: [{}]", searchType);
+        log.info("isDeleted: {}", isDeleted);
+        log.info("sort: {}", sort);
+        log.info("page: {}, size: {}, offset: {}", pageRequest.getPage(), pageRequest.getSize(), pageRequest.getOffset());
+
+        List<AdminChatRoomDTO> chatRooms = chatRoomMapper.searchChatRooms(
+                keyword,
+                isDeleted,
+                searchType,
+                sort,
+                pageRequest.getOffset(),
+                pageRequest.getSize()
+        );
+
+        long totalCount = chatRoomMapper.countSearchChatRooms(
+                keyword,
+                isDeleted,
+                searchType
+        );
+
+        log.info("결과: {} / {}", chatRooms.size(), totalCount);
+
+        // 결과 미리보기
+        if (!chatRooms.isEmpty()) {
+            log.info("첫 번째 결과 - chatId: {}, popupName: [{}], chatName: [{}], hostName: [{}]",
+                    chatRooms.get(0).getChatId(),
+                    chatRooms.get(0).getPopupName(),
+                    chatRooms.get(0).getChatName(),
+                    chatRooms.get(0).getHostUserName());
+        }
 
         return new PageDTO<>(
                 chatRooms,
@@ -59,40 +113,9 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
     }
 
     @Override
-    public PageDTO<AdminChatRoomDTO> searchChatRooms(
-            String keyword,
-            Boolean isDeleted,
-            String searchType,
-            String sort,
-            PageRequestDTO pageRequest) {
-        List<AdminChatRoomDTO> chatRooms = chatRoomMapper.searchChatRooms(
-                keyword,
-                isDeleted,
-                searchType,
-                sort,
-                pageRequest.getOffset(),
-                pageRequest.getSize()
-        );
-
-        long totalCount = chatRoomMapper.countSearchChatRooms(
-                keyword,
-                isDeleted,
-                searchType
-        );
-
-        return new PageDTO<>(
-                chatRooms,
-                pageRequest.getPage(),
-                pageRequest.getSize(),
-                totalCount
-        );
-    }
-
-    @Override
     public List<AdminChatParticipantDTO> getChatRoomParticipants(Long chatId) {
         return chatRoomMapper.getChatRoomParticipants(chatId);
     }
-
 
     @Override
     @Transactional
@@ -110,8 +133,4 @@ public class AdminChatRoomServiceImpl implements AdminChatRoomService {
     public boolean updateChatReportStatus(Long reportId, String status) {
         return chatRoomMapper.updateChatReportStatus(reportId, status) > 0;
     }
-
-
-
-
 }
