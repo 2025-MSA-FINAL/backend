@@ -1,4 +1,3 @@
-// src/main/java/com/popspot/popupplatform/controller/auth/AuthController.java
 package com.popspot.popupplatform.controller.auth;
 
 import com.popspot.popupplatform.dto.user.LoginUserDto;
@@ -59,7 +58,7 @@ public class AuthController {
             throw new CustomException(AuthErrorCode.LOGIN_FAILED);
         }
 
-        // 3) 상태 체크 (ACTIVE만 허용) 👉 여기만 enum 사용으로 변경
+        // 3) 상태 체크 (ACTIVE만 허용)  여기만 enum 사용으로 변경
         if (!UserStatus.ACTIVE.name().equalsIgnoreCase(user.getStatus())) {
             throw new CustomException(AuthErrorCode.INACTIVE_USER);
         }

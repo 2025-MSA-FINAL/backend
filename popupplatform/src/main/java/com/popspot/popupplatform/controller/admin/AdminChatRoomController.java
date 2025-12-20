@@ -5,11 +5,13 @@ import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 import com.popspot.popupplatform.service.admin.AdminChatRoomService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/admin/chatrooms")
 @RequiredArgsConstructor
@@ -28,12 +30,7 @@ public class AdminChatRoomController {
 
     /**
      * 채팅방 목록 조회 (통합 검색/필터/정렬)
-     * GET /api/admin/chatrooms?page=0&size=10&keyword=&isDeleted=false&sort=createdAt
-     *
-     * @param pageRequest 페이징 정보
-     * @param keyword 검색어 (optional)
-     * @param isDeleted 삭제 여부 (optional)
-     * @param sort 정렬 기준 (createdAt, reportCount, participantCount, messageCount, name)
+     * GET /api/admin/chatrooms?page=0&size=10&keyword=&isDeleted=false&sort=createdAt&searchType=all
      */
     @GetMapping
     public ResponseEntity<PageDTO<AdminChatRoomDTO>> getChatRoomList(
@@ -41,24 +38,37 @@ public class AdminChatRoomController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean isDeleted,
             @RequestParam(required = false, defaultValue = "createdAt") String sort,
-            @RequestParam(required = false, defaultValue = "all") String searchType) { // searchType 추가!
+            @RequestParam(required = false, defaultValue = "all") String searchType) {
+
+        log.info("========================================");
+        log.info("채팅방 목록 조회 요청");
+        log.info("keyword: [{}]", keyword);
+        log.info("searchType: [{}]", searchType);
+        log.info("isDeleted: {}", isDeleted);
+        log.info("sort: {}", sort);
+        log.info("page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        log.info("========================================");
 
         PageDTO<AdminChatRoomDTO> result;
 
+        // 검색어가 있으면 searchChatRooms 호출
         if (keyword != null && !keyword.trim().isEmpty()) {
+            log.info(">>> searchChatRooms 호출 (검색어 존재)");
             result = chatRoomService.searchChatRooms(
-                    keyword,
+                    keyword.trim(),
                     isDeleted,
                     searchType,
                     sort,
-                    pageRequest); // searchType 전달
+                    pageRequest);
         } else {
-            // ... (기존 목록 조회 로직)
+            log.info(">>> getChatRoomList 호출 (검색어 없음)");
             result = chatRoomService.getChatRoomList(isDeleted, sort, pageRequest);
         }
 
+        log.info("응답 데이터: {} 건", result.getContent().size());
         return ResponseEntity.ok(result);
     }
+
     /**
      * 채팅방 상세 조회
      * GET /api/admin/chatrooms/{chatId}

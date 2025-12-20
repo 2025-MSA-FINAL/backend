@@ -2,26 +2,42 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.popspot.popupplatform.mapper.admin.AdminChatRoomMapper">
 
+    <!-- 검색 조건 SQL 조각 -->
+    <sql id="searchCondition">
+        <if test="keyword != null and keyword != ''">
+            AND (
+            <choose>
+                <when test='searchType != null and searchType.equals("chatName")'>
+                    COALESCE(gcr.gcr_title, '') LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test='searchType != null and searchType.equals("popupName")'>
+                    ps.pop_name LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test='searchType != null and searchType.equals("hostName")'>
+                    u.user_name LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <otherwise>
+                    ps.pop_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR COALESCE(gcr.gcr_title, '') LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%')
+                </otherwise>
+            </choose>
+            )
+        </if>
+    </sql>
+
     <select id="getChatRoomStats" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomStatsDTO">
         SELECT
-        -- 1. 전체 채팅방 수 (기존 쿼리 그대로)
         COALESCE(COUNT(*), 0) AS totalChatRooms,
-
-        -- 2. 활성 채팅방 수 (삭제 안 된)
         COALESCE(SUM(CASE WHEN gcr_is_deleted = FALSE THEN 1 ELSE 0 END), 0) AS activeChatRooms,
-
-        -- 3. 비활성 채팅방 수 (삭제 처리된 방 수)
         COALESCE(SUM(CASE WHEN gcr_is_deleted = TRUE THEN 1 ELSE 0 END), 0) AS inactiveChatRooms,
-
-        -- 4. 신고된 채팅방 수  (COALESCE)
         COALESCE((
         SELECT COUNT(DISTINCT rep_target_id)
         FROM REPORT
         WHERE rep_type = 'chat' AND rep_status != 'rejected'
         ), 0) AS reportedChatRooms
-
         FROM GROUP_CHAT_ROOM gcr
-        -- GROUP BY 없이 전체 집계 (단일 행 결과)
     </select>
 
     <select id="getChatRoomList" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
@@ -49,16 +65,16 @@
         </if>
         ORDER BY
         <choose>
-            <when test="sort == 'reportCount'">
+            <when test='sort != null and sort.equals("reportCount")'>
                 (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
             </when>
-            <when test="sort == 'participantCount'">
+            <when test='sort != null and sort.equals("participantCount")'>
                 (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) DESC, gcr.created_at DESC
             </when>
-            <when test="sort == 'messageCount'">
+            <when test='sort != null and sort.equals("messageCount")'>
                 (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) DESC, gcr.created_at DESC
             </when>
-            <when test="sort == 'name'">
+            <when test='sort != null and sort.equals("name")'>
                 ps.pop_name ASC
             </when>
             <otherwise>
@@ -69,8 +85,71 @@
     </select>
 
     <select id="getChatRoomCount" resultType="long">
-        SELECT COUNT(*) FROM GROUP_CHAT_ROOM gcr WHERE 1=1
-        <if test="isDeleted != null">AND gcr.gcr_is_deleted = #{isDeleted}</if>
+        SELECT COUNT(*)
+        FROM GROUP_CHAT_ROOM gcr
+        WHERE 1=1
+        <if test="isDeleted != null">
+            AND gcr.gcr_is_deleted = #{isDeleted}
+        </if>
+    </select>
+
+    <!-- 채팅방 검색 (searchType 포함) -->
+    <select id="searchChatRooms" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
+        SELECT
+        gcr.gcr_id AS chatId,
+        ps.pop_name AS popupName,
+        COALESCE(gcr.gcr_title, ps.pop_name) AS chatName,
+        gcr.pop_id AS popId,
+        gcr.user_id AS hostUserId,
+        u.user_name AS hostUserName,
+        u.user_nickname AS hostNickname,
+        (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
+        gcr.gcr_max_user_cnt AS maxParticipants,
+        (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
+        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
+        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
+        gcr.gcr_is_deleted AS chatIsDeleted,
+        DATE_FORMAT(gcr.created_at, '%Y-%m-%d') AS createdAt
+        FROM GROUP_CHAT_ROOM gcr
+        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
+        LEFT JOIN USER u ON gcr.user_id = u.user_id
+        WHERE 1=1
+        <if test="isDeleted != null">
+            AND gcr.gcr_is_deleted = #{isDeleted}
+        </if>
+        <include refid="searchCondition"/>
+        ORDER BY
+        <choose>
+            <when test='sort != null and sort.equals("reportCount")'>
+                (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
+            </when>
+            <when test='sort != null and sort.equals("participantCount")'>
+                (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) DESC, gcr.created_at DESC
+            </when>
+            <when test='sort != null and sort.equals("messageCount")'>
+                (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) DESC, gcr.created_at DESC
+            </when>
+            <when test='sort != null and sort.equals("name")'>
+                ps.pop_name ASC
+            </when>
+            <otherwise>
+                gcr.created_at DESC
+            </otherwise>
+        </choose>
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- 검색 결과 개수 (searchType 포함) -->
+    <select id="countSearchChatRooms" resultType="long">
+        SELECT COUNT(*)
+        FROM GROUP_CHAT_ROOM gcr
+        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
+        LEFT JOIN USER u ON gcr.user_id = u.user_id
+        WHERE 1=1
+        <if test="isDeleted != null">
+            AND gcr.gcr_is_deleted = #{isDeleted}
+        </if>
+        <include refid="searchCondition"/>
     </select>
 
     <select id="getChatRoomDetail" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
@@ -95,84 +174,14 @@
     </select>
 
     <update id="deleteChatRoom">
-        UPDATE GROUP_CHAT_ROOM SET gcr_is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP WHERE gcr_id = #{chatId}
+        UPDATE GROUP_CHAT_ROOM
+        SET gcr_is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP
+        WHERE gcr_id = #{chatId}
     </update>
 
-    <select id="searchChatRooms" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
+    <select id="getChatRoomParticipants" resultType="com.popspot.popupplatform.dto.admin.AdminChatParticipantDTO">
         SELECT
-        gcr.gcr_id AS chatId,
-        ps.pop_name AS popupName,
-        COALESCE(gcr.gcr_title, ps.pop_name) AS chatName,
-        gcr.pop_id AS popId,
-        gcr.user_id AS hostUserId,
-        u.user_name AS hostUserName,
-        u.user_nickname AS hostNickname,
-        (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
-        gcr.gcr_max_user_cnt AS maxParticipants,
-        (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
-        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
-        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
-        gcr.gcr_is_deleted AS chatIsDeleted,
-        DATE_FORMAT(gcr.created_at, '%Y-%m-%d') AS createdAt
-        FROM GROUP_CHAT_ROOM gcr
-        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
-        LEFT JOIN USER u ON gcr.user_id = u.user_id
-        WHERE 1=1
-        <if test="isDeleted != null">
-            AND gcr.gcr_is_deleted = #{isDeleted}
-        </if>
-        <if test="searchKeyword != null and searchKeyword != ''">
-            AND (
-            ps.pop_name LIKE CONCAT('%', #{searchKeyword}, '%')
-            OR COALESCE(gcr.gcr_title, '') LIKE CONCAT('%', #{searchKeyword}, '%')
-            OR u.user_name LIKE CONCAT('%', #{searchKeyword}, '%')
-            OR u.user_nickname LIKE CONCAT('%', #{searchKeyword}, '%')
-            )
-        </if>
-        ORDER BY
-        <choose>
-            <when test="sort == 'reportCount'">
-                (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
-            </when>
-            <when test="sort == 'participantCount'">
-                (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) DESC, gcr.created_at DESC
-            </when>
-            <when test="sort == 'messageCount'">
-                (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) DESC, gcr.created_at DESC
-            </when>
-            <when test="sort == 'name'">
-                ps.pop_name ASC
-            </when>
-            <otherwise>
-                gcr.created_at DESC
-            </otherwise>
-        </choose>
-        LIMIT #{size} OFFSET #{offset}
-    </select>
-
-    <select id="countSearchChatRooms" resultType="long">
-        SELECT COUNT(*)
-        FROM GROUP_CHAT_ROOM gcr
-        LEFT JOIN POPUPSTORE ps ON gcr.pop_id = ps.pop_id
-        LEFT JOIN USER u ON gcr.user_id = u.user_id
-        WHERE 1=1
-        <if test="isDeleted != null">
-            AND gcr.gcr_is_deleted = #{isDeleted}
-        </if>
-        <if test="searchKeyword != null and searchKeyword != ''">
-            AND (
-            ps.pop_name LIKE CONCAT('%', #{searchKeyword}, '%')
-            OR COALESCE(gcr.gcr_title, '') LIKE CONCAT('%', #{searchKeyword}, '%')
-            OR u.user_name LIKE CONCAT('%', #{searchKeyword}, '%')
-            OR u.user_nickname LIKE CONCAT('%', #{searchKeyword}, '%')
-            )
-        </if>
-    </select>
-
-    <select id="getChatRoomParticipants"
-            resultType="com.popspot.popupplatform.dto.admin.AdminChatParticipantDTO">
-        SELECT
-        u.user_id   AS userId,
+        u.user_id AS userId,
         u.user_name AS userName,
         u.user_nickname AS nickname,
         cp.created_at AS joinedAt
@@ -190,8 +199,7 @@
         WHERE gcr_id = #{chatId}
     </update>
 
-    <select id="getChatRoomReports"
-            resultType="com.popspot.popupplatform.dto.admin.AdminChatReportDTO">
+    <select id="getChatRoomReports" resultType="com.popspot.popupplatform.dto.admin.AdminChatReportDTO">
         SELECT
         r.rep_id AS reportId,
         r.rep_target_id AS chatId,
