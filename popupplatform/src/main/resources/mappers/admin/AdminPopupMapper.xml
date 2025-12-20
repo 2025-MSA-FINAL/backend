@@ -158,13 +158,15 @@
         <!-- moderation 필터 -->
         <if test="moderation != null and moderation != ''">
             <choose>
-                <when test="moderation == 'pending'">
+                <when test='"pending".equals(moderation)'>
                     AND p.pop_moderation_status IS NULL
                 </when>
-                <when test="moderation == 'approved'">
+
+                <when test='"approved".equals(moderation)'>
                     AND p.pop_moderation_status = 1
                 </when>
-                <when test="moderation == 'rejected'">
+
+                <when test='"rejected".equals(moderation)'>
                     AND p.pop_moderation_status = 0
                 </when>
             </choose>
@@ -185,4 +187,21 @@
         WHERE pop_is_deleted = FALSE
     </select>
 
+    <!-- 승인/거절 상태 변경 -->
+    <update id="updateModerationStatus">
+        UPDATE POPUPSTORE
+        SET pop_moderation_status = #{status},
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+        AND pop_moderation_status IS NULL
+    </update>
+
+    <update id="deletePopup">
+        UPDATE POPUPSTORE
+        SET pop_is_deleted = TRUE,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+    </update>
 </mapper>

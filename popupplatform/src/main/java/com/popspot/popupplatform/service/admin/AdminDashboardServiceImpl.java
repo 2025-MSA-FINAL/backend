@@ -18,9 +18,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private final AdminDashboardMapper dashboardMapper;
+    private final AdminCategoryAnalysisService categoryAnalysisService;
+
 
     /** 메모리 캐시 저장소 */
     private final Map<String, Object> cache = new ConcurrentHashMap<>();
+
+
+
+
+
+
 
 
     /* ============================================================
@@ -119,6 +127,13 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
             // 월별 신규 유저
             dto.setMonthlyUserGrowth(dashboardMapper.getMonthlyUserGrowth());
+
+            //카테고리 검증
+            dto.setCategoryValidationStats(
+                    categoryAnalysisService.getCategoryValidationStats()
+            );
+
+
         }
 
         // ===== 조회수 분석 =====

@@ -4,6 +4,30 @@
 
 <mapper namespace="com.popspot.popupplatform.mapper.admin.AdminUserMapper">
 
+    <!-- 검색 조건 SQL 조각 -->
+    <sql id="searchCondition">
+        <if test="keyword != null and keyword != ''">
+            AND (
+            <choose>
+                <when test='searchType != null and searchType.equals("name")'>
+                    user_name LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test='searchType != null and searchType.equals("nickname")'>
+                    user_nickname LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test='searchType != null and searchType.equals("email")'>
+                    user_email LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <otherwise>
+                    user_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR user_nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR user_email LIKE CONCAT('%', #{keyword}, '%')
+                </otherwise>
+            </choose>
+            )
+        </if>
+    </sql>
+
     <!-- 유저 목록 조회 (USER 역할만) -->
     <select id="getUserList" resultType="com.popspot.popupplatform.dto.admin.AdminUserDTO">
         SELECT
@@ -20,9 +44,10 @@
         updated_at AS updatedAt
         FROM USER
         WHERE user_role = 'USER'
-        <if test="status != null and status != 'ALL'">
+        <if test="status != null and !status.equals('ALL')">
             AND user_status = #{status}
         </if>
+        <include refid="searchCondition"/>
         ORDER BY created_at DESC
         LIMIT #{size} OFFSET #{offset}
     </select>
@@ -43,9 +68,10 @@
         updated_at AS updatedAt
         FROM USER
         WHERE user_role = 'MANAGER'
-        <if test="status != null and status != 'ALL'">
+        <if test="status != null and !status.equals('ALL')">
             AND user_status = #{status}
         </if>
+        <include refid="searchCondition"/>
         ORDER BY created_at DESC
         LIMIT #{size} OFFSET #{offset}
     </select>
@@ -55,9 +81,10 @@
         SELECT COUNT(*)
         FROM USER
         WHERE user_role = 'USER'
-        <if test="status != null and status != 'ALL'">
+        <if test="status != null and !status.equals('ALL')">
             AND user_status = #{status}
         </if>
+        <include refid="searchCondition"/>
     </select>
 
     <!-- 매니저 총 개수 -->
@@ -65,9 +92,10 @@
         SELECT COUNT(*)
         FROM USER
         WHERE user_role = 'MANAGER'
-        <if test="status != null and status != 'ALL'">
+        <if test="status != null and !status.equals('ALL')">
             AND user_status = #{status}
         </if>
+        <include refid="searchCondition"/>
     </select>
 
     <!-- 유저 상태 변경 -->

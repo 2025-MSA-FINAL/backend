@@ -26,11 +26,13 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         List<AdminUserDTO> userList = adminUserMapper.getUserList(
                 status,
+                pageRequest.getKeyword(),
+                pageRequest.getSearchType(),
                 pageRequest.getOffset(),
                 pageRequest.getSize()
         );
 
-        int totalCount = adminUserMapper.getUserCount(status);
+        int totalCount = adminUserMapper.getUserCount(status, pageRequest.getKeyword(),pageRequest.getSearchType());
 
         return new PageDTO<>(
                 userList,
@@ -47,11 +49,13 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         List<AdminUserDTO> managerList = adminUserMapper.getManagerList(
                 status,
+                pageRequest.getKeyword(),
+                pageRequest.getSearchType(),
                 pageRequest.getOffset(),
                 pageRequest.getSize()
         );
 
-        int totalCount = adminUserMapper.getManagerCount(status);
+        int totalCount = adminUserMapper.getManagerCount(status, pageRequest.getKeyword(), pageRequest.getSearchType());  // 수정!);
 
         return new PageDTO<>(
                 managerList,

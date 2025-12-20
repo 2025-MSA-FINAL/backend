@@ -12,6 +12,8 @@ public interface AdminUserMapper {
 
         List<AdminUserDTO> getUserList(
             @Param("status") String status,
+            @Param("keyword") String keyword,
+            @Param("searchType") String searchType,
             @Param("offset") int offset,
             @Param("size") int size
     );
@@ -19,18 +21,29 @@ public interface AdminUserMapper {
 
     List<AdminUserDTO> getManagerList(
             @Param("status") String status,
+            @Param("keyword") String keyword,
+            @Param("searchType") String searchType,
             @Param("offset") int offset,
             @Param("size") int size
     );
 
 
-    int getUserCount(@Param("status") String status);
+    int getUserCount(
+            @Param("status") String status,
+            @Param("keyword") String keyword,
+            @Param("searchType") String searchType
+    );
 
-    int getManagerCount(@Param("status") String status);
+    int getManagerCount(
+            @Param("status") String status,
+            @Param("keyword") String keyword,
+            @Param("searchType") String searchType
+    );
 
     int updateUserStatus(
             @Param("userId") Long userId,
             @Param("status") String status
+
     );
 
     int updateUserRole(

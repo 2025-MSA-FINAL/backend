@@ -47,7 +47,7 @@
         u.user_status AS senderStatus,
         cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
-        JOIN USER u ON cm.user_id = u.user_id
+        LEFT JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
         AND cm.cm_room_id = #{roomId}
         <if test="lastDeletedAt != null">
@@ -76,7 +76,7 @@
         u.user_status AS senderStatus,
         cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
-        JOIN USER u ON cm.user_id = u.user_id
+        LEFT JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
         AND cm.cm_room_id = #{roomId}
         ORDER BY cm.cm_id DESC
@@ -98,7 +98,7 @@
         u.user_status AS senderStatus,
         cm.created_at AS createdAt
         FROM CHAT_MESSAGE cm
-        JOIN USER u ON cm.user_id = u.user_id
+        LEFT JOIN USER u ON cm.user_id = u.user_id
         WHERE cm.cm_room_type = #{roomType}
         AND cm.cm_id = #{cmId}
     </select>

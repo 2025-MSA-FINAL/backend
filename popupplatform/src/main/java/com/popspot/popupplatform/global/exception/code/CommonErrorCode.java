@@ -12,7 +12,10 @@ public enum CommonErrorCode implements BaseErrorCode {
     INTERNAL_SERVER_ERROR("COMMON_500", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // 잘못된 요청 (400)
-    INVALID_REQUEST("COMMON_400", "잘못된 요청입니다.", HttpStatus.BAD_REQUEST);
+    INVALID_REQUEST("COMMON_400", "잘못된 요청입니다.", HttpStatus.BAD_REQUEST),
+
+    // 404 에러 상수를 추가
+    RESOURCE_NOT_FOUND("COMMON_404", "요청하신 리소스를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

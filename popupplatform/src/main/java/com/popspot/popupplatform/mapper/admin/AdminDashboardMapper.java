@@ -30,7 +30,7 @@ public interface AdminDashboardMapper {
 
     // ===== 추가 통계 =====
     List<UserDemographicsDTO> getUserDemographics();
-    List<PopularPopupDTO> getTopPopupsThisWeek();
+
     List<PopularHashtagDTO> getPopularHashtags(
             @Param("ageGroup") String ageGroup,
             @Param("gender") String gender
@@ -42,7 +42,9 @@ public interface AdminDashboardMapper {
 
     // 조회수 분석 추가(최근 7일, 히트맵 : 요일 × 시간대 , 주간 TOP10)
     List<DailyViewStatsDTO> getDailyViews(@Param("days") int days);
+
     List<ViewHeatmapDTO> getViewHeatmap();
+
     List<PopularPopupWeeklyDTO> getWeeklyTopPopups();
 
     List<ViewDetailPopupDTO> getViewDetailTopPopups(
