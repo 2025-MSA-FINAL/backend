@@ -17,8 +17,8 @@
                 </when>
                 <when test='searchType != null and searchType.equals("targetName")'>
                     (
-                    (r.rep_type = 'user' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
-                    OR (r.rep_type = 'chat' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
+                    (r.rep_type = 'USER' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'CHAT' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
                     )
                 </when>
                 <when test='searchType != null and searchType.equals("categoryName")'>
@@ -28,9 +28,9 @@
                     rc.rc_name LIKE CONCAT('%', #{keyword}, '%')
                     OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
                     OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%')
-                    OR (r.rep_type = 'user' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
-                    OR (r.rep_type = 'user' AND target_u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
-                    OR (r.rep_type = 'chat' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'USER' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'USER' AND target_u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'CHAT' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
                 </otherwise>
             </choose>
             )
@@ -89,8 +89,8 @@
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         ORDER BY r.created_at DESC
     </select>
 
@@ -176,8 +176,8 @@
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <if test="categoryId != null">
                 r.rc_id = #{categoryId}
@@ -235,8 +235,8 @@
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <choose>
                 <when test='status != null and status.equals("approved")'>
@@ -310,8 +310,8 @@
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <if test="status != null and status != ''">
                 <choose>
@@ -351,8 +351,8 @@
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <if test="status != null and status != ''">
                 <choose>
