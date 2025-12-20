@@ -10,4 +10,9 @@ public interface UserReservationMapper {
 
 
     void insert(UserReservation reservation);
+
+    UserReservation selectById(@Param("urId") Long urId);
+
+    int cancelById(@Param("urId") Long urId);
+
 }

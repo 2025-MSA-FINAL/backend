@@ -1,17 +1,11 @@
 package com.popspot.popupplatform.service.reservation;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.popspot.popupplatform.mapper.reservation.ReservationPaymentMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.util.Map;
 
@@ -19,23 +13,17 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PortOnePaymentServiceImpl implements PortOnePaymentService {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     private final StringRedisTemplate stringRedisTemplate;
     private final ReservationPaymentMapper reservationPaymentMapper;
 
     // ✅ 기존 예약 확정 서비스 연결
     private final UserReservationService userReservationService;
 
-    @Value("${portone.api-secret:}")
-    private String portOneApiSecret;
-
-    private static final String PORTONE_V2_BASE = "https://api.portone.io";
-
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    // ✅ PortOne 호출 분리(순환참조 해결에 직접적 영향은 없지만 중복 제거/일관성)
+    private final PortOneApiClient portOneApiClient;
 
     @Override
-    public void handleWebhook(String rawBody, String webhookId, String timestamp, String signature,Long userId) {
+    public void handleWebhook(String rawBody, String webhookId, String timestamp, String signature, Long userId) {
         // (권장) webhook signature 검증 자리
 
         String paymentId = extractPaymentId(rawBody);
@@ -43,11 +31,11 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
             throw new IllegalArgumentException("paymentId missing");
         }
 
-        completePayment(paymentId,userId);
+        completePayment(paymentId, userId);
     }
 
     @Override
-    public Map<String, Object> completePayment(String paymentId,Long userId) {
+    public Map<String, Object> completePayment(String paymentId, Long userId) {
         if (paymentId == null || paymentId.isBlank()) {
             throw new IllegalArgumentException("paymentId missing");
         }
@@ -57,7 +45,8 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
             throw new IllegalStateException("RESERVATION_PAYMENT row not found for paymentId=" + paymentId);
         }
 
-        JsonNode payment = fetchPortOnePayment(paymentId);
+        // ✅ PortOne 결제 조회 (기존 fetchPortOnePayment 대체)
+        JsonNode payment = portOneApiClient.fetchPayment(paymentId);
 
         String status = payment.path("status").asText(null);
         long paidAmount = payment.path("amount").path("total").asLong(-1);
@@ -90,7 +79,10 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
             throw new IllegalStateException("HOLD not found or expired");
         }
 
-        Long reservationId = confirmReservationFromHold(hold,userId);
+        Long reservationId = confirmReservationFromHold(hold, userId);
+
+        // ✅ paymentId == merchantUid(현재 구조) 이므로 paymentId로 업데이트 가능
+        reservationPaymentMapper.updateReservationId(paymentId, reservationId);
 
         // ✅ HOLD 정리
         stringRedisTemplate.delete(holdKey);
@@ -105,46 +97,19 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
         );
     }
 
-    private JsonNode fetchPortOnePayment(String paymentId) {
-        if (portOneApiSecret == null || portOneApiSecret.isBlank()) {
-            throw new IllegalStateException("portone.api-secret is missing");
-        }
-
-        try {
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(PORTONE_V2_BASE + "/payments/" + paymentId))
-                    .header("Authorization", "PortOne " + portOneApiSecret)
-                    .header("Content-Type", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-
-            if (res.statusCode() < 200 || res.statusCode() >= 300) {
-                throw new IllegalStateException(
-                        "PortOne GET /payments/{paymentId} failed. status=" + res.statusCode() + ", body=" + res.body()
-                );
-            }
-
-            JsonNode root = objectMapper.readTree(res.body());
-            return root.has("payment") ? root.get("payment") : root;
-
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to fetch PortOne payment", e);
-        }
-    }
-
     private String extractPaymentId(String rawBody) {
+        // ✅ 기존 로직 유지 (PortOneApiClient로 옮기지 않음: 관련 없는 부분 건드리지 않기)
         try {
-            JsonNode root = objectMapper.readTree(rawBody);
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = om.readTree(rawBody);
 
-            JsonNode n1 = root.at("/data/paymentId");
+            com.fasterxml.jackson.databind.JsonNode n1 = root.at("/data/paymentId");
             if (!n1.isMissingNode() && !n1.isNull()) return n1.asText();
 
-            JsonNode n2 = root.at("/data/payment_id");
+            com.fasterxml.jackson.databind.JsonNode n2 = root.at("/data/payment_id");
             if (!n2.isMissingNode() && !n2.isNull()) return n2.asText();
 
-            JsonNode n3 = root.get("paymentId");
+            com.fasterxml.jackson.databind.JsonNode n3 = root.get("paymentId");
             if (n3 != null && !n3.isNull()) return n3.asText();
 
             return null;
@@ -153,14 +118,19 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
         }
     }
 
-    private Long confirmReservationFromHold(Map<Object, Object> hold,Long userId) {
+    private Long confirmReservationFromHold(Map<Object, Object> hold, Long userId) {
         Long popId = Long.parseLong(String.valueOf(hold.get("popId")));
         Long slotId = Long.parseLong(String.valueOf(hold.get("ptsId")));
         LocalDate date = LocalDate.parse(String.valueOf(hold.get("date")));
         int people = Integer.parseInt(String.valueOf(hold.get("people")));
 
         // ✅ 결제 연동에서는 HOLD에서 이미 차감했으니, 추가 차감 없는 확정만 수행
-        return ((UserReservationServiceImpl) userReservationService)
-                .createReservationConfirmedFromHold(popId, slotId, date, people,userId);
+        return userReservationService.createReservationConfirmedFromHold(popId, slotId, date, people, userId);
+    }
+
+    @Override
+    public void cancelPortOnePayment(String paymentId, String reason) {
+        // ✅ PortOne 실제 결제 취소는 PortOneApiClient가 담당
+        portOneApiClient.cancelPayment(paymentId, reason);
     }
 }

@@ -27,4 +27,15 @@ public interface ReservationPaymentMapper {
 
     // ✅ 결제 검증용(서버가 PortOne에서 조회한 paidAmount와 비교)
     Integer selectAmountByMerchantUid(@Param("merchantUid") String merchantUid);
+
+    void updateReservationId(
+            @Param("merchantUid") String merchantUid,
+            @Param("reservationId") Long reservationId
+    );
+
+    int markCancelledByReservationId(@Param("reservationId") Long reservationId);
+
+    String selectPaymentIdByReservationId(@Param("reservationId") Long reservationId);
+
+
 }

@@ -52,10 +52,10 @@ public class DashboardStatsDTO {
     private List<PopularPopupWeeklyDTO> weeklyTopPopups;  // 주간 TOP10
 
     // 8. 해시태그 통계
-    private List<HashtagCategoryStatsDTO> hashtagCategoryStats;
+    //private List<HashtagCategoryStatsDTO> hashtagCategoryStats;
 
     // 9. 카테고리 분석 데이터 Google Trends API 사용
-    private List<CategoryValidationDTO> categoryValidationStats;
+    //private List<CategoryValidationDTO> categoryValidationStats;
 
 
 }
