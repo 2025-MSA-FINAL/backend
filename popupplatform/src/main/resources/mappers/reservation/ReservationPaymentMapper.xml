@@ -40,4 +40,11 @@
         LIMIT 1
     </select>
 
+    <update id="updateReservationId">
+        UPDATE RESERVATION_PAYMENT
+        SET reservation_id = #{reservationId}
+        WHERE merchant_uid = #{merchantUid}
+    </update>
+
+
 </mapper>

@@ -92,6 +92,8 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
 
         Long reservationId = confirmReservationFromHold(hold,userId);
 
+        // ✅ paymentId == merchantUid(현재 구조) 이므로 paymentId로 업데이트 가능
+        reservationPaymentMapper.updateReservationId(paymentId, reservationId);
         // ✅ HOLD 정리
         stringRedisTemplate.delete(holdKey);
         // ✅ 스케줄러 원복 방지용 정리(있다면 같이 삭제)
