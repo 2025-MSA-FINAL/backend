@@ -71,5 +71,26 @@
         LIMIT #{limit}
     </select>
 
+    <!-- ✅ NEW: 두근두근 곧 오픈예정 (오늘 기준 1달 이내, 시작일 빠른 순) -->
+    <select id="selectOpeningSoonPopups" resultMap="MainPopupCardMap">
+        SELECT
+        p.pop_id,
+        p.pop_name,
+        p.pop_thumbnail,
+        p.pop_location,
+        p.pop_start_date,
+        p.pop_end_date,
+        p.pop_price_type
+        FROM POPUPSTORE p
+        WHERE p.pop_is_deleted = FALSE
+        AND p.pop_moderation_status = TRUE
+        AND p.pop_status != 'ENDED'
+        -- 오늘 이후(오늘 포함 오픈도 포함시키려면 >= NOW() 대신 >= CURDATE())
+        AND p.pop_start_date >= NOW()
+        AND p.pop_end_date &lt; DATE_ADD(NOW(), INTERVAL 1 MONTH)
+        ORDER BY p.pop_start_date ASC, p.created_at DESC
+        LIMIT #{limit}
+    </select>
+
 
 </mapper>
