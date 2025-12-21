@@ -127,26 +127,43 @@ public class ChatMessageService {
                             ? AiAnswerMode.valueOf(userMsg.getAiMode())
                             : AiAnswerMode.RAG; // 기본값
 
-            String aiReply;
+            String aiReply = null;
 
             if (mode == AiAnswerMode.PURE_LLM) {
                 aiReply = aiChatService.getPureLlmReply(userMsg.getContent());
 
             } else if (mode == AiAnswerMode.RAG) {
+
                 String context = chatAiRagService.buildContext(userMsg.getContent());
 
                 if (context == null || context.isBlank()) {
                     aiReply = aiChatService.needConfirmResponse();
                     mode = AiAnswerMode.NEED_CONFIRM;
                 } else {
-                    aiReply =
-                            aiChatService.getAiReplyWithContext(userMsg.getContent(), context);
-                }
+                    boolean isRecommend =
+                            userMsg.getContent().contains("추천")
+                                    || userMsg.getContent().contains("갈만")
+                                    || userMsg.getContent().contains("골라")
+                                    || userMsg.getContent().contains("인기");
 
-            } else {
-                aiReply = aiChatService.needConfirmResponse();
+                    if (isRecommend) {
+                        aiReply =
+                                aiChatService.getAiRecommendReply(
+                                        userMsg.getContent(),
+                                        context
+                                );
+                        mode = AiAnswerMode.RAG_RECOMMEND;
+                    } else {
+                        aiReply =
+                                aiChatService.getAiReplyWithContext(
+                                        userMsg.getContent(),
+                                        context
+                                );
+                        mode = AiAnswerMode.RAG;
+                    }
+                }
             }
-        // 타이핑 시간 보장
+            // 타이핑 시간 보장
         try {
             Thread.sleep(Math.min(1500, aiReply.length() * 30L));
         } catch (InterruptedException ignored) {}
@@ -160,6 +177,15 @@ public class ChatMessageService {
         aiMessage.setClientMessageKey(UUID.randomUUID().toString());
         aiMessage.setAiMode(mode.name());
 
+
+        if (mode == AiAnswerMode.RAG_RECOMMEND && aiReply.trim().startsWith("{")) {
+            aiMessage.setMessageType("POPUP");
+            aiMessage.setContent(aiReply);
+        } else {
+            aiMessage.setMessageType("TEXT");
+            aiMessage.setContent(aiReply);
+        }
+
         // DB 저장
         chatMessageMapper.insertMessage(aiMessage);
 
@@ -170,7 +196,8 @@ public class ChatMessageService {
         saved.setClientMessageKey(aiMessage.getClientMessageKey());
         saved.setAiMode(mode.name());
 
-        if (mode == AiAnswerMode.NEED_CONFIRM) {
+       if (AiAnswerMode.NEED_CONFIRM.name().equals(mode.name())
+                    && aiReply.trim().startsWith("{")) {
             Map<String, Object> parsed =
                     objectMapper.readValue(
                             aiReply,

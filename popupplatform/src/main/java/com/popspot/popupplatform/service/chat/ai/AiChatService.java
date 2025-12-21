@@ -66,40 +66,40 @@ public class AiChatService {
     }
 
     /* ===============================
-   자동 분기 (⭐ 핵심)
-   =============================== */
-    public AiAnswerMode decideAnswerMode(String userText, String context) {
-
-        boolean isRecommend =
-                userText.contains("추천")
-                        || userText.contains("어디 갈")
-                        || userText.contains("뭐가 좋")
-                        || userText.contains("인기")
-                        || userText.contains("골라");
-
-        if (context == null || context.isBlank()) {
-            return AiAnswerMode.NEED_CONFIRM;
-        }
-
-        return AiAnswerMode.RAG;
-    }
-
-    /* ===============================
        일반 안내 답변 (Q&A)
        =============================== */
     public String getAiReplyWithContext(String userText, String context) {
 
         String prompt = """
-        [공식 정보]
-        %s
+    너는 팝스팟(Popspot)의 공식 안내 AI 'POPBOT'이야.
+    너의 역할은 '정보를 전달하는 직원'처럼 친절하게 안내하는 거야.
 
-        질문:
-        %s
+    =====================
+    [사용 가능한 공식 정보]
+    %s
+    =====================
 
-        규칙:
-        - 위 정보만 사용
-        - 없으면 모른다고 답해
-        """.formatted(context, userText);
+    [사용자 질문]
+    %s
+
+    답변 규칙:
+    1. 반드시 위 공식 정보 안에서만 답변해.
+    2. 정보가 정확히 일치하지 않으면:
+       - "없습니다"로 끝내지 말고
+       - 왜 없는지 간단히 설명해
+       - 사용자가 다음에 할 수 있는 선택지를 제안해
+    3. 문장은 자연스럽고 대화체로 작성해.
+    4. 목록이 있으면 보기 좋게 정리해.
+    5. 과장하거나 추측하지 마.
+
+    답변 스타일:
+    - 친절한 안내 직원
+    - 차분하지만 도움이 되게
+    - 너무 짧지 않게 (2~4문장 권장)
+
+    예시 톤:
+    "현재 팝스팟에 등록된 정보 기준으로 안내드릴게요 🙂"
+    """.formatted(context, userText);
 
         return ragClient.prompt()
                 .user(prompt)
@@ -132,37 +132,53 @@ public class AiChatService {
 
         if (context == null || context.isBlank()) {
             return """
-            아직 추천할 수 있는 팝업 정보가 충분하지 않아요.
-            승인된 팝업이 더 등록되면 추천해 드릴게요 🙂
-            """;
+        아직 추천할 수 있는 팝업 정보가 충분하지 않아요.
+        승인된 팝업이 더 등록되면 추천해 드릴게요 🙂
+        """;
         }
 
         String prompt = """
-        아래는 현재 팝스팟에 등록된 팝업스토어 정보야.
-
-        [팝업 정보 시작]
-        %s
-        [팝업 정보 끝]
-
-        사용자 질문:
-        "%s"
-
-        위 정보만 사용해서 팝업을 추천해줘.
-
-        규칙:
-        - 최대 3개까지만 추천
-        - 아래 형식을 정확히 지켜
-
-        형식:
-        1️⃣ 팝업 이름
-        - 한 줄 요약:
-        - 운영 기간:
-        - 장소:
-        - 추천 대상:
-
-        - 정보에 없는 내용은 절대 추가하지 마
-        - 과장하지 말고 실제 안내 직원처럼 말해
-        """.formatted(context, userText);
+            너는 팝스팟(Popspot)의 공식 추천 AI 'POPBOT'이야.
+            아래 정보와 사용자 조건을 바탕으로 팝업을 추천해줘.
+        
+            =====================
+            [현재 팝스팟에 등록된 팝업 정보]
+            %s
+            =====================
+        
+            [사용자 조건]
+            %s
+            
+                ⚠️ 출력은 반드시 JSON으로만 해.
+                    ⚠️ 설명 문장, 인삿말 절대 금지.
+                
+                    출력 형식:
+                    {
+                      "type": "POPUP_RECOMMEND",
+                      "items": [
+                        {
+                          "popId": number,
+                          "popName": string,
+                          "popThumbnail": string,
+                          "popLocation": string,
+                          "reason": string
+                        }
+                      ]
+                    }
+        
+            추천 규칙:
+            1. 반드시 위 팝업 정보 안에서만 추천해.
+            2. 사용자 조건(지역, 대상, 분위기 등)을 최대한 반영해.
+            3. 조건이 정확히 일치하지 않으면,
+               - 가장 가까운 팝업을 추천하고
+               - 왜 추천했는지 이유를 설명해.
+            4. 최대 3개까지만 추천해.
+            5. 정보에 없는 내용은 절대 추가하지 마.
+        
+            톤:
+            - 실제 안내 직원처럼
+            - 과장 없이 친절하게
+            """.formatted(context, userText);
 
         return ragClient.prompt()
                 .user(prompt)
