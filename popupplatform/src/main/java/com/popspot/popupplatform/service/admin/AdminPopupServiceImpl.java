@@ -2,10 +2,12 @@ package com.popspot.popupplatform.service.admin;
 
 import com.popspot.popupplatform.domain.admin.DeletedFilter;
 import com.popspot.popupplatform.domain.admin.PopupModerationStatus;
+//import com.popspot.popupplatform.domain.popup.PopupStore;
 import com.popspot.popupplatform.dto.admin.PopupStoreListDTO;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 import com.popspot.popupplatform.mapper.admin.AdminPopupMapper;
+//import com.popspot.popupplatform.service.chat.ai.AiChatDocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ public class AdminPopupServiceImpl implements AdminPopupService {
     private static final Long SYSTEM_ADMIN_ID = 2L;
 
     private final AdminPopupMapper popupMapper;
+
     // private final PopupModerationMapper moderationMapper;  // 이력 기록용 (있다면)
 
 
@@ -34,6 +37,9 @@ public class AdminPopupServiceImpl implements AdminPopupService {
             default -> null;
         };
     }
+
+
+    //private final AiChatDocumentService aiChatDocumentService; //웹사이트 정보 ai 주입(팝업승인시 주입)
 
     /**
      *  팝업스토어 목록 조회 (deletedFilter 추가)
@@ -87,8 +93,30 @@ public class AdminPopupServiceImpl implements AdminPopupService {
      * - NULL(대기), true(승인), false(거절)을 자유롭게 변경
      */
     @Override
+    //@Transactional
     public boolean updateModerationStatus(Long popId, Boolean status, String reason) {
         int updated = popupMapper.updateModerationStatus(popId, status);
+
+    /*
+        if (updated == 0) return false;
+
+        // 승인 / 반려 공통 처리
+        if (Boolean.TRUE.equals(status)) {
+            // 승인 → 기존 AI 문서 삭제 후 재생성
+            PopupStore popup = popupMapper.findPopupEntityById(popId);
+
+            aiChatDocumentService.deleteByPopupId(popId);
+            savePopupAsAiDocument(popup);
+
+        } else {
+            // 반려 → AI 문서 제거
+            aiChatDocumentService.deleteByPopupId(popId);
+        }
+
+        return true;
+    }
+
+     */
 
         if (updated > 0) {
             PopupModerationStatus pmStatus =
@@ -133,11 +161,19 @@ public class AdminPopupServiceImpl implements AdminPopupService {
     /**
      *  팝업스토어 삭제 (사유 포함)
      */
+    //@Transactional
     @Override
     public boolean deletePopup(Long popId, String reason) {
         int deleted = popupMapper.deletePopup(popId);
 
         if (deleted > 0) {
+
+            //ai 문서 삭제
+            /*
+             aiChatDocumentService.deleteByPopupId(popId);
+            */
+
+            //팝업 삭제 이력 기록
             popupMapper.insertPopupModeration(
                     popId,
                     SYSTEM_ADMIN_ID,
@@ -169,6 +205,7 @@ public class AdminPopupServiceImpl implements AdminPopupService {
         }
 
         return restored > 0;
+
     }
 
     /**
@@ -179,4 +216,55 @@ public class AdminPopupServiceImpl implements AdminPopupService {
     public Map<String, Object> getPopupStats() {
         return popupMapper.getPopupStats();
     }
+
+
+
+    /* =====================================================
+    팝업 → AI 문서 변환
+     ===================================================== */
+    /*
+    private void savePopupAsAiDocument(PopupStore popup) {
+
+        if (popup == null) return;
+
+        String content = """
+            팝업스토어 이름: %s
+        
+            요약:
+            %s
+        
+            운영 기간:
+            %s ~ %s
+        
+            장소:
+            %s
+        
+            가격:
+            %s (%s원)
+        
+            상태:
+            %s
+        """.formatted(
+                popup.getPopName(),
+                popup.getPopAiSummary() != null
+                        ? popup.getPopAiSummary()
+                        : popup.getPopDescription(),
+                popup.getPopStartDate(),
+                popup.getPopEndDate(),
+                popup.getPopLocation(),
+                popup.getPopPriceType(),
+                popup.getPopPrice(),
+                popup.getPopStatus()
+        );
+
+        Map<String, Object> metadata = Map.of(
+                "type", "popup",
+                "popupId", popup.getPopId(),
+                "status", popup.getPopStatus().name(),
+                "priceType", popup.getPopPriceType().name()
+        );
+
+        aiChatDocumentService.save(content, metadata);
+    }
+    */
 }

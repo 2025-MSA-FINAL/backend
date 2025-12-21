@@ -68,4 +68,24 @@ public class UserReservationController {
         );
         return ResponseEntity.ok(hold);
     }
+
+    @Operation(summary = "예약 취소 (payment=CANCELLED, ur_status=false, Redis 재고 원복)")
+    @DeleteMapping("/reservations/{reservationId}")
+    public ResponseEntity<Map<String, Object>> cancelReservation(
+            @PathVariable Long reservationId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new CustomException(AuthErrorCode.NO_AUTH_TOKEN);
+        }
+
+        Long userId = Long.parseLong(userDetails.getUsername());
+
+        userReservationService.cancelReservation(reservationId, userId);
+
+        return ResponseEntity.ok(Map.of(
+                "reservationId", reservationId,
+                "cancelled", true
+        ));
+    }
 }

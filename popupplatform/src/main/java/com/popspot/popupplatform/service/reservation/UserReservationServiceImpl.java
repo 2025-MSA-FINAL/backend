@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -21,6 +22,12 @@ public class UserReservationServiceImpl implements UserReservationService {
     private final StringRedisTemplate stringRedisTemplate;
     private final ReservationPaymentMapper reservationPaymentMapper;
     private final PopupMapper popupMapper;
+
+    // ✅ 순환참조 원인 제거: PortOnePaymentService 주입 제거
+    // private final PortOnePaymentService portOnePaymentService;
+
+    // ✅ PortOne HTTP 호출은 PortOneApiClient로 직접
+    private final PortOneApiClient portOneApiClient;
 
     // ✅ 추가: USER_RESERVATION insert용 mapper
     private final UserReservationMapper userReservationMapper;
@@ -61,7 +68,7 @@ public class UserReservationServiceImpl implements UserReservationService {
             );
 
     @Override
-    public Long createReservationConfirmed(Long popupId, Long slotId, LocalDate date, int people,Long userId) {
+    public Long createReservationConfirmed(Long popupId, Long slotId, LocalDate date, int people, Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
         }
@@ -95,7 +102,6 @@ public class UserReservationServiceImpl implements UserReservationService {
             r.setUrDateTime(urDateTime);
 
             r.setUrUserCnt(people);
-
             r.setUrStatus(true);
 
             userReservationMapper.insert(r);
@@ -113,7 +119,8 @@ public class UserReservationServiceImpl implements UserReservationService {
      * ✅ 결제 연동 확정 전용:
      * HOLD에서 이미 재고가 차감된 상태이므로 Redis 차감 없이 DB insert만 수행.
      */
-    public Long createReservationConfirmedFromHold(Long popupId, Long slotId, LocalDate date, int people,Long userId) {
+    @Override
+    public Long createReservationConfirmedFromHold(Long popupId, Long slotId, LocalDate date, int people, Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
         }
@@ -138,7 +145,7 @@ public class UserReservationServiceImpl implements UserReservationService {
     }
 
     @Override
-    public Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people,Long userId) {
+    public Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people, Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
         }
@@ -220,6 +227,49 @@ public class UserReservationServiceImpl implements UserReservationService {
         resp.put("ttlSeconds", HOLD_TTL.getSeconds());
 
         return resp;
+    }
+
+    @Transactional
+    @Override
+    public void cancelReservation(Long reservationId, Long userId) {
+        if (reservationId == null) throw new IllegalArgumentException("reservationId is required");
+
+        // 1) 예약 조회
+        UserReservation r = userReservationMapper.selectById(reservationId);
+        if (r == null) throw new IllegalStateException("RESERVATION_NOT_FOUND");
+
+        // 2) 본인 예약인지 체크
+        if (!Objects.equals(r.getUserId(), userId)) {
+            throw new IllegalStateException("FORBIDDEN");
+        }
+
+        // 3) 멱등: 이미 취소된 예약이면 그냥 종료
+        if (r.getUrStatus() == null || !r.getUrStatus()) return;
+
+        // ✅ reservationId로 PortOne paymentId 조회
+        String paymentId = reservationPaymentMapper.selectPaymentIdByReservationId(reservationId);
+        if (paymentId == null || paymentId.isBlank()) {
+            throw new IllegalStateException("PAYMENT_NOT_FOUND");
+        }
+
+        // ✅ PortOne 실제 결제 취소 호출 (순환참조 없이 PortOneApiClient 직접 사용)
+        portOneApiClient.cancelPayment(paymentId, "사용자 예약 취소");
+
+        // 4) 예약 취소(ur_status=false)
+        int updated = userReservationMapper.cancelById(reservationId);
+        if (updated == 0) return;
+
+        // 5) 결제 취소 상태로 변경 (reservation_id로 정확히 찍는다!)
+        reservationPaymentMapper.markCancelledByReservationId(reservationId);
+
+        // 6) Redis 재고 원복
+        LocalDate date = r.getUrDateTime().toLocalDate();
+        String invKey = buildInventoryKey(r.getPopId(), date, r.getPtsId());
+
+        int people = (r.getUrUserCnt() == null ? 0 : r.getUrUserCnt());
+        if (people > 0) {
+            stringRedisTemplate.opsForValue().increment(invKey, people);
+        }
     }
 
     private String buildInventoryKey(Long popupId, LocalDate date, Long slotId) {

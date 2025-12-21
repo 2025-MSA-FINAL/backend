@@ -29,15 +29,24 @@
 
     <select id="getChatRoomStats" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomStatsDTO">
         SELECT
+        -- 1. 전체 채팅방 수 (기존 쿼리 그대로)
         COALESCE(COUNT(*), 0) AS totalChatRooms,
+
+        -- 2. 활성 채팅방 수 (삭제 안 된)
         COALESCE(SUM(CASE WHEN gcr_is_deleted = FALSE THEN 1 ELSE 0 END), 0) AS activeChatRooms,
+
+        -- 3. 비활성 채팅방 수 (삭제 처리된 방 수)
         COALESCE(SUM(CASE WHEN gcr_is_deleted = TRUE THEN 1 ELSE 0 END), 0) AS inactiveChatRooms,
+
+        -- 4. 신고된 채팅방 수  (COALESCE)
         COALESCE((
         SELECT COUNT(DISTINCT rep_target_id)
         FROM REPORT
-        WHERE rep_type = 'chat' AND rep_status != 'rejected'
+        WHERE rep_type = 'CHAT' AND rep_status != 'rejected'
         ), 0) AS reportedChatRooms
+
         FROM GROUP_CHAT_ROOM gcr
+        -- GROUP BY 없이 전체 집계 (단일 행 결과)
     </select>
 
     <select id="getChatRoomList" resultType="com.popspot.popupplatform.dto.admin.AdminChatRoomDTO">
@@ -52,8 +61,8 @@
         (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
         gcr.gcr_max_user_cnt AS maxParticipants,
         (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
-        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
-        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
+        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
+        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
         gcr.gcr_is_deleted AS chatIsDeleted,
         DATE_FORMAT(gcr.created_at, '%Y-%m-%d') AS createdAt
         FROM GROUP_CHAT_ROOM gcr
@@ -66,7 +75,7 @@
         ORDER BY
         <choose>
             <when test='sort != null and sort.equals("reportCount")'>
-                (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
+                (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
             </when>
             <when test='sort != null and sort.equals("participantCount")'>
                 (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) DESC, gcr.created_at DESC
@@ -106,8 +115,8 @@
         (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) AS participantCount,
         gcr.gcr_max_user_cnt AS maxParticipants,
         (SELECT COUNT(*) FROM CHAT_MESSAGE cm WHERE cm.cm_room_id = gcr.gcr_id AND cm.cm_is_deleted = FALSE) AS messageCount,
-        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
-        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
+        (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id) AS reportCount,
+        (SELECT COUNT(*) > 0 FROM REPORT r WHERE r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id AND r.rep_status != 'rejected') AS hasReports,
         gcr.gcr_is_deleted AS chatIsDeleted,
         DATE_FORMAT(gcr.created_at, '%Y-%m-%d') AS createdAt
         FROM GROUP_CHAT_ROOM gcr
@@ -121,7 +130,7 @@
         ORDER BY
         <choose>
             <when test='sort != null and sort.equals("reportCount")'>
-                (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
+                (SELECT COUNT(*) FROM REPORT r WHERE r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id) DESC, gcr.created_at DESC
             </when>
             <when test='sort != null and sort.equals("participantCount")'>
                 (SELECT COUNT(*) FROM CHAT_PARTICIPANT cp WHERE cp.gcr_id = gcr.gcr_id) DESC, gcr.created_at DESC
@@ -213,7 +222,7 @@
         FROM REPORT r
         JOIN USER ur ON r.rep_reporter_id = ur.user_id
         JOIN USER ut ON r.rep_target_user_id = ut.user_id
-        WHERE r.rep_type = 'chat'
+        WHERE r.rep_type = 'CHAT'
         AND r.rep_target_id = #{chatId}
         ORDER BY r.created_at DESC
     </select>

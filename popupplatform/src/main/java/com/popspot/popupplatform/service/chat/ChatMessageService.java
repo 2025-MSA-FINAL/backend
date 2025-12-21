@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.service.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.popspot.popupplatform.dto.chat.enums.AiAnswerMode;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageImageRow;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
@@ -8,6 +9,8 @@ import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
+import com.popspot.popupplatform.service.chat.ai.AiChatService;
+import com.popspot.popupplatform.service.chat.ai.ChatAiRagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ public class ChatMessageService {
     private final AiChatService aiChatService;
     private final RedisPublisher redisPublisher;
     private final ObjectMapper objectMapper;
+    private final ChatAiRagService chatAiRagService;
 
     // ===============================
     // 🔥 일반 메시지 저장 → Redis publish
@@ -113,12 +117,35 @@ public class ChatMessageService {
                         chatMessageMapper.getMessageById("PRIVATE", aiImageMsg.getCmId());
 
                 saved.setClientMessageKey(aiImageMsg.getClientMessageKey());
+                saved.setAiMode(null);
                 publishMessage(saved);
                 return;
             }
 
-            String aiReply = aiChatService.getAiReply(userMsg.getContent());
+            AiAnswerMode mode =
+                    userMsg.getAiMode() != null
+                            ? AiAnswerMode.valueOf(userMsg.getAiMode())
+                            : AiAnswerMode.RAG; // 기본값
 
+            String aiReply;
+
+            if (mode == AiAnswerMode.PURE_LLM) {
+                aiReply = aiChatService.getPureLlmReply(userMsg.getContent());
+
+            } else if (mode == AiAnswerMode.RAG) {
+                String context = chatAiRagService.buildContext(userMsg.getContent());
+
+                if (context == null || context.isBlank()) {
+                    aiReply = aiChatService.needConfirmResponse();
+                    mode = AiAnswerMode.NEED_CONFIRM;
+                } else {
+                    aiReply =
+                            aiChatService.getAiReplyWithContext(userMsg.getContent(), context);
+                }
+
+            } else {
+                aiReply = aiChatService.needConfirmResponse();
+            }
         // 타이핑 시간 보장
         try {
             Thread.sleep(Math.min(1500, aiReply.length() * 30L));
@@ -131,8 +158,9 @@ public class ChatMessageService {
         aiMessage.setMessageType("TEXT");
         aiMessage.setContent(aiReply);
         aiMessage.setClientMessageKey(UUID.randomUUID().toString());
+        aiMessage.setAiMode(mode.name());
 
-            // DB 저장
+        // DB 저장
         chatMessageMapper.insertMessage(aiMessage);
 
         // 저장된 AI 메시지 조회
@@ -140,9 +168,24 @@ public class ChatMessageService {
                 chatMessageMapper.getMessageById("PRIVATE", aiMessage.getCmId());
 
         saved.setClientMessageKey(aiMessage.getClientMessageKey());
-        // Redis publish AI 메시지 publish
+        saved.setAiMode(mode.name());
+
+        if (mode == AiAnswerMode.NEED_CONFIRM) {
+            Map<String, Object> parsed =
+                    objectMapper.readValue(
+                            aiReply,
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+                    );
+            saved.setAiMode("NEED_CONFIRM");
+            saved.setNeedConfirm(parsed);
+            saved.setContent(null); // 선택
+        }
+
+
+            // Redis publish AI 메시지 publish
         publishMessage(saved);
-    } catch (Exception e) {
+
+        } catch (Exception e) {
         e.printStackTrace();
     } finally { // AI 타이핑 종료
             publishTyping(
@@ -256,6 +299,18 @@ public class ChatMessageService {
             if ("GROUP".equals(roomType)) {
                 msg.setTotalUserCount(totalUserCount);
             }
+
+            if (msg.getSenderId() != null && msg.getSenderId().equals(20251212L)) {
+                if (msg.getAiMode() == null) {
+                    if (msg.getContent() != null &&
+                            msg.getContent().contains("\"type\": \"NEED_CONFIRM\"")) {
+                        msg.setAiMode("NEED_CONFIRM");
+                    } else {
+                        msg.setAiMode("RAG");
+                    }
+                }
+            }
+
         }
 
         return messages;

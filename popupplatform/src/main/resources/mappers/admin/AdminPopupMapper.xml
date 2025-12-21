@@ -337,4 +337,35 @@
 
 
 
+
+    <!--AI / 도메인용 팝업스토어 상세 조회-->
+    <!--
+    <select id="findPopupEntityById"
+            parameterType="long"
+            resultType="com.popspot.popupplatform.domain.popup.PopupStore">
+        SELECT
+        pop_id              AS popId,
+        pop_owner_id        AS popOwnerId,
+        pop_name            AS popName,
+        pop_description     AS popDescription,
+        pop_thumbnail       AS popThumbnail,
+        pop_location        AS popLocation,
+        pop_latitude        AS popLatitude,
+        pop_longitude       AS popLongitude,
+        pop_start_date      AS popStartDate,
+        pop_end_date        AS popEndDate,
+        pop_is_reservation  AS popIsReservation,
+        pop_price_type      AS popPriceType,
+        pop_price           AS popPrice,
+        pop_status          AS popStatus,
+        pop_insta_url       AS popInstaUrl,
+        pop_moderation_status AS popModerationStatus,
+        pop_is_deleted      AS popIsDeleted,
+        pop_view_count      AS popViewCount,
+        pop_ai_summary      AS popAiSummary
+        FROM POPUPSTORE
+        WHERE pop_id = #{popId}
+        AND pop_is_deleted = FALSE
+    </select>
+    -->
 </mapper>

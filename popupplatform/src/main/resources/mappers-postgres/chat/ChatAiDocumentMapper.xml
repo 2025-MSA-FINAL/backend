@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.postgres.ChatAiDocumentMapper"><!-- INSERT -->
+    <insert id="insertDocument">
+        INSERT INTO chat_ai_documents
+        (content, embedding, metadata)
+        VALUES
+        (
+        #{content},
+        #{embedding},
+        CAST(#{metadata, jdbcType=OTHER} AS jsonb)
+        )
+    </insert>
+    <!-- 유사도 검색 (Cosine) -->
+    <select id="searchSimilar"
+            resultType="com.popspot.popupplatform.dto.chat.ChatAiDocument">
+        <![CDATA[
+            SELECT
+                id,
+                content,
+                metadata,
+                created_at AS createdAt
+            FROM chat_ai_documents
+            WHERE metadata->>'type' = #{type}
+            ORDER BY embedding <-> (#{embedding}::vector)
+            LIMIT #{limit}
+            ]]>
+    </select>
+    <!--AI 문서 중복 생성 방지-->
+    <delete id="deleteByPopupId">
+        DELETE FROM chat_ai_documents
+        WHERE metadata->>'type' = 'popup'
+        AND (metadata->>'popupId')::bigint = #{popupId}
+    </delete>
+</mapper>

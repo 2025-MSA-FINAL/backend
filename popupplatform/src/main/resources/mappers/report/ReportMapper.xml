@@ -17,8 +17,8 @@
                 </when>
                 <when test='searchType != null and searchType.equals("targetName")'>
                     (
-                    (r.rep_type = 'user' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
-                    OR (r.rep_type = 'chat' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
+                    (r.rep_type = 'USER' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'CHAT' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
                     )
                 </when>
                 <when test='searchType != null and searchType.equals("categoryName")'>
@@ -28,9 +28,9 @@
                     rc.rc_name LIKE CONCAT('%', #{keyword}, '%')
                     OR u.user_name LIKE CONCAT('%', #{keyword}, '%')
                     OR u.user_nickname LIKE CONCAT('%', #{keyword}, '%')
-                    OR (r.rep_type = 'user' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
-                    OR (r.rep_type = 'user' AND target_u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
-                    OR (r.rep_type = 'chat' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'USER' AND target_u.user_name LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'USER' AND target_u.user_nickname LIKE CONCAT('%', #{keyword}, '%'))
+                    OR (r.rep_type = 'CHAT' AND gcr.gcr_title LIKE CONCAT('%', #{keyword}, '%'))
                 </otherwise>
             </choose>
             )
@@ -78,19 +78,19 @@
         DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
         r.rep_status,
         CASE
-        WHEN r.rep_type = 'user' THEN IFNULL(target_u.user_name, '알 수 없음')
-        WHEN r.rep_type = 'chat' THEN IFNULL(gcr.gcr_title, '알 수 없음')
+        WHEN r.rep_type = 'USER' THEN IFNULL(target_u.user_name, '알 수 없음')
+        WHEN r.rep_type = 'CHAT' THEN IFNULL(gcr.gcr_title, '알 수 없음')
         ELSE NULL
         END AS target_name,
         CASE
-        WHEN r.rep_type = 'user' THEN target_u.user_nickname
+        WHEN r.rep_type = 'USER' THEN target_u.user_nickname
         ELSE NULL
         END AS target_nickname
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         ORDER BY r.created_at DESC
     </select>
 
@@ -165,19 +165,19 @@
         DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
         r.rep_status,
         CASE
-        WHEN r.rep_type = 'user' THEN IFNULL(target_u.user_name, '알 수 없음')
-        WHEN r.rep_type = 'chat' THEN IFNULL(gcr.gcr_title, '알 수 없음')
+        WHEN r.rep_type = 'USER' THEN IFNULL(target_u.user_name, '알 수 없음')
+        WHEN r.rep_type = 'CHAT' THEN IFNULL(gcr.gcr_title, '알 수 없음')
         ELSE NULL
         END AS target_name,
         CASE
-        WHEN r.rep_type = 'user' THEN target_u.user_nickname
+        WHEN r.rep_type = 'USER' THEN target_u.user_nickname
         ELSE NULL
         END AS target_nickname
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <if test="categoryId != null">
                 r.rc_id = #{categoryId}
@@ -224,19 +224,19 @@
         DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
         r.rep_status,
         CASE
-        WHEN r.rep_type = 'user' THEN IFNULL(target_u.user_name, '알 수 없음')
-        WHEN r.rep_type = 'chat' THEN IFNULL(gcr.gcr_title, '알 수 없음')
+        WHEN r.rep_type = 'USER' THEN IFNULL(target_u.user_name, '알 수 없음')
+        WHEN r.rep_type = 'CHAT' THEN IFNULL(gcr.gcr_title, '알 수 없음')
         ELSE NULL
         END AS target_name,
         CASE
-        WHEN r.rep_type = 'user' THEN target_u.user_nickname
+        WHEN r.rep_type = 'USER' THEN target_u.user_nickname
         ELSE NULL
         END AS target_nickname
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <choose>
                 <when test='status != null and status.equals("approved")'>
@@ -299,19 +299,19 @@
         DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
         r.rep_status,
         CASE
-        WHEN r.rep_type = 'user' THEN IFNULL(target_u.user_name, '알 수 없음')
-        WHEN r.rep_type = 'chat' THEN IFNULL(gcr.gcr_title, '알 수 없음')
+        WHEN r.rep_type = 'USER' THEN IFNULL(target_u.user_name, '알 수 없음')
+        WHEN r.rep_type = 'CHAT' THEN IFNULL(gcr.gcr_title, '알 수 없음')
         ELSE NULL
         END AS target_name,
         CASE
-        WHEN r.rep_type = 'user' THEN target_u.user_nickname
+        WHEN r.rep_type = 'USER' THEN target_u.user_nickname
         ELSE NULL
         END AS target_nickname
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <if test="status != null and status != ''">
                 <choose>
@@ -351,8 +351,8 @@
         FROM REPORT r
         INNER JOIN REPORT_CATEGORY rc ON r.rc_id = rc.rc_id
         INNER JOIN USER u ON r.user_id = u.user_id
-        LEFT JOIN USER target_u ON r.rep_type = 'user' AND r.rep_target_id = target_u.user_id
-        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'chat' AND r.rep_target_id = gcr.gcr_id
+        LEFT JOIN USER target_u ON r.rep_type = 'USER' AND r.rep_target_id = target_u.user_id
+        LEFT JOIN GROUP_CHAT_ROOM gcr ON r.rep_type = 'CHAT' AND r.rep_target_id = gcr.gcr_id
         <where>
             <if test="status != null and status != ''">
                 <choose>
@@ -370,5 +370,48 @@
             <include refid="searchCondition"/>
         </where>
     </select>
-
+    <!--신고생성-->
+    <insert id="insertReport"
+            parameterType="com.popspot.popupplatform.dto.chat.request.ChatReportRequest"
+            useGeneratedKeys="true"
+            keyProperty="repId">
+        INSERT INTO REPORT (
+        rep_type,
+        rep_target_id,
+        rc_id,
+        user_id,
+        rep_status,
+        created_at
+        ) VALUES (
+        #{reportType},
+        #{targetId},
+        #{categoryId},
+        #{userId},
+        'pending',
+        CURRENT_TIMESTAMP
+        )
+    </insert>
+    <!--신고이미지생성-->
+    <insert id="insertReportImage">
+        INSERT INTO REPORT_IMAGE (
+        rep_id,
+        ri_url,
+        created_at
+        ) VALUES (
+        #{repId},
+        #{imageUrl},
+        CURRENT_TIMESTAMP
+        )
+    </insert>
+    <!--중복 신고 여부 확인(신고상태대기일경우에만.. 완료일경우는 재신고 가능)-->
+    <select id="existsPendingReport" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM REPORT
+        WHERE user_id = #{userId}
+        AND rep_type = #{reportType}
+        AND rep_target_id = #{targetId}
+        AND rep_status = 'pending'
+        )
+    </select>
 </mapper>
