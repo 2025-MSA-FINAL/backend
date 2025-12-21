@@ -1,5 +1,6 @@
 package com.popspot.popupplatform.mapper.admin;
 
+import com.popspot.popupplatform.domain.popup.PopupStore;
 import com.popspot.popupplatform.dto.admin.PopupStoreListDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 import org.apache.ibatis.annotations.Mapper;
@@ -38,6 +39,10 @@ public interface AdminPopupMapper {
      * 팝업스토어 상세 조회
      */
     PopupStoreListDTO findPopupById(@Param("popId") Long popId);
+
+
+    // AI / 도메인용 팝업스토어 상세 조회
+    PopupStore findPopupEntityById(@Param("popId") Long popId);
 
     /**
      * 승인/반려 상태 변경

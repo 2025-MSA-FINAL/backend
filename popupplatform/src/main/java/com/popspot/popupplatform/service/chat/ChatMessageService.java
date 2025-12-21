@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.service.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.popspot.popupplatform.dto.chat.enums.AiAnswerMode;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageImageRow;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
@@ -8,6 +9,8 @@ import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
+import com.popspot.popupplatform.service.chat.ai.AiChatService;
+import com.popspot.popupplatform.service.chat.ai.ChatAiRagService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,7 @@ public class ChatMessageService {
     private final AiChatService aiChatService;
     private final RedisPublisher redisPublisher;
     private final ObjectMapper objectMapper;
+    private final ChatAiRagService chatAiRagService;
 
     // ===============================
     // 🔥 일반 메시지 저장 → Redis publish
@@ -117,8 +121,20 @@ public class ChatMessageService {
                 return;
             }
 
-            String aiReply = aiChatService.getAiReply(userMsg.getContent());
+            String context = chatAiRagService.buildContext(userMsg.getContent());
+            AiAnswerMode mode =
+                    userMsg.getAiMode() != null
+                            ? AiAnswerMode.valueOf(userMsg.getAiMode())
+                            : aiChatService.decideAnswerMode(userMsg.getContent(), context);
 
+            String aiReply = switch (mode) {
+                case RAG ->
+                        aiChatService.getAiReplyWithContext(userMsg.getContent(), context);
+                case NEED_CONFIRM ->
+                        aiChatService.needConfirmResponse();
+                default ->
+                        aiChatService.getPureLlmReply(userMsg.getContent());
+            };
         // 타이핑 시간 보장
         try {
             Thread.sleep(Math.min(1500, aiReply.length() * 30L));
@@ -140,7 +156,8 @@ public class ChatMessageService {
                 chatMessageMapper.getMessageById("PRIVATE", aiMessage.getCmId());
 
         saved.setClientMessageKey(aiMessage.getClientMessageKey());
-        // Redis publish AI 메시지 publish
+        saved.setAiMode(mode.name());
+            // Redis publish AI 메시지 publish
         publishMessage(saved);
     } catch (Exception e) {
         e.printStackTrace();
@@ -256,6 +273,18 @@ public class ChatMessageService {
             if ("GROUP".equals(roomType)) {
                 msg.setTotalUserCount(totalUserCount);
             }
+
+            if (msg.getSenderId() != null && msg.getSenderId().equals(20251212L)) {
+                // POPBOT 메시지
+                if (msg.getContent() != null &&
+                        msg.getContent().contains("\"type\": \"NEED_CONFIRM\"")) {
+                    msg.setAiMode("NEED_CONFIRM");
+                } else {
+                    // 기본은 RAG로 간주
+                    msg.setAiMode("RAG");
+                }
+            }
+
         }
 
         return messages;

@@ -24,6 +24,7 @@ public class ChatMessageResponse {
 
     private String content;
     private String messageType;
+    private String aiMode; // RAG | PURE_LLM | NEED_CONFIRM (AI 메시지일 때만)
 
     private List<String> imageUrls;
     private LocalDateTime createdAt;

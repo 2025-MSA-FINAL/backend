@@ -19,4 +19,10 @@
         WHERE pcr_id = #{pcrId}
         AND user_id = #{userId}
     </select>
+    <select id="exists" resultType="long">
+        SELECT COUNT(*)
+        FROM PRIVATE_CHAT_PARTICIPANT
+        WHERE pcr_id = #{pcrId}
+        AND user_id = #{userId}
+    </select>
 </mapper>

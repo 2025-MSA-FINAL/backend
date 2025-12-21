@@ -106,4 +106,13 @@ public class PrivateChatRoomService {
         PrivateChatRoomDelete deleteRecord = privateChatRoomDeleteMapper.findDeleteRecord(pcrId, userId);
         return deleteRecord != null ? deleteRecord.getLastDeletedAt() : null;
     }
+    //참여자 확인 검증
+    public void validateParticipant(Long pcrId, Long userId) {
+        Integer exists =
+                privateChatParticipantMapper.exists(pcrId, userId);
+
+        if (exists == null || exists == 0) {
+            throw new CustomException(ChatErrorCode.NOT_JOINED_ROOM);
+        }
+    }
 }
