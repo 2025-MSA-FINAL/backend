@@ -19,6 +19,7 @@ public class MainPageServiceImpl implements MainPageService {
                 .hero(mainPopupMapper.selectTopViewedPopups(7))
                 .latest(mainPopupMapper.selectLatestPopups(limit))
                 .endingSoon(mainPopupMapper.selectEndingSoonPopups(limit))
+                .openingSoon(mainPopupMapper.selectOpeningSoonPopups(limit))
                 .build();
     }
 

@@ -11,4 +11,5 @@ public class MainPageResponse {
     private List<MainPopupCardDto> hero;
     private List<MainPopupCardDto> latest;
     private List<MainPopupCardDto> endingSoon;
+    private List<MainPopupCardDto> openingSoon;
 }
