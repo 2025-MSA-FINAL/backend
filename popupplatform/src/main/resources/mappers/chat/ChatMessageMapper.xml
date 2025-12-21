@@ -18,6 +18,7 @@
         <result column="messageType" property="messageType"/>
 
         <result column="createdAt" property="createdAt"/>
+        <result column="ai_mode" property="aiMode"/>
     </resultMap>
 
 
@@ -27,9 +28,9 @@
             keyProperty="cmId"
             keyColumn="cm_id">
         INSERT INTO CHAT_MESSAGE
-        (cm_type, cm_room_type, cm_room_id, cm_content, user_id, cm_is_deleted)
+        (cm_type, cm_room_type, cm_room_id, cm_content, user_id, cm_is_deleted, ai_mode)
         VALUES
-        (#{messageType}, #{roomType}, #{roomId}, #{content}, #{senderId}, FALSE);
+        (#{messageType}, #{roomType}, #{roomId}, #{content}, #{senderId}, FALSE, #{aiMode});
     </insert>
 
     <!-- 방 메시지 리스트 -->
@@ -41,6 +42,7 @@
         cm.cm_type AS messageType,
         cm.cm_room_type AS roomType,
         cm.cm_content AS content,
+        cm.ai_mode AS ai_mode,
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
@@ -70,6 +72,7 @@
         cm.cm_room_type AS roomType,
         cm.cm_type AS messageType,
         cm.cm_content AS content,
+        cm.ai_mode AS ai_mode,
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
@@ -92,6 +95,7 @@
         cm.cm_room_type AS roomType,
         cm.cm_type AS messageType,
         cm.cm_content AS content,
+        cm.ai_mode AS ai_mode,
         cm.user_id AS senderId,
         u.user_nickname AS senderNickname,
         u.user_photo AS senderProfileUrl,
