@@ -20,4 +20,9 @@ public interface PrivateChatParticipantMapper {
             @Param("pcrId") Long pcrId,
             @Param("userId") Long userId
     );
+
+    Integer exists(
+            @Param("pcrId") Long pcrId,
+            @Param("userId") Long userId
+    );
 }

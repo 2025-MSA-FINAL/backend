@@ -14,6 +14,7 @@ import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.service.chat.ChatMessageService;
 import com.popspot.popupplatform.service.chat.ChatReadService;
 import com.popspot.popupplatform.service.chat.PrivateChatRoomService;
+import com.popspot.popupplatform.service.chat.ai.AiChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,7 +36,7 @@ public class ChatMessageQueryController {
     private final ChatParticipantMapper participantMapper;
     private final PrivateChatRoomService privateChatRoomService;
     private final ObjectStorageService objectStorageService;
-
+    private final AiChatService aiChatService;
     /**
      * 채팅 메시지 불러오기 API
      * 예)
@@ -143,11 +144,37 @@ public class ChatMessageQueryController {
 
             // 저장 + Redis publish
             ChatMessageResponse saved = chatMessageService.saveMessage(req);
-
+            saved.setAiMode("PURE_LLM");
             return ResponseEntity.ok(saved);
 
         } catch (Exception e) {
             throw new RuntimeException("이미지 메시지 업로드 실패", e);
         }
+    }
+
+    @PostMapping("/pure-llm")
+    public ResponseEntity<ChatMessageResponse> pureLlmReply(
+            @RequestBody ChatMessageRequest req,
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        Long userId = user.getUserId();
+
+        //  PRIVATE 방 참여자 검증
+        privateChatRoomService.validateParticipant(
+                req.getRoomId(), userId);
+
+        String reply =
+                aiChatService.getPureLlmReply(req.getContent());
+
+        req.setSenderId(20251212L);
+        req.setMessageType("TEXT");
+        req.setContent(reply);
+
+        ChatMessageResponse saved =
+                chatMessageService.saveMessage(req);
+
+        saved.setAiMode("PURE_LLM");
+
+        return ResponseEntity.ok(saved);
     }
 }
