@@ -117,24 +117,35 @@ public class ChatMessageService {
                         chatMessageMapper.getMessageById("PRIVATE", aiImageMsg.getCmId());
 
                 saved.setClientMessageKey(aiImageMsg.getClientMessageKey());
+                saved.setAiMode(null);
                 publishMessage(saved);
                 return;
             }
 
-            String context = chatAiRagService.buildContext(userMsg.getContent());
             AiAnswerMode mode =
                     userMsg.getAiMode() != null
                             ? AiAnswerMode.valueOf(userMsg.getAiMode())
-                            : aiChatService.decideAnswerMode(userMsg.getContent(), context);
+                            : AiAnswerMode.RAG; // 기본값
 
-            String aiReply = switch (mode) {
-                case RAG ->
-                        aiChatService.getAiReplyWithContext(userMsg.getContent(), context);
-                case NEED_CONFIRM ->
-                        aiChatService.needConfirmResponse();
-                default ->
-                        aiChatService.getPureLlmReply(userMsg.getContent());
-            };
+            String aiReply;
+
+            if (mode == AiAnswerMode.PURE_LLM) {
+                aiReply = aiChatService.getPureLlmReply(userMsg.getContent());
+
+            } else if (mode == AiAnswerMode.RAG) {
+                String context = chatAiRagService.buildContext(userMsg.getContent());
+
+                if (context == null || context.isBlank()) {
+                    aiReply = aiChatService.needConfirmResponse();
+                    mode = AiAnswerMode.NEED_CONFIRM;
+                } else {
+                    aiReply =
+                            aiChatService.getAiReplyWithContext(userMsg.getContent(), context);
+                }
+
+            } else {
+                aiReply = aiChatService.needConfirmResponse();
+            }
         // 타이핑 시간 보장
         try {
             Thread.sleep(Math.min(1500, aiReply.length() * 30L));
@@ -147,8 +158,9 @@ public class ChatMessageService {
         aiMessage.setMessageType("TEXT");
         aiMessage.setContent(aiReply);
         aiMessage.setClientMessageKey(UUID.randomUUID().toString());
+        aiMessage.setAiMode(mode.name());
 
-            // DB 저장
+        // DB 저장
         chatMessageMapper.insertMessage(aiMessage);
 
         // 저장된 AI 메시지 조회
@@ -157,9 +169,23 @@ public class ChatMessageService {
 
         saved.setClientMessageKey(aiMessage.getClientMessageKey());
         saved.setAiMode(mode.name());
+
+        if (mode == AiAnswerMode.NEED_CONFIRM) {
+            Map<String, Object> parsed =
+                    objectMapper.readValue(
+                            aiReply,
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+                    );
+            saved.setAiMode("NEED_CONFIRM");
+            saved.setNeedConfirm(parsed);
+            saved.setContent(null); // 선택
+        }
+
+
             // Redis publish AI 메시지 publish
         publishMessage(saved);
-    } catch (Exception e) {
+
+        } catch (Exception e) {
         e.printStackTrace();
     } finally { // AI 타이핑 종료
             publishTyping(
@@ -275,13 +301,13 @@ public class ChatMessageService {
             }
 
             if (msg.getSenderId() != null && msg.getSenderId().equals(20251212L)) {
-                // POPBOT 메시지
-                if (msg.getContent() != null &&
-                        msg.getContent().contains("\"type\": \"NEED_CONFIRM\"")) {
-                    msg.setAiMode("NEED_CONFIRM");
-                } else {
-                    // 기본은 RAG로 간주
-                    msg.setAiMode("RAG");
+                if (msg.getAiMode() == null) {
+                    if (msg.getContent() != null &&
+                            msg.getContent().contains("\"type\": \"NEED_CONFIRM\"")) {
+                        msg.setAiMode("NEED_CONFIRM");
+                    } else {
+                        msg.setAiMode("RAG");
+                    }
                 }
             }
 
