@@ -17,21 +17,33 @@ public interface AdminPopupMapper {
      * @param keyword 검색어 (optional)
      * @param status 팝업 상태 (optional)
      * @param moderation 승인 상태 (optional)
+     * @param deletedFilter  삭제 필터 (active/deleted/all)
      */
     List<PopupStoreListDTO> findPopupList(
             @Param("pageRequest") PageRequestDTO pageRequest,
             @Param("keyword") String keyword,
             @Param("status") String status,
-            @Param("moderation") String moderation
+            @Param("moderation") String moderation,
+            @Param("deletedFilter") String deletedFilter
     );
 
     /**
      * 팝업스토어 총 개수 (통합 검색/필터)
+     * @param deletedFilter  삭제 필터 추가
      */
     long countPopupList(
             @Param("keyword") String keyword,
             @Param("status") String status,
-            @Param("moderation") String moderation
+            @Param("moderation") String moderation,
+            @Param("deletedFilter") String deletedFilter
+    );
+    
+    /** 팝업 승인상태 변경이력 **/
+    int insertPopupModeration(
+            @Param("popId") Long popId,
+            @Param("adminId") Long adminId,
+            @Param("status") String status,
+            @Param("comment") String comment
     );
 
     /**
@@ -40,12 +52,14 @@ public interface AdminPopupMapper {
     PopupStoreListDTO findPopupById(@Param("popId") Long popId);
 
     /**
-     * 승인/반려 상태 변경
+     *  승인/반려/대기 상태 변경 (자유롭게 변경 가능)
+     * @param popId 팝업 ID
+     * @param status null=대기, true=승인, false=거절
      */
     int updateModerationStatus(@Param("popId") Long popId, @Param("status") Boolean status);
 
     /**
-     * 팝업스토어 상태 변경
+     * 팝업스토어 상태 변경 (UPCOMING/ONGOING/ENDED)
      */
     int updatePopupStatus(@Param("popId") Long popId, @Param("status") String status);
 
@@ -54,11 +68,13 @@ public interface AdminPopupMapper {
      */
     int deletePopup(@Param("popId") Long popId);
 
+    /**
+     *  팝업스토어 복구 (삭제 취소)
+     */
+    int restorePopup(@Param("popId") Long popId);
 
     /**
      * 전체 통계 조회 (필터 무관)
      */
     Map<String, Object> getPopupStats();
-
-
 }
