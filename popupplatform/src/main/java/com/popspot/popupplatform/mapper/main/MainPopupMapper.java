@@ -12,4 +12,5 @@ public interface MainPopupMapper {
     List<MainPopupCardDto> selectLatestPopups(@Param("limit") int limit);
     List<MainPopupCardDto> selectEndingSoonPopups(@Param("limit") int limit);
     List<MainPopupCardDto> selectTopViewedPopups(@Param("limit") int limit);
+    List<MainPopupCardDto> selectOpeningSoonPopups(@Param("limit") int limit);
 }
