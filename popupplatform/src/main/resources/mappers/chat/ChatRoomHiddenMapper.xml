@@ -33,4 +33,19 @@
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     </insert>
+    <select id="findAllHiddenByUser"
+            resultType="com.popspot.popupplatform.domain.chat.ChatRoomHidden">
+        SELECT
+        crh_id AS crhId,
+        crh_type AS crhType,
+        crh_room_id AS crhRoomId,
+        user_id AS userId,
+        crh_is_hidden AS crhIsHidden,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+        FROM CHAT_ROOM_HIDDEN
+        WHERE user_id = #{userId}
+        AND crh_is_hidden = TRUE
+        ORDER BY created_at DESC
+    </select>
 </mapper>

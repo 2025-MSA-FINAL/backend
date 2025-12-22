@@ -8,16 +8,21 @@
     <select id="countTotalUsers" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE user_status != 'deleted'
+        AND user_role != 'ADMIN'
     </select>
 
     <select id="countNewUsersToday" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE DATE(created_at) = CURDATE()
+        AND user_status != 'deleted'
+        AND user_role != 'ADMIN'
     </select>
 
     <select id="countNewUsersThisWeek" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
+        AND user_status != 'deleted'
+        AND user_role != 'ADMIN'
     </select>
 
     <select id="countNewUsersThisMonth" resultType="long">
@@ -34,7 +39,7 @@
     <select id="countActivePopups" resultType="long">
         SELECT COUNT(*) FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
-        AND pop_status = 'active'
+        AND pop_status = 'ONGOING'
         AND CURDATE() BETWEEN DATE(pop_start_date) AND DATE(pop_end_date)
     </select>
 
@@ -47,8 +52,13 @@
     <select id="countEndingSoonPopups" resultType="long">
         SELECT COUNT(*) FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
-        AND pop_status = 'active'
-        AND DATEDIFF(pop_end_date, CURDATE()) BETWEEN 0 AND 7
+        AND pop_status = 'ONGOING'
+        <if test="true">
+            <![CDATA[
+            AND pop_end_date >= NOW()
+            AND pop_end_date < DATE_ADD(NOW(), INTERVAL 7 DAY)
+            ]]>
+        </if>
     </select>
 
     <!-- 채팅방 통계 -->
@@ -85,6 +95,7 @@
         COUNT(*) AS userCount
         FROM USER
         WHERE user_status != 'deleted'
+        AND user_role != 'ADMIN'
         GROUP BY ageGroup, user_gender
     </select>
 
@@ -112,6 +123,23 @@
         FROM POPUP_HASHTAG ph
         JOIN HASHTAG h ON ph.hash_id = h.hash_id
         JOIN USER_WISHLIST uw ON ph.pop_id = uw.pop_id
+        JOIN USER u ON uw.user_id = u.user_id
+        <where>
+            u.user_status != 'deleted'
+            AND u.user_role != 'ADMIN'
+            <if test="gender != null and gender != 'all'">
+                AND LOWER(u.user_gender) = #{gender}
+            </if>
+            <if test="ageGroup != null and ageGroup != '전체'">
+                AND CASE
+                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 10 AND 19 THEN '10대'
+                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 20 AND 29 THEN '20대'
+                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 30 AND 39 THEN '30대'
+                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 40 AND 49 THEN '40대'
+                ELSE '50대+'
+                END = #{ageGroup}
+            </if>
+        </where>
         GROUP BY h.hash_id, h.hash_name
         ORDER BY wishlistCount DESC
         LIMIT 20
@@ -199,6 +227,7 @@
         JOIN USER u ON pv.user_id = u.user_id
         WHERE DATE(pv.pv_viewed_at) = #{date}
         AND HOUR(pv.pv_viewed_at) = #{hour}
+        AND u.user_role != 'ADMIN'
         GROUP BY u.user_gender
     </select>
 
@@ -217,6 +246,7 @@
         JOIN USER u ON pv.user_id = u.user_id
         WHERE DATE(pv.pv_viewed_at) = #{date}
         AND HOUR(pv.pv_viewed_at) = #{hour}
+        AND u.user_role != 'ADMIN'
         GROUP BY ageGroup
     </select>
 

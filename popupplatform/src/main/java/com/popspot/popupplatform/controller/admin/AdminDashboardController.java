@@ -1,8 +1,10 @@
 package com.popspot.popupplatform.controller.admin;
 
 import com.popspot.popupplatform.dto.admin.DashboardStatsDTO;
+import com.popspot.popupplatform.dto.admin.KpiStatsDTO;
 import com.popspot.popupplatform.dto.admin.PopularHashtagDTO;
 import com.popspot.popupplatform.dto.admin.ViewDetailResponseDTO;
+import com.popspot.popupplatform.service.admin.AdminDashboardKpiService;
 import com.popspot.popupplatform.service.admin.AdminDashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +17,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminDashboardController {
 
+
     private final AdminDashboardService dashboardService;
+
+    private final AdminDashboardKpiService kpiService;
+
+    /**
+     * KPI 카드용 실시간 통계 조회
+     * GET /api/admin/dashboard/kpi
+     */
+    @GetMapping("/kpi")
+    public ResponseEntity<KpiStatsDTO> getKpiStats() {
+        return ResponseEntity.ok(kpiService.getKpiStats());
+    }
+
 
     /**
      *  전체 대시보드 통계 조회 (캐싱 적용)
@@ -54,4 +69,4 @@ public class AdminDashboardController {
                 dashboardService.getViewDetail(date, hour)
         );
     }
-}
+  }

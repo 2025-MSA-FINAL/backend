@@ -1,6 +1,7 @@
 package com.popspot.popupplatform.service.admin;
 
 import com.popspot.popupplatform.dto.admin.DashboardStatsDTO;
+import com.popspot.popupplatform.dto.admin.KpiStatsDTO;
 import com.popspot.popupplatform.dto.admin.PopularHashtagDTO;
 import com.popspot.popupplatform.dto.admin.ViewDetailResponseDTO;
 

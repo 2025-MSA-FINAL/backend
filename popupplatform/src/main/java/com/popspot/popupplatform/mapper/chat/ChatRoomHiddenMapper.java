@@ -4,6 +4,8 @@ import com.popspot.popupplatform.domain.chat.ChatRoomHidden;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface ChatRoomHiddenMapper {
     //특정유저userId의 특정방chRoomId 숨김상태조회
@@ -21,4 +23,6 @@ public interface ChatRoomHiddenMapper {
     );
     //숨김상태저장
     void insertHidden (ChatRoomHidden chatHidden);
+    //채팅방 숨김 목록 조회
+    List<ChatRoomHidden> findAllHiddenByUser(@Param("userId") Long userId);
 }
