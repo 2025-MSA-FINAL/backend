@@ -40,6 +40,7 @@
         SELECT COUNT(*) FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
         AND pop_status = 'ONGOING'
+        AND pop_moderation_status = TRUE
         AND CURDATE() BETWEEN DATE(pop_start_date) AND DATE(pop_end_date)
     </select>
 
