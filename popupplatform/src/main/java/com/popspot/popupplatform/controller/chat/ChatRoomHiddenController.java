@@ -1,16 +1,17 @@
 package com.popspot.popupplatform.controller.chat;
 
 
+import com.popspot.popupplatform.domain.chat.ChatRoomHidden;
+import com.popspot.popupplatform.dto.chat.response.HiddenChatRoomResponse;
 import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.service.chat.ChatRoomHiddenService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -39,5 +40,14 @@ public class ChatRoomHiddenController {
         chatRoomHiddenService.unhideRoom(crhType, crhRoomId, user.getUserId());
         return  ResponseEntity.ok("채팅방 숨김 해제 완료");
     }
-
+    //채팅방 숨김 목록 조회
+    @GetMapping
+    @Operation(summary = "숨김 채팅방 목록 조회", description = "로그인 사용자가 숨긴 채팅방 목록을 조회합니다.")
+    public ResponseEntity<List<HiddenChatRoomResponse>> getHiddenRooms(
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        return ResponseEntity.ok(
+                chatRoomHiddenService.getHiddenRooms(user.getUserId())
+        );
+    }
 }
