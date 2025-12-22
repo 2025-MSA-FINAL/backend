@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.chat.ChatScheduledMessageMapper">
+
+    <!-- =====================================================
+         ResultMap
+    ====================================================== -->
+    <resultMap id="ChatScheduledMessageMap"
+               type="com.popspot.popupplatform.domain.chat.ChatScheduledMessage">
+        <id column="csm_id" property="csmId"/>
+        <result column="room_type" property="roomType"/>
+        <result column="room_id" property="roomId"/>
+        <result column="sender_id" property="senderId"/>
+        <result column="csm_content" property="content"/>
+        <result column="csm_type" property="csmType"/>
+        <result column="scheduled_at" property="scheduledAt"/>
+        <result column="csm_status" property="csmStatus"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <!-- =====================================================
+         INSERT: 예약 메시지 생성
+    ====================================================== -->
+    <insert id="insert"
+            parameterType="com.popspot.popupplatform.domain.chat.ChatScheduledMessage"
+            useGeneratedKeys="true"
+            keyProperty="csmId">
+        INSERT INTO CHAT_SCHEDULED_MESSAGE
+        (
+        room_type,
+        room_id,
+        sender_id,
+        csm_content,
+        csm_type,
+        scheduled_at,
+        csm_status
+        )
+        VALUES
+        (
+        #{roomType},
+        #{roomId},
+        #{senderId},
+        #{content},
+        #{csmType},
+        #{scheduledAt},
+        'PENDING'
+        )
+    </insert>
+
+    <!-- =====================================================
+         실행 대상 예약 메시지 조회 (스케줄러용)
+    ====================================================== -->
+    <select id="findExecutableMessages"
+            parameterType="java.time.LocalDateTime"
+            resultMap="ChatScheduledMessageMap">
+        SELECT *
+        FROM CHAT_SCHEDULED_MESSAGE
+        WHERE csm_status = 'PENDING'
+        AND scheduled_at &lt;= #{now}
+        FOR UPDATE SKIP LOCKED
+    </select>
+
+    <!-- =====================================================
+         예약 메시지 단건 조회
+    ====================================================== -->
+    <select id="findById"
+            parameterType="long"
+            resultMap="ChatScheduledMessageMap">
+        SELECT *
+        FROM CHAT_SCHEDULED_MESSAGE
+        WHERE csm_id = #{csmId}
+    </select>
+
+    <!-- =====================================================
+         내 예약 메시지 목록 조회
+         (PENDING / SENT / CANCELED)
+    ====================================================== -->
+    <select id="findMySchedules"
+            resultMap="ChatScheduledMessageMap">
+        SELECT *
+        FROM CHAT_SCHEDULED_MESSAGE
+        WHERE sender_id = #{senderId}
+        <if test="status != null">
+            AND csm_status = #{status}
+        </if>
+        ORDER BY scheduled_at ASC
+    </select>
+
+    <!-- =====================================================
+         예약 메시지 수정
+    ====================================================== -->
+    <update id="updateSchedule">
+        UPDATE CHAT_SCHEDULED_MESSAGE
+        <set>
+            <if test="content != null">
+                csm_content = #{content},
+            </if>
+            <if test="scheduledAt != null">
+                scheduled_at = #{scheduledAt},
+            </if>
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE csm_id = #{csmId}
+    </update>
+
+    <!-- =====================================================
+         상태 변경
+    ====================================================== -->
+    <update id="markAsSent">
+        UPDATE CHAT_SCHEDULED_MESSAGE
+        SET csm_status = 'SENT'
+        WHERE csm_id = #{csmId}
+    </update>
+
+    <update id="markAsCanceled">
+        UPDATE CHAT_SCHEDULED_MESSAGE
+        SET csm_status = 'CANCELED'
+        WHERE csm_id = #{csmId}
+    </update>
+
+</mapper>
