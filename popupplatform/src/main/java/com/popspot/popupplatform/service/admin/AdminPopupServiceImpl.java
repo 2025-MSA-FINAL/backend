@@ -3,11 +3,13 @@ package com.popspot.popupplatform.service.admin;
 import com.popspot.popupplatform.domain.admin.DeletedFilter;
 import com.popspot.popupplatform.domain.admin.PopupModerationStatus;
 //import com.popspot.popupplatform.domain.popup.PopupStore;
+import com.popspot.popupplatform.domain.popup.PopupStore;
 import com.popspot.popupplatform.dto.admin.PopupStoreListDTO;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
 import com.popspot.popupplatform.mapper.admin.AdminPopupMapper;
 //import com.popspot.popupplatform.service.chat.ai.AiChatDocumentService;
+import com.popspot.popupplatform.service.chat.ai.AiChatDocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class AdminPopupServiceImpl implements AdminPopupService {
     private final AdminPopupMapper popupMapper;
 
     // private final PopupModerationMapper moderationMapper;  // 이력 기록용 (있다면)
+    private final AiChatDocumentService aiChatDocumentService;
 
 
     private String moderationMessage(PopupModerationStatus status) {
@@ -93,11 +96,11 @@ public class AdminPopupServiceImpl implements AdminPopupService {
      * - NULL(대기), true(승인), false(거절)을 자유롭게 변경
      */
     @Override
-    //@Transactional
+    @Transactional
     public boolean updateModerationStatus(Long popId, Boolean status, String reason) {
         int updated = popupMapper.updateModerationStatus(popId, status);
 
-    /*
+
         if (updated == 0) return false;
 
         // 승인 / 반려 공통 처리
@@ -112,11 +115,6 @@ public class AdminPopupServiceImpl implements AdminPopupService {
             // 반려 → AI 문서 제거
             aiChatDocumentService.deleteByPopupId(popId);
         }
-
-        return true;
-    }
-
-     */
 
         if (updated > 0) {
             PopupModerationStatus pmStatus =
@@ -169,9 +167,8 @@ public class AdminPopupServiceImpl implements AdminPopupService {
         if (deleted > 0) {
 
             //ai 문서 삭제
-            /*
              aiChatDocumentService.deleteByPopupId(popId);
-            */
+
 
             //팝업 삭제 이력 기록
             popupMapper.insertPopupModeration(
@@ -222,7 +219,7 @@ public class AdminPopupServiceImpl implements AdminPopupService {
     /* =====================================================
     팝업 → AI 문서 변환
      ===================================================== */
-    /*
+
     private void savePopupAsAiDocument(PopupStore popup) {
 
         if (popup == null) return;
@@ -266,5 +263,5 @@ public class AdminPopupServiceImpl implements AdminPopupService {
 
         aiChatDocumentService.save(content, metadata);
     }
-    */
+
 }
