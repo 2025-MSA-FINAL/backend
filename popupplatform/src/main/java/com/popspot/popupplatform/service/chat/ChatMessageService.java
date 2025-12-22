@@ -1,12 +1,15 @@
 package com.popspot.popupplatform.service.chat;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.popspot.popupplatform.dto.admin.PopupStoreListDTO;
 import com.popspot.popupplatform.dto.chat.enums.AiAnswerMode;
 import com.popspot.popupplatform.dto.chat.request.ChatMessageRequest;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageImageRow;
 import com.popspot.popupplatform.dto.chat.response.ChatMessageResponse;
 import com.popspot.popupplatform.dto.global.UploadResultDto;
 import com.popspot.popupplatform.global.redis.RedisPublisher;
+import com.popspot.popupplatform.mapper.admin.AdminPopupMapper;
 import com.popspot.popupplatform.mapper.chat.ChatMessageMapper;
 import com.popspot.popupplatform.mapper.chat.ChatParticipantMapper;
 import com.popspot.popupplatform.service.chat.ai.AiChatService;
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 public class ChatMessageService {
     private final ChatParticipantMapper participantMapper;
     private final ChatMessageMapper chatMessageMapper;
+    private final AdminPopupMapper adminPopupMapper;
     private final PrivateChatRoomService privateChatRoomService;
     private final ChatReadService chatReadService;
     private final AiChatService aiChatService;
@@ -178,10 +182,47 @@ public class ChatMessageService {
         aiMessage.setAiMode(mode.name());
 
 
-        if (mode == AiAnswerMode.RAG_RECOMMEND && aiReply.trim().startsWith("{")) {
-            aiMessage.setMessageType("POPUP");
-            aiMessage.setContent(aiReply);
-        } else {
+            if (mode == AiAnswerMode.RAG_RECOMMEND && aiReply.trim().startsWith("{")) {
+
+                Map<String, Object> parsed =
+                        objectMapper.readValue(aiReply, new TypeReference<>() {});
+
+                List<Map<String, Object>> items =
+                        (List<Map<String, Object>>) parsed.get("items");
+
+                List<Long> popIds = items.stream()
+                        .map(i -> Long.valueOf(i.get("popId").toString()))
+                        .toList();
+
+                // 👉 팝업 상세 조회 (새 Mapper 메서드 필요)
+                List<PopupStoreListDTO> popups =
+                        adminPopupMapper.findPopupsByIds(popIds);
+
+                Map<Long, String> reasonMap =
+                        items.stream().collect(Collectors.toMap(
+                                i -> Long.valueOf(i.get("popId").toString()),
+                                i -> i.get("reason").toString()
+                        ));
+
+                List<Map<String, Object>> finalItems =
+                        popups.stream().map(p -> {
+                            Map<String, Object> m = new java.util.HashMap<>();
+                            m.put("popId", p.getPopId());
+                            m.put("popName", p.getPopName());
+                            m.put("popThumbnail", p.getPopThumbnail());
+                            m.put("popLocation", p.getPopLocation());
+                            m.put("reason", reasonMap.get(p.getPopId()));
+                            return m;
+                        }).toList();
+
+                Map<String, Object> finalPayload = Map.of(
+                        "type", "POPUP_RECOMMEND",
+                        "items", finalItems
+                );
+
+                aiMessage.setMessageType("POPUP");
+                aiMessage.setContent(objectMapper.writeValueAsString(finalPayload));
+            } else {
             aiMessage.setMessageType("TEXT");
             aiMessage.setContent(aiReply);
         }
@@ -328,7 +369,7 @@ public class ChatMessageService {
             }
 
             if (msg.getSenderId() != null && msg.getSenderId().equals(20251212L)) {
-                if (msg.getAiMode() == null) {
+                if (msg.getAiMode() == null && !"POPUP".equals(msg.getMessageType())) {
                     if (msg.getContent() != null &&
                             msg.getContent().contains("\"type\": \"NEED_CONFIRM\"")) {
                         msg.setAiMode("NEED_CONFIRM");

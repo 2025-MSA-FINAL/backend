@@ -42,13 +42,11 @@ public class ChatAiRagService {
 
                         return """
                             [POPUP_ID: %s]
-                            이름: %s
                             가격유형: %s
                             상태: %s
                             설명: %s
                             """.formatted(
                                 meta.get("popupId"),
-                                meta.get("name"),
                                 meta.get("priceType"),
                                 meta.get("status"),
                                 doc.getContent()

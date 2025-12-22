@@ -367,4 +367,19 @@
         AND pop_is_deleted = FALSE
     </select>
 
+    <select id="findPopupsByIds"
+            resultMap="PopupStoreListResultMap">
+        SELECT *
+        FROM POPUPSTORE
+        WHERE pop_id IN
+        <foreach collection="list" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        ORDER BY FIELD(pop_id,
+        <foreach collection="list" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
+    </select>
+
 </mapper>

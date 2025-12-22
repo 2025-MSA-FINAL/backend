@@ -257,6 +257,7 @@ public class AdminPopupServiceImpl implements AdminPopupService {
         Map<String, Object> metadata = Map.of(
                 "type", "popup",
                 "popupId", popup.getPopId(),
+                "name", popup.getPopName(),
                 "status", popup.getPopStatus().name(),
                 "priceType", popup.getPopPriceType().name()
         );
