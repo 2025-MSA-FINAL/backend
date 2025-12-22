@@ -128,63 +128,47 @@ public class AiChatService {
     /* ===============================
        추천 전용 답변
        =============================== */
-    public String getAiRecommendReply(String userText, String context) {
 
-        if (context == null || context.isBlank()) {
-            return """
-        아직 추천할 수 있는 팝업 정보가 충분하지 않아요.
-        승인된 팝업이 더 등록되면 추천해 드릴게요 🙂
-        """;
-        }
+        public String getAiRecommendReply(String userText, String context) {
 
-        String prompt = """
+            String prompt = """
             너는 팝스팟(Popspot)의 공식 추천 AI 'POPBOT'이야.
-            아래 정보와 사용자 조건을 바탕으로 팝업을 추천해줘.
         
             =====================
-            [현재 팝스팟에 등록된 팝업 정보]
+            [팝스팟에 등록된 팝업 정보]
             %s
             =====================
         
             [사용자 조건]
             %s
-            
-                ⚠️ 출력은 반드시 JSON으로만 해.
-                    ⚠️ 설명 문장, 인삿말 절대 금지.
-                
-                    출력 형식:
-                    {
-                      "type": "POPUP_RECOMMEND",
-                      "items": [
-                        {
-                          "popId": number,
-                          "popName": string,
-                          "popThumbnail": string,
-                          "popLocation": string,
-                          "reason": string
-                        }
-                      ]
-                    }
+        
+            ⚠️ 출력 규칙 (중요):
+            - 반드시 [POPUP_ID: 숫자]로 제공된 ID만 사용해
+            - popId를 새로 만들거나 추측하면 안 돼
+            - JSON 외 텍스트 출력 금지
+        
+            출력 형식:
+            {
+              "type": "POPUP_RECOMMEND",
+              "items": [
+                {
+                  "popId": number,
+                  "reason": string
+                }
+              ]
+            }
         
             추천 규칙:
-            1. 반드시 위 팝업 정보 안에서만 추천해.
-            2. 사용자 조건(지역, 대상, 분위기 등)을 최대한 반영해.
-            3. 조건이 정확히 일치하지 않으면,
-               - 가장 가까운 팝업을 추천하고
-               - 왜 추천했는지 이유를 설명해.
-            4. 최대 3개까지만 추천해.
-            5. 정보에 없는 내용은 절대 추가하지 마.
-        
-            톤:
-            - 실제 안내 직원처럼
-            - 과장 없이 친절하게
+            - 최대 3개
+            - 사용자 조건을 가장 잘 만족하는 팝업 선택
             """.formatted(context, userText);
 
-        return ragClient.prompt()
-                .user(prompt)
-                .call()
-                .content();
-    }
+            return ragClient.prompt()
+                    .user(prompt)
+                    .call()
+                    .content();
+        }
+
 
     /** 🖼 AI 이미지 생성 (MockMultipartFile ❌) */
     public UploadResultDto generateImage(String prompt) {
