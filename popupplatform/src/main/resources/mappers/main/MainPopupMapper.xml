@@ -87,7 +87,7 @@
         AND p.pop_status != 'ENDED'
         -- 오늘 이후(오늘 포함 오픈도 포함시키려면 >= NOW() 대신 >= CURDATE())
         AND p.pop_start_date >= NOW()
-        AND p.pop_end_date &lt; DATE_ADD(NOW(), INTERVAL 1 MONTH)
+        AND p.pop_start_date  &lt; DATE_ADD(NOW(), INTERVAL 1 MONTH)
         ORDER BY p.pop_start_date ASC, p.created_at DESC
         LIMIT #{limit}
     </select>
