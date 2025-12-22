@@ -231,7 +231,7 @@
         SELECT
         COUNT(*) AS total,
         SUM(CASE WHEN pop_moderation_status IS NULL THEN 1 ELSE 0 END) AS pending,
-        SUM(CASE WHEN pop_status = 'ONGOING' THEN 1 ELSE 0 END) AS active,
+        SUM(CASE WHEN pop_status = 'ONGOING' AND pop_moderation_status = true THEN 1 ELSE 0 END) AS active,
         SUM(CASE WHEN pop_status = 'ENDED' THEN 1 ELSE 0 END) AS ended
         FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
