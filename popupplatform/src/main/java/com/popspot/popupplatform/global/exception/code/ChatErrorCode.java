@@ -23,7 +23,12 @@ public enum ChatErrorCode implements BaseErrorCode {
     CHAT_ROOM_NOT_FOUND("CHAT_018", "신고 대상 채팅방을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     REPORT_SELF_NOT_ALLOWED("CHAT_019", "본인을 신고할 수 없습니다.", HttpStatus.BAD_REQUEST),
     DUPLICATE_REPORT("CHAT_020", "이미 신고한 대상입니다.", HttpStatus.CONFLICT),
-    IMAGE_REQUIRED("CHAT_021", "신고 이미지가 필수입니다.", HttpStatus.BAD_REQUEST);
+    IMAGE_REQUIRED("CHAT_021", "신고 이미지가 필수입니다.", HttpStatus.BAD_REQUEST),
+    SCHEDULE_NOT_FOUND("CHAT_030", "예약 메시지를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    SCHEDULE_CANCEL_FORBIDDEN("CHAT_031", "예약을 취소할 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    SCHEDULE_ALREADY_PROCESSED("CHAT_032", "이미 처리된 예약 메시지입니다.", HttpStatus.BAD_REQUEST),
+    SCHEDULE_INVALID_UPDATE("CHAT_033", "수정할 내용이 없습니다.", HttpStatus.BAD_REQUEST),
+    SCHEDULE_TIME_INVALID("CHAT_034", "예약 시간은 미래여야 합니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
