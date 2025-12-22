@@ -1,18 +1,30 @@
 package com.popspot.popupplatform.service.chat;
 
 import com.popspot.popupplatform.domain.chat.ChatRoomHidden;
+import com.popspot.popupplatform.domain.chat.GroupChatRoom;
+import com.popspot.popupplatform.domain.chat.PrivateChatRoom;
+import com.popspot.popupplatform.dto.chat.response.HiddenChatRoomResponse;
+import com.popspot.popupplatform.dto.user.UserDto;
 import com.popspot.popupplatform.global.exception.CustomException;
 import com.popspot.popupplatform.global.exception.code.ChatErrorCode;
 import com.popspot.popupplatform.mapper.chat.ChatRoomHiddenMapper;
+import com.popspot.popupplatform.mapper.chat.GroupChatRoomMapper;
+import com.popspot.popupplatform.mapper.chat.PrivateChatRoomMapper;
+import com.popspot.popupplatform.mapper.user.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 //숨김/삭제가 한번이라도 있을 경우 들어감
 @Service
 @RequiredArgsConstructor
 public class ChatRoomHiddenService {
     private final ChatRoomHiddenMapper hiddenMapper;
+    private final GroupChatRoomMapper groupChatRoomMapper;
+    private final PrivateChatRoomMapper privateChatRoomMapper;
+    private final UserMapper userMapper;
 
     //채팅방 숨김처리
     @Transactional
@@ -50,4 +62,59 @@ public class ChatRoomHiddenService {
         ChatRoomHidden hidden = hiddenMapper.findHidden(type, roomId, userId);
         return hidden != null && Boolean.TRUE.equals(hidden.getCrhIsHidden());
     }
+    //채팅방숨김목록 조회
+    @Transactional(readOnly = true)
+    public List<HiddenChatRoomResponse> getHiddenRooms(Long userId) {
+        List<ChatRoomHidden> list = hiddenMapper.findAllHiddenByUser(userId);
+
+        return list.stream()
+                .map(hidden -> {
+                    if ("PRIVATE".equals(hidden.getCrhType())) {
+
+                        PrivateChatRoom room =
+                                privateChatRoomMapper.findById(hidden.getCrhRoomId());
+
+                        if (room == null) {
+                            return HiddenChatRoomResponse.builder()
+                                    .crhId(hidden.getCrhId())
+                                    .crhType("PRIVATE")
+                                    .crhRoomId(hidden.getCrhRoomId())
+                                    .nickName("(삭제된 채팅방)")
+                                    .build();
+                        }
+
+                        Long otherUserId =
+                                room.getUserId().equals(userId)
+                                        ? room.getUserId2()
+                                        : room.getUserId();
+
+                        UserDto other =
+                                userMapper.findById(otherUserId).orElse(null);
+
+                        return HiddenChatRoomResponse.builder()
+                                .crhId(hidden.getCrhId())
+                                .crhType("PRIVATE")
+                                .crhRoomId(hidden.getCrhRoomId())
+                                .nickName(
+                                        other != null ? other.getNickname() : "(탈퇴한 사용자)"
+                                )
+                                .build();
+                    } else {
+                        // 👉 그룹 채팅
+                        GroupChatRoom group =
+                                groupChatRoomMapper.findById(hidden.getCrhRoomId());
+
+                        return HiddenChatRoomResponse.builder()
+                                .crhId(hidden.getCrhId())
+                                .crhType("GROUP")
+                                .crhRoomId(hidden.getCrhRoomId())
+                                .nickName(
+                                        group != null ? group.getGcrTitle() : "(삭제된 그룹)"
+                                )
+                                .build();
+                    }
+                })
+                .toList();
+    }
+
 }
