@@ -339,7 +339,6 @@
 
 
     <!--AI / 도메인용 팝업스토어 상세 조회-->
-    <!--
     <select id="findPopupEntityById"
             parameterType="long"
             resultType="com.popspot.popupplatform.domain.popup.PopupStore">
@@ -367,5 +366,5 @@
         WHERE pop_id = #{popId}
         AND pop_is_deleted = FALSE
     </select>
-    -->
+
 </mapper>
