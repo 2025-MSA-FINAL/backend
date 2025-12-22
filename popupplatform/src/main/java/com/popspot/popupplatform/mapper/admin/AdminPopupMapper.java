@@ -55,6 +55,7 @@ public interface AdminPopupMapper {
 
     // AI / 도메인용 팝업스토어 상세 조회
     PopupStore findPopupEntityById(@Param("popId") Long popId);
+    List<PopupStoreListDTO> findPopupsByIds(@Param("list") List<Long> popIds);
 
     /**
      *  승인/반려/대기 상태 변경 (자유롭게 변경 가능)
