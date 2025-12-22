@@ -217,7 +217,7 @@
 
         FROM POPUPSTORE ps
         WHERE pop_is_deleted = FALSE
-        <!-- AND pop_moderation_status = TRUE -->
+        AND pop_moderation_status = TRUE
 
         <!-- 이름 / 해시태그 검색 (다중 키워드 OR) -->
         <if test="keywords != null and keywords.size() > 0">
@@ -641,6 +641,7 @@
         )
         AND ps.pop_status != 'ENDED'
         AND ps.pop_is_deleted = FALSE
+        AND ps.pop_moderation_status =TRUE
         AND ps.pop_id NOT IN (
         -- 사용자가 이미 본/찜/예약한 팝업은 제외 (추천 신선도 확보)
         SELECT pop_id
@@ -733,6 +734,7 @@
         ON t.pop_id = ps.pop_id
         WHERE ps.pop_status != 'ENDED'
         AND ps.pop_is_deleted = FALSE
+        AND ps.pop_moderation_status =TRUE
         ORDER BY
         t.score DESC,            -- 해당 성별/연령대에서 이벤트 많이 발생한 순
         ps.pop_view_count DESC,  -- 전체 조회수 서포트
@@ -775,6 +777,7 @@
         WHERE
         ps.pop_is_deleted = FALSE
         AND ps.pop_status != 'ENDED'
+        AND ps.pop_moderation_status =TRUE
         AND ps.pop_latitude IS NOT NULL
         AND ps.pop_longitude IS NOT NULL
 
