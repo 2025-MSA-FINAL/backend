@@ -9,6 +9,7 @@
         pop_name    AS popName
         FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
+        AND pop_moderation_status = TRUE
         ORDER BY created_at DESC
     </select>
     <select id="searchPopupNames" resultType="com.popspot.popupplatform.dto.chat.response.PopupSimpleResponse">
@@ -17,6 +18,7 @@
         pop_name AS popName
         FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
+        AND pop_moderation_status = TRUE
         AND pop_name LIKE CONCAT('%', #{keyword}, '%')
         ORDER BY created_at DESC
     </select>
