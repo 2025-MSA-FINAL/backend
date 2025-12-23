@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.admin.AdminCategoryAnalysisMapper">
+
+    <select id="findHashtagsByCategory"
+            parameterType="string"
+            resultType="com.popspot.popupplatform.dto.admin.HashtagCategoryStatsDTO">
+        SELECT
+        chm.category      AS category,
+        h.hash_name       AS hashtag,
+        COUNT(*)          AS count
+        FROM POPUP_HASHTAG ph
+        JOIN HASHTAG h
+        ON ph.hash_id = h.hash_id
+        JOIN CATEGORY_HASHTAG_MAP chm
+        ON h.hash_name = chm.hashtag
+        WHERE chm.category = #{category}
+        GROUP BY chm.category, h.hash_name
+        ORDER BY count DESC
+    </select>
+
+    <!-- 전체 카테고리 정합성 (대시보드용) -->
+    <select id="validateCategoryHashtags"
+            resultType="com.popspot.popupplatform.dto.admin.CategoryValidationDTO">
+        SELECT
+        chm.category AS category,
+        COUNT(*)     AS totalTags,
+        SUM(
+        CASE
+        WHEN h.hash_name = chm.hashtag
+        THEN 1 ELSE 0
+        END
+        ) AS matchedTags
+        FROM POPUP_HASHTAG ph
+        JOIN HASHTAG h ON ph.hash_id = h.hash_id
+        JOIN CATEGORY_HASHTAG_MAP chm ON h.hash_name = chm.hashtag
+        GROUP BY chm.category
+    </select>
+
+    <!-- 단일 카테고리 정합성(AI 리포트용) -->
+    <select id="validateCategoryHashtagsByCategory"
+            parameterType="string"
+            resultType="com.popspot.popupplatform.dto.admin.CategoryValidationDTO">
+        SELECT
+        #{category} AS category,
+        COUNT(*)    AS totalTags,
+        SUM(
+        CASE
+        WHEN h.hash_name IN (
+        SELECT hashtag
+        FROM CATEGORY_HASHTAG_MAP
+        WHERE category = #{category}
+        )
+        THEN 1 ELSE 0
+        END
+        ) AS matchedTags
+        FROM POPUP_HASHTAG ph
+        JOIN HASHTAG h ON ph.hash_id = h.hash_id
+    </select>
+
+</mapper>
