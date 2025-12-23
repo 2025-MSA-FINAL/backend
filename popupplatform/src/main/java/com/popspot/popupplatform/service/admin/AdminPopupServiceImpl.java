@@ -15,6 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.popspot.popupplatform.service.popup.PopupGeoSyncService;
+
+
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +33,10 @@ public class AdminPopupServiceImpl implements AdminPopupService {
 
     // private final PopupModerationMapper moderationMapper;  // 이력 기록용 (있다면)
     private final AiChatDocumentService aiChatDocumentService;
+
+
+    // Postgres Geo 동기화 서비스
+    private final PopupGeoSyncService popupGeoSyncService;
 
 
     private String moderationMessage(PopupModerationStatus status) {
@@ -138,6 +145,10 @@ public class AdminPopupServiceImpl implements AdminPopupService {
             );
 
             log.info("팝업 승인 상태 이력 기록: popId={}, status={}, comment={}", popId, pmStatus, comment);
+
+
+            popupGeoSyncService.syncPopup(popId);
+
         }
 
         return updated > 0;
@@ -151,6 +162,8 @@ public class AdminPopupServiceImpl implements AdminPopupService {
 
         if (updated > 0) {
             log.info("팝업 상태 변경: popId={}, status={}", popId, status);
+
+            popupGeoSyncService.syncPopup(popId);
         }
 
         return updated > 0;
@@ -177,6 +190,8 @@ public class AdminPopupServiceImpl implements AdminPopupService {
                     PopupModerationStatus.DELETED.name(),
                     reason
             );
+
+            popupGeoSyncService.softDeletePopup(popId);
         }
         return deleted > 0;
     }
@@ -199,6 +214,8 @@ public class AdminPopupServiceImpl implements AdminPopupService {
             );
 
             log.info("팝업 복구 이력 기록: popId={}", popId);
+
+            popupGeoSyncService.syncPopup(popId);
         }
 
         return restored > 0;
