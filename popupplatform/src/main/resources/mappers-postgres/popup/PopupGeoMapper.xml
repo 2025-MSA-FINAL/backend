@@ -30,6 +30,7 @@
 
         FROM popupstore_geo
         WHERE pop_is_deleted = FALSE
+        AND pop_moderation_status IS TRUE
         AND pop_status != 'ENDED'
         AND geog IS NOT NULL
         AND ST_DWithin(
@@ -46,41 +47,47 @@
       [단건 upsert]
       - MySQL의 POPUPSTORE 변경사항을 Postgres popupstore_geo에 반영
       - pop_is_deleted도 함께 동기화 (COALESCE)
+      - pop_moderation_status까지 동기화
     -->
     <insert id="upsertPopupGeo">
         INSERT INTO popupstore_geo (
         pop_id, pop_name, pop_thumbnail, pop_location,
         pop_latitude, pop_longitude,
         pop_price_type, pop_price,
-        pop_status, pop_is_deleted
+        pop_status, pop_is_deleted,
+        pop_moderation_status
         ) VALUES (
         #{p.popId}, #{p.popName}, #{p.popThumbnail}, #{p.popLocation},
         #{p.popLatitude}, #{p.popLongitude},
         #{p.popPriceType}, #{p.popPrice},
-        #{p.popStatus}, COALESCE(#{p.popIsDeleted}, FALSE)
+        #{p.popStatus}, COALESCE(#{p.popIsDeleted}, FALSE),
+        #{p.popModerationStatus}
         )
         ON CONFLICT (pop_id) DO UPDATE SET
-        pop_name       = EXCLUDED.pop_name,
-        pop_thumbnail  = EXCLUDED.pop_thumbnail,
-        pop_location   = EXCLUDED.pop_location,
-        pop_latitude   = EXCLUDED.pop_latitude,
-        pop_longitude  = EXCLUDED.pop_longitude,
-        pop_price_type = EXCLUDED.pop_price_type,
-        pop_price      = EXCLUDED.pop_price,
-        pop_status     = EXCLUDED.pop_status,
-        pop_is_deleted = EXCLUDED.pop_is_deleted;
+        pop_name              = EXCLUDED.pop_name,
+        pop_thumbnail         = EXCLUDED.pop_thumbnail,
+        pop_location          = EXCLUDED.pop_location,
+        pop_latitude          = EXCLUDED.pop_latitude,
+        pop_longitude         = EXCLUDED.pop_longitude,
+        pop_price_type        = EXCLUDED.pop_price_type,
+        pop_price             = EXCLUDED.pop_price,
+        pop_status            = EXCLUDED.pop_status,
+        pop_is_deleted        = EXCLUDED.pop_is_deleted,
+        pop_moderation_status = EXCLUDED.pop_moderation_status;
     </insert>
 
     <!--
       [배치용 bulk upsert]
       - 초기 1회 동기화 / 재동기화에 사용
+      - pop_moderation_status까지 동기화
     -->
     <insert id="bulkUpsertPopupGeo">
         INSERT INTO popupstore_geo (
         pop_id, pop_name, pop_thumbnail, pop_location,
         pop_latitude, pop_longitude,
         pop_price_type, pop_price,
-        pop_status, pop_is_deleted
+        pop_status, pop_is_deleted,
+        pop_moderation_status
         )
         VALUES
         <foreach collection="list" item="p" separator=",">
@@ -88,19 +95,21 @@
             #{p.popId}, #{p.popName}, #{p.popThumbnail}, #{p.popLocation},
             #{p.popLatitude}, #{p.popLongitude},
             #{p.popPriceType}, #{p.popPrice},
-            #{p.popStatus}, COALESCE(#{p.popIsDeleted}, FALSE)
+            #{p.popStatus}, COALESCE(#{p.popIsDeleted}, FALSE),
+            #{p.popModerationStatus}
             )
         </foreach>
         ON CONFLICT (pop_id) DO UPDATE SET
-        pop_name       = EXCLUDED.pop_name,
-        pop_thumbnail  = EXCLUDED.pop_thumbnail,
-        pop_location   = EXCLUDED.pop_location,
-        pop_latitude   = EXCLUDED.pop_latitude,
-        pop_longitude  = EXCLUDED.pop_longitude,
-        pop_price_type = EXCLUDED.pop_price_type,
-        pop_price      = EXCLUDED.pop_price,
-        pop_status     = EXCLUDED.pop_status,
-        pop_is_deleted = EXCLUDED.pop_is_deleted;
+        pop_name              = EXCLUDED.pop_name,
+        pop_thumbnail         = EXCLUDED.pop_thumbnail,
+        pop_location          = EXCLUDED.pop_location,
+        pop_latitude          = EXCLUDED.pop_latitude,
+        pop_longitude         = EXCLUDED.pop_longitude,
+        pop_price_type        = EXCLUDED.pop_price_type,
+        pop_price             = EXCLUDED.pop_price,
+        pop_status            = EXCLUDED.pop_status,
+        pop_is_deleted        = EXCLUDED.pop_is_deleted,
+        pop_moderation_status = EXCLUDED.pop_moderation_status;
     </insert>
 
     <!--

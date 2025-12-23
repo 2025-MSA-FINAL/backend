@@ -815,6 +815,7 @@
         pop_price_type,
         pop_price,
         pop_status,
+        pop_moderation_status,
         pop_is_deleted
         FROM POPUPSTORE
         WHERE pop_id > #{lastId}
@@ -842,16 +843,17 @@
     <select id="selectPopupStoresForGeoByIds"
             resultType="com.popspot.popupplatform.domain.popup.PopupStore">
         SELECT
-        pop_id         AS popId,
-        pop_name       AS popName,
-        pop_thumbnail  AS popThumbnail,
-        pop_location   AS popLocation,
-        pop_latitude   AS popLatitude,
-        pop_longitude  AS popLongitude,
-        pop_price_type AS popPriceType,
-        pop_price      AS popPrice,
-        pop_status     AS popStatus,
-        pop_is_deleted AS popIsDeleted
+        pop_id                 AS popId,
+        pop_name               AS popName,
+        pop_thumbnail          AS popThumbnail,
+        pop_location           AS popLocation,
+        pop_latitude           AS popLatitude,
+        pop_longitude          AS popLongitude,
+        pop_price_type         AS popPriceType,
+        pop_price              AS popPrice,
+        pop_status             AS popStatus,
+        pop_moderation_status  AS popModerationStatus,
+        pop_is_deleted         AS popIsDeleted
         FROM POPUPSTORE
         WHERE pop_id IN
         <foreach collection="ids" item="id" open="(" separator="," close=")">
