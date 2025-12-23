@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.popspot.popupplatform.mapper.admin.HashtagEnrichedMapper">
+
+    <!-- 특정 기간 TOP N 해시태그 조회 -->
+    <select id="findTopHashtagsByPeriod" resultType="com.popspot.popupplatform.dto.admin.TopHashtagDTO">
+        SELECT
+        h.hash_id AS hashId,
+        h.hash_name AS hashName,
+        COUNT(DISTINCT ph.pop_id) AS usageCount
+        FROM HASHTAG h
+        INNER JOIN POPUP_HASHTAG ph ON h.hash_id = ph.hash_id
+        INNER JOIN POPUP_VIEWED pv ON ph.pop_id = pv.pop_id
+        WHERE pv.pv_viewed_at BETWEEN #{startDate} AND #{endDate}
+        GROUP BY h.hash_id, h.hash_name
+        ORDER BY usageCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 해시태그 캐시 조회 (TTL 유효한 것만) -->
+    <select id="findValidCacheByHashId" resultType="com.popspot.popupplatform.domain.admin.HashtagEnriched">
+        SELECT *
+        FROM HASHTAG_ENRICHED
+        WHERE hash_id = #{hashId}
+        AND he_expires_at > NOW()
+        LIMIT 1
+    </select>
+
+    <!-- 해시태그 분석 결과 저장 -->
+    <insert id="insertEnrichment" parameterType="com.popspot.popupplatform.domain.admin.HashtagEnriched"
+            useGeneratedKeys="true" keyProperty="heId">
+        INSERT INTO HASHTAG_ENRICHED (
+        hash_id, he_category, he_summary, he_trend_reason,
+        he_confidence, he_source_type, he_source_urls,
+        he_last_analyzed_at, he_expires_at
+        ) VALUES (
+        #{hashId}, #{heCategory}, #{heSummary}, #{heTrendReason},
+        #{heConfidence}, #{heSourceType}, #{heSourceUrls},
+        #{heLastAnalyzedAt}, #{heExpiresAt}
+        )
+        ON DUPLICATE KEY UPDATE
+        he_category = VALUES(he_category),
+        he_summary = VALUES(he_summary),
+        he_trend_reason = VALUES(he_trend_reason),
+        he_confidence = VALUES(he_confidence),
+        he_source_type = VALUES(he_source_type),
+        he_source_urls = VALUES(he_source_urls),
+        he_last_analyzed_at = VALUES(he_last_analyzed_at),
+        he_expires_at = VALUES(he_expires_at)
+    </insert>
+
+    <!-- 해시태그 분석 결과 업데이트 -->
+    <update id="updateEnrichment" parameterType="com.popspot.popupplatform.domain.admin.HashtagEnriched">
+        UPDATE HASHTAG_ENRICHED
+        SET he_category = #{heCategory},
+        he_summary = #{heSummary},
+        he_trend_reason = #{heTrendReason},
+        he_confidence = #{heConfidence},
+        he_source_type = #{heSourceType},
+        he_source_urls = #{heSourceUrls},
+        he_last_analyzed_at = #{heLastAnalyzedAt},
+        he_expires_at = #{heExpiresAt}
+        WHERE hash_id = #{hashId}
+    </update>
+
+</mapper>

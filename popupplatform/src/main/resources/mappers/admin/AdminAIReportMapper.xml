@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.popspot.popupplatform.mapper.admin.AdminAIReportMapper">
+
+    <resultMap id="aiReportResultMap" type="com.popspot.popupplatform.domain.admin.AdminAIReport">
+        <id property="airId" column="air_id"/>
+        <result property="airType" column="air_type"/>
+        <result property="airTitle" column="air_title"/>
+        <result property="airPeriodStart" column="air_period_start"/>
+        <result property="airPeriodEnd" column="air_period_end"/>
+        <result property="airContent" column="air_content"/>
+        <result property="airGeneratedBy" column="air_generated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="airPdfUrl" column="air_pdf_url"/>
+        <result property="airStatus" column="air_status"/>
+        <result property="airKpiData" column="air_kpi_data"/>
+    </resultMap>
+
+    <!-- AIReportResponseDTO -->
+    <resultMap id="aiReportResponseDTOMap" type="com.popspot.popupplatform.dto.admin.AIReportResponseDTO">
+        <result property="reportTitle" column="air_title"/>
+        <result property="generatedAt" column="created_at"/>
+        <result property="aiContentJson" column="air_content"/>
+        <result property="airPdfUrl" column="air_pdf_url"/>
+    </resultMap>
+
+
+    <!-- airType, airGeneratedBy 필드 추가 -->
+    <insert id="insertAIReport" useGeneratedKeys="true" keyProperty="airId"
+            parameterType="com.popspot.popupplatform.domain.admin.AdminAIReport">
+        INSERT INTO ADMIN_AI_REPORT (
+        air_type,
+        air_title,
+        air_period_start,
+        air_period_end,
+        air_content,
+        air_generated_by,
+        air_pdf_url,
+        air_status,
+        air_kpi_data,
+        created_at
+        ) VALUES (
+        #{airType},
+        #{airTitle},
+        #{airPeriodStart},
+        #{airPeriodEnd},
+        #{airContent},
+        #{airGeneratedBy},
+        #{airPdfUrl},
+        #{airStatus},
+        #{airKpiData},
+        NOW()
+        )
+    </insert>
+
+    <insert id="insertReportChart" parameterType="com.popspot.popupplatform.domain.admin.AdminAIReportChart">
+        INSERT INTO ADMIN_AI_REPORT_CHART (
+        air_id, arc_type, arc_image_url, created_at
+        ) VALUES (
+        #{airId}, #{arcType}, #{arcImageUrl}, NOW()
+        )
+    </insert>
+
+
+    <select id="findLatestAIReport" resultMap="aiReportResponseDTOMap">
+        SELECT
+        air_id,
+        air_title,
+        air_period_start,
+        air_period_end,
+        air_content,
+        air_pdf_url,
+        air_status,
+        created_at
+        FROM
+        ADMIN_AI_REPORT
+        ORDER BY
+        created_at DESC
+        LIMIT 1
+    </select>
+</mapper>

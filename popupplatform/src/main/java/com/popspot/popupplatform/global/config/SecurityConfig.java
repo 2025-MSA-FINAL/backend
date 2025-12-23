@@ -57,7 +57,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger",
                                 "/health",
-                                "/test/postgres"
+                                "/test/postgres",
+                                "/api/admin/ai-reports/**"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/main/*",
