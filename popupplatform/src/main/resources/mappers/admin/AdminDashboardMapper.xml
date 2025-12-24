@@ -8,27 +8,29 @@
     <select id="countTotalUsers" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE user_status != 'deleted'
-        AND user_role != 'ADMIN'
+        AND user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
     </select>
 
     <select id="countNewUsersToday" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE DATE(created_at) = CURDATE()
         AND user_status != 'deleted'
-        AND user_role != 'ADMIN'
+        AND user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
     </select>
 
     <select id="countNewUsersThisWeek" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
         AND user_status != 'deleted'
-        AND user_role != 'ADMIN'
+        AND user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
     </select>
 
     <select id="countNewUsersThisMonth" resultType="long">
         SELECT COUNT(*) FROM USER
         WHERE YEAR(created_at) = YEAR(CURDATE())
         AND MONTH(created_at) = MONTH(CURDATE())
+        AND user_status != 'deleted'
+        AND user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
     </select>
 
     <!-- 팝업 통계 -->
@@ -39,9 +41,12 @@
     <select id="countActivePopups" resultType="long">
         SELECT COUNT(*) FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
-        AND pop_status = 'ONGOING'
         AND pop_moderation_status = TRUE
-        AND CURDATE() BETWEEN DATE(pop_start_date) AND DATE(pop_end_date)
+        <![CDATA[
+    AND pop_status IN ('ONGOING', 'UPCOMING')
+    AND NOW() >= pop_start_date
+    AND NOW() <= pop_end_date
+    ]]>
     </select>
 
     <select id="countPendingApprovalPopups" resultType="long">
@@ -68,10 +73,6 @@
         WHERE gcr_is_deleted = FALSE
     </select>
 
-
-
-
-
     <!-- 신고 통계 -->
     <select id="countTotalReports" resultType="long">
         SELECT COUNT(*) FROM REPORT
@@ -82,21 +83,28 @@
         WHERE rep_status = #{status}
     </select>
 
+    <!-- 연령대 계산 공통 SQL 조각 -->
+    <sql id="ageGroupCalculation">
+        CASE
+        WHEN YEAR(CURDATE()) - user_birthyear + 1 BETWEEN 10 AND 19 THEN '10대'
+        WHEN YEAR(CURDATE()) - user_birthyear + 1 BETWEEN 20 AND 29 THEN '20대'
+        WHEN YEAR(CURDATE()) - user_birthyear + 1 BETWEEN 30 AND 39 THEN '30대'
+        WHEN YEAR(CURDATE()) - user_birthyear + 1 BETWEEN 40 AND 49 THEN '40대'
+        WHEN YEAR(CURDATE()) - user_birthyear + 1 >= 50 THEN '50대+'
+        ELSE '기타'
+        END
+    </sql>
+
     <!-- 1. 성별/연령별 분포 -->
     <select id="getUserDemographics" resultType="com.popspot.popupplatform.dto.admin.UserDemographicsDTO">
         SELECT
-        CASE
-        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 10 AND 19 THEN '10대'
-        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 20 AND 29 THEN '20대'
-        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 30 AND 39 THEN '30대'
-        WHEN YEAR(CURDATE()) - user_birthyear BETWEEN 40 AND 49 THEN '40대'
-        ELSE '50대+'
-        END AS ageGroup,
+        <include refid="ageGroupCalculation"/> AS ageGroup,
         LOWER(user_gender) AS gender,
         COUNT(*) AS userCount
         FROM USER
         WHERE user_status != 'deleted'
-        AND user_role != 'ADMIN'
+        AND user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
+        AND user_birthyear IS NOT NULL
         GROUP BY ageGroup, user_gender
     </select>
 
@@ -115,7 +123,7 @@
         LIMIT 10
     </select>
 
-    <!-- 3. 인기 해시태그 -->
+    <!-- 3. 인기 해시태그 (수정됨) -->
     <select id="getPopularHashtags" resultType="com.popspot.popupplatform.dto.admin.PopularHashtagDTO">
         SELECT
         h.hash_id AS hashId,
@@ -127,18 +135,13 @@
         JOIN USER u ON uw.user_id = u.user_id
         <where>
             u.user_status != 'deleted'
-            AND u.user_role != 'ADMIN'
+            AND u.user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
+            AND u.user_birthyear IS NOT NULL
             <if test="gender != null and gender != 'all'">
-                AND LOWER(u.user_gender) = #{gender}
+                AND LOWER(u.user_gender) = LOWER(#{gender})
             </if>
-            <if test="ageGroup != null and ageGroup != '전체'">
-                AND CASE
-                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 10 AND 19 THEN '10대'
-                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 20 AND 29 THEN '20대'
-                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 30 AND 39 THEN '30대'
-                WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 40 AND 49 THEN '40대'
-                ELSE '50대+'
-                END = #{ageGroup}
+            <if test="ageGroup != null and ageGroup != '전체' and ageGroup != 'all'">
+                AND <include refid="ageGroupCalculation"/> = #{ageGroup}
             </if>
         </where>
         GROUP BY h.hash_id, h.hash_name
@@ -158,18 +161,19 @@
         ORDER BY reportCount DESC
     </select>
 
-    <!--  5. 월별 신규 가입자 추이 -->
+    <!-- 5. 월별 신규 가입자 추이 -->
     <select id="getMonthlyUserGrowth" resultType="com.popspot.popupplatform.dto.admin.MonthlyUserGrowthDTO">
         SELECT
         DATE_FORMAT(created_at, '%Y-%m') AS month,
         COUNT(*) AS newUsers
         FROM USER
         WHERE created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 3 MONTH), '%Y-%m-01')
+        AND user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
         GROUP BY DATE_FORMAT(created_at, '%Y-%m')
         ORDER BY month ASC
     </select>
 
-    <!-- 6. 지난 N일 간 일자별 조회수 - 수정 -->
+    <!-- 6. 지난 N일 간 일자별 조회수 -->
     <select id="getDailyViews" resultType="com.popspot.popupplatform.dto.admin.DailyViewStatsDTO">
         SELECT
         DATE(pv.pv_viewed_at) AS date,
@@ -194,8 +198,8 @@
         ORDER BY weekday, hour
     </select>
 
-    <!--  8. 히트맵 상세 -->
-    <!--  시간대 상세 조회수: 총 조회수 -->
+    <!-- 8. 히트맵 상세 -->
+    <!-- 시간대 상세 조회수: 총 조회수 -->
     <select id="getViewDetailTotalViews" resultType="int">
         SELECT COUNT(*)
         FROM POPUP_VIEWED
@@ -203,7 +207,7 @@
         AND HOUR(pv_viewed_at) = #{hour}
     </select>
 
-    <!--  시간대 상세 조회: TOP 5 팝업 -->
+    <!-- 시간대 상세 조회: TOP 5 팝업 -->
     <select id="getViewDetailTopPopups" resultType="com.popspot.popupplatform.dto.admin.ViewDetailPopupDTO">
         SELECT
         p.pop_id AS popId,
@@ -219,7 +223,7 @@
         LIMIT 5
     </select>
 
-    <!--  성별 비율 -->
+    <!-- 성별 비율 -->
     <select id="getViewDetailGender" resultType="com.popspot.popupplatform.dto.admin.ViewDetailGenderDTO">
         SELECT
         u.user_gender AS gender,
@@ -228,26 +232,21 @@
         JOIN USER u ON pv.user_id = u.user_id
         WHERE DATE(pv.pv_viewed_at) = #{date}
         AND HOUR(pv.pv_viewed_at) = #{hour}
-        AND u.user_role != 'ADMIN'
+        AND u.user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
         GROUP BY u.user_gender
     </select>
 
-    <!--  연령대 비율 -->
+    <!-- 연령대 비율 -->
     <select id="getViewDetailAge" resultType="com.popspot.popupplatform.dto.admin.ViewDetailAgeDTO">
         SELECT
-        CASE
-        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 10 AND 19 THEN '10대'
-        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 20 AND 29 THEN '20대'
-        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 30 AND 39 THEN '30대'
-        WHEN YEAR(CURDATE()) - u.user_birthyear BETWEEN 40 AND 49 THEN '40대'
-        ELSE '50대+'
-        END AS ageGroup,
+        <include refid="ageGroupCalculation"/> AS ageGroup,
         COUNT(*) AS count
         FROM POPUP_VIEWED pv
         JOIN USER u ON pv.user_id = u.user_id
         WHERE DATE(pv.pv_viewed_at) = #{date}
         AND HOUR(pv.pv_viewed_at) = #{hour}
-        AND u.user_role != 'ADMIN'
+        AND u.user_birthyear IS NOT NULL
+        AND u.user_role NOT IN ('ADMIN', 'MANAGER', 'AI')
         GROUP BY ageGroup
     </select>
 

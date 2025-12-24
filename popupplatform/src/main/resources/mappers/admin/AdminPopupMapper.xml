@@ -232,39 +232,55 @@
         COUNT(*) AS total,
         SUM(CASE WHEN pop_moderation_status IS NULL THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN pop_status = 'ONGOING' AND pop_moderation_status = true THEN 1 ELSE 0 END) AS active,
-        SUM(CASE WHEN pop_status = 'ENDED' THEN 1 ELSE 0 END) AS ended
-        FROM POPUPSTORE
+        SUM(CASE WHEN pop_moderation_status = false THEN 1 ELSE 0 END) AS rejected        FROM POPUPSTORE
         WHERE pop_is_deleted = FALSE
     </select>
 
     <!-- ============================
          4) 팝업 상세 조회
     ============================= -->
-    <select id="findPopupById" resultMap="PopupStoreListResultMap">
+    <!-- 관리자용 팝업 상세 조회 (매니저 뷰와 동일) -->
+    <select id="findPopupDetailForAdmin" resultType="com.popspot.popupplatform.dto.admin.AdminPopupDetailResponseDTO">
         SELECT
-        p.pop_id,
-        p.pop_name,
-        p.pop_thumbnail,
-        p.pop_location,
-        p.pop_start_date,
-        p.pop_end_date,
-        p.pop_status,
-        p.pop_moderation_status,
-        p.pop_is_deleted,
-        p.pop_view_count,
-        p.pop_price_type,
-        p.pop_price,
-        p.pop_owner_id,
-        p.pop_is_reservation,
-        u.user_name AS owner_name,
-        u.user_email AS owner_email,
-        p.created_at,
-        (SELECT COUNT(*) FROM USER_RESERVATION ur WHERE ur.pop_id = p.pop_id) AS reservation_count,
-        (SELECT COUNT(*) FROM USER_WISHLIST uw WHERE uw.pop_id = p.pop_id) AS wishlist_count
+        p.pop_id AS popId,
+        p.pop_owner_id AS popOwnerId,
+        p.pop_name AS popName,
+        p.pop_description AS popDescription,
+        p.pop_thumbnail AS popThumbnail,
+        p.pop_location AS popLocation,
+        p.pop_latitude AS popLatitude,
+        p.pop_longitude AS popLongitude,
+        p.pop_start_date AS popStartDate,
+        p.pop_end_date AS popEndDate,
+        p.pop_is_reservation AS popIsReservation,
+        p.pop_price_type AS popPriceType,
+        p.pop_price AS popPrice,
+        p.pop_status AS popStatus,
+        p.pop_insta_url AS popInstaUrl,
+        p.pop_moderation_status AS popModerationStatus,
+        p.pop_is_deleted AS popIsDeleted,
+        p.pop_view_count AS popViewCount,
+        p.pop_ai_summary AS popAiSummary,
+
+        -- 운영자 정보
+        u.user_name AS ownerName,
+        u.user_email AS ownerEmail,
+
+        -- 통계 정보
+        (SELECT COUNT(*) FROM USER_RESERVATION ur WHERE ur.pop_id = p.pop_id) AS reservationCount,
+        (SELECT COUNT(*) FROM USER_WISHLIST uw WHERE uw.pop_id = p.pop_id) AS wishlistCount,
+
+        p.created_at AS createdAt,
+        p.updated_at AS updatedAt
+
         FROM POPUPSTORE p
         LEFT JOIN USER u ON p.pop_owner_id = u.user_id
         WHERE p.pop_id = #{popId}
     </select>
+
+
+
+
 
     <!-- ============================
          5) 승인 상태 변경 (자유롭게 변경 가능)

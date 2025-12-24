@@ -1,13 +1,16 @@
 package com.popspot.popupplatform.controller.admin;
 
+import com.popspot.popupplatform.dto.admin.AdminPopupDetailResponseDTO;
 import com.popspot.popupplatform.dto.admin.ModerationUpdateRequestDTO;
 import com.popspot.popupplatform.dto.admin.PopupStoreListDTO;
 import com.popspot.popupplatform.dto.common.PageDTO;
 import com.popspot.popupplatform.dto.common.PageRequestDTO;
+import com.popspot.popupplatform.dto.popup.response.ManagerPopupDetailResponse;
 import com.popspot.popupplatform.service.admin.AdminPopupService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,24 +46,25 @@ public class AdminPopupController {
     }
 
     /**
-     * 팝업스토어 상세 조회
+     * ✅ 통합: 팝업스토어 상세 조회 (매니저 뷰)
+     * - 관리자가 모든 팝업의 상세 정보를 매니저 뷰로 확인
+     * - 대기 중 팝업 포함 모든 상태 조회 가능
      */
-    @GetMapping("/{popId}")
-    public ResponseEntity<PopupStoreListDTO> getPopupDetail(@PathVariable Long popId) {
-        PopupStoreListDTO popup = popupService.getPopupDetail(popId);
-        return popup == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(popup);
+    @Operation(summary = "팝업 상세 조회",
+            description = "관리자용 팝업 상세 정보 조회. 대기/승인/거절 모든 상태 조회 가능.")
+    @GetMapping("/{popId}/detail")
+    public ResponseEntity<AdminPopupDetailResponseDTO> getPopupDetail(@PathVariable Long popId) {
+        return ResponseEntity.ok(popupService.getPopupDetailForAdmin(popId));
     }
 
     /**
      * 승인 상태 변경 (통합 API)
-     * @RequestBody에 ModerationUpdateRequestDTO 적용
      */
     @PutMapping("/{popId}/moderation")
     public ResponseEntity<String> updateModerationStatus(
             @PathVariable Long popId,
             @RequestBody ModerationUpdateRequestDTO request) {
 
-        // Service 호출 시 3개 인자 전달 (id, status, reason)
         boolean success = popupService.updateModerationStatus(
                 popId,
                 request.getStatus(),
@@ -82,7 +86,6 @@ public class AdminPopupController {
      */
     @PutMapping("/{popId}/approve")
     public ResponseEntity<String> approvePopup(@PathVariable Long popId) {
-        // 승인이므로 사유(reason)는 null로 전달
         boolean success = popupService.updateModerationStatus(popId, true, null);
         return success ? ResponseEntity.ok("approved") : ResponseEntity.badRequest().body("fail");
     }
@@ -96,8 +99,6 @@ public class AdminPopupController {
             @RequestBody(required = false) RejectRequest request) {
 
         String reason = (request != null) ? request.getReason() : null;
-
-        // 반려이므로 사유(reason) 전달
         boolean success = popupService.updateModerationStatus(popId, false, reason);
         return success ? ResponseEntity.ok("rejected") : ResponseEntity.badRequest().body("fail");
     }
