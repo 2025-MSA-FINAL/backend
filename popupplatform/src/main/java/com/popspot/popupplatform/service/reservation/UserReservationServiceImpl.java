@@ -140,7 +140,9 @@ public class UserReservationServiceImpl implements UserReservationService {
 
         r.setUserId(userId);
 
-        LocalDateTime urDateTime = date.atStartOfDay();
+        PopupTimeSlot popupTimeSlot = popupTimeSlotMapper.findById(slotId);
+        LocalTime ptsStartTime = popupTimeSlot.getPtsStartTime(); // LocalTime
+        LocalDateTime urDateTime = LocalDateTime.of(date, ptsStartTime); // LocalDate + LocalTime 결합
         r.setUrDateTime(urDateTime);
 
         r.setUrUserCnt(people);
