@@ -1,7 +1,9 @@
 package com.popspot.popupplatform.service.reservation;
 
+import com.popspot.popupplatform.domain.reservation.PopupTimeSlot;
 import com.popspot.popupplatform.domain.reservation.UserReservation;
 import com.popspot.popupplatform.mapper.popup.PopupMapper;
+import com.popspot.popupplatform.mapper.reservation.PopupTimeSlotMapper;
 import com.popspot.popupplatform.mapper.reservation.ReservationPaymentMapper;
 import com.popspot.popupplatform.mapper.reservation.UserReservationMapper;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 @Service
@@ -22,6 +25,7 @@ public class UserReservationServiceImpl implements UserReservationService {
     private final StringRedisTemplate stringRedisTemplate;
     private final ReservationPaymentMapper reservationPaymentMapper;
     private final PopupMapper popupMapper;
+    private final PopupTimeSlotMapper popupTimeSlotMapper;
 
     // ✅ 순환참조 원인 제거: PortOnePaymentService 주입 제거
     // private final PortOnePaymentService portOnePaymentService;
@@ -98,7 +102,9 @@ public class UserReservationServiceImpl implements UserReservationService {
 
             r.setUserId(userId);
 
-            LocalDateTime urDateTime = date.atStartOfDay();
+            PopupTimeSlot popupTimeSlot = popupTimeSlotMapper.findById(slotId);
+            LocalTime ptsStartTime = popupTimeSlot.getPtsStartTime(); // LocalTime
+            LocalDateTime urDateTime = LocalDateTime.of(date, ptsStartTime); // LocalDate + LocalTime 결합
             r.setUrDateTime(urDateTime);
 
             r.setUrUserCnt(people);
