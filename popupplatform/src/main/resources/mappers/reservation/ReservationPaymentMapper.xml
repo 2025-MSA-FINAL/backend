@@ -62,4 +62,11 @@
     </select>
 
 
+    <delete id="deleteExpiredPendingByMerchantUid">
+        DELETE FROM RESERVATION_PAYMENT
+        WHERE merchant_uid = #{merchantUid}
+        AND status = 'PENDING'
+        AND created_at &lt; #{cutoff}
+    </delete>
+
 </mapper>
