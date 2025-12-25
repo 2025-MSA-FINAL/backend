@@ -37,5 +37,6 @@ public interface ReservationPaymentMapper {
 
     String selectPaymentIdByReservationId(@Param("reservationId") Long reservationId);
 
+    int deleteExpiredPendingByMerchantUid(String merchantUid, java.sql.Timestamp cutoff);
 
 }

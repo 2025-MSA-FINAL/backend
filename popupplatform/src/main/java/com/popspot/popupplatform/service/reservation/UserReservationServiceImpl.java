@@ -153,6 +153,7 @@ public class UserReservationServiceImpl implements UserReservationService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> createReservationHold(Long popupId, Long slotId, LocalDate date, int people, Long userId) {
         if (popupId == null || slotId == null || date == null) {
             throw new IllegalArgumentException("popupId/slotId/date is required");
