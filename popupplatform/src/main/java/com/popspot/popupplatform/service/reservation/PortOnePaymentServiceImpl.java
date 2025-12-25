@@ -47,7 +47,40 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
             throw new IllegalStateException("RESERVATION_PAYMENT row not found for paymentId=" + paymentId);
         }
 
-        // ✅ PortOne 결제 조회 (기존 fetchPortOnePayment 대체)
+        // ✅ [추가] 무료(0원) 결제면 PortOne 결제창/조회 없이 바로 확정
+        if (expectedAmount == 0) {
+            reservationPaymentMapper.markPaid(paymentId);
+
+            String holdId = paymentId.startsWith("hold-") ? paymentId.substring("hold-".length()) : null;
+            if (holdId == null || holdId.isBlank()) {
+                reservationPaymentMapper.markFailed(paymentId);
+                throw new IllegalStateException("holdId parse failed");
+            }
+
+            String holdKey = "hold:" + holdId;
+            Map<Object, Object> hold = stringRedisTemplate.opsForHash().entries(holdKey);
+            if (hold == null || hold.isEmpty()) {
+                reservationPaymentMapper.markFailed(paymentId);
+                throw new IllegalStateException("HOLD not found or expired");
+            }
+
+            Long reservationId = confirmReservationFromHold(hold, userId);
+
+            reservationPaymentMapper.updateReservationId(paymentId, reservationId);
+
+            // HOLD 정리(기존 로직 그대로)
+            stringRedisTemplate.delete(holdKey);
+            stringRedisTemplate.delete("holdmeta:" + holdId);
+            stringRedisTemplate.opsForZSet().remove("hold:expiry", holdId);
+
+            return Map.of(
+                    "paymentId", paymentId,
+                    "status", "PAID",
+                    "reservationId", reservationId
+            );
+        }
+
+        // ======= 아래는 기존 코드 그대로 유지 =======
         JsonNode payment = portOneApiClient.fetchPayment(paymentId);
 
         String status = payment.path("status").asText(null);
@@ -82,13 +115,9 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
         }
 
         Long reservationId = confirmReservationFromHold(hold, userId);
-
-        // ✅ paymentId == merchantUid(현재 구조) 이므로 paymentId로 업데이트 가능
         reservationPaymentMapper.updateReservationId(paymentId, reservationId);
 
-        // ✅ HOLD 정리
         stringRedisTemplate.delete(holdKey);
-        // ✅ 스케줄러 원복 방지용 정리(있다면 같이 삭제)
         stringRedisTemplate.delete("holdmeta:" + holdId);
         stringRedisTemplate.opsForZSet().remove("hold:expiry", holdId);
 
@@ -98,6 +127,7 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
                 "reservationId", reservationId
         );
     }
+
 
     private String extractPaymentId(String rawBody) {
         // ✅ 기존 로직 유지 (PortOneApiClient로 옮기지 않음: 관련 없는 부분 건드리지 않기)
