@@ -5,6 +5,7 @@ import com.popspot.popupplatform.mapper.reservation.ReservationPaymentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -35,6 +36,7 @@ public class PortOnePaymentServiceImpl implements PortOnePaymentService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> completePayment(String paymentId, Long userId) {
         if (paymentId == null || paymentId.isBlank()) {
             throw new IllegalArgumentException("paymentId missing");
