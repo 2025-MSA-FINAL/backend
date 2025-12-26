@@ -118,10 +118,9 @@
     <!-- 3. 신고 이미지 조회                         -->
     <!-- ============================================ -->
     <select id="findReportImages" resultType="String">
-        SELECT '' AS image_url
+        SELECT ri_url AS image_url
         FROM REPORT
         WHERE rep_id = #{repId}
-        LIMIT 0
     </select>
 
     <!-- ============================================ -->
