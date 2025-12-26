@@ -119,7 +119,7 @@
     <!-- ============================================ -->
     <select id="findReportImages" resultType="String">
         SELECT ri_url AS image_url
-        FROM REPORT
+        FROM REPORT_IMAGE
         WHERE rep_id = #{repId}
     </select>
 
