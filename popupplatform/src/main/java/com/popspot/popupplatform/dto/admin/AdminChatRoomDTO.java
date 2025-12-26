@@ -22,6 +22,7 @@ public class AdminChatRoomDTO {
     private Long hostUserId;           // 방장 유저 ID
     private String hostUserName;       // 방장 이름
     private String hostNickname;       // 방장 닉네임
+    private Integer reportCount;
     private Integer participantCount;  // 현재 참여자 수
     private Integer maxParticipants;   // 최대 참여자 수
     private Integer messageCount;      // 메시지 수
