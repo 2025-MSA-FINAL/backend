@@ -132,7 +132,7 @@ public class UserService {
      */
     @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
-        // USER_GENERAL + USER 조인 정보
+
         LoginUserDto loginUser = userMapper.findGeneralUserByUserId(userId)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
