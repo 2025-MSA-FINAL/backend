@@ -24,13 +24,13 @@ public class MyPageService {
     public PageDTO<ReservationListItemDto> getMyReservations(
             Long userId,
             PageRequestDTO pageRequest,
-            ReservationStatusFilter statusFilter   // ✅ Enum
+            ReservationStatusFilter statusFilter
     ) {
-        int page = Math.max(pageRequest.getPage(), 0);  // 0부터 시작
-        int size = Math.max(pageRequest.getSize(), 1);  // 최소 1
+        int page = Math.max(pageRequest.getPage(), 0);
+        int size = Math.max(pageRequest.getSize(), 1);
 
         int offset = page * size;
-        String sortDir = pageRequest.getSortDir();      // ASC / DESC (기존 그대로)
+        String sortDir = pageRequest.getSortDir();
 
         ReservationStatusFilter effectiveFilter =
                 statusFilter != null ? statusFilter : ReservationStatusFilter.ALL;
@@ -40,7 +40,7 @@ public class MyPageService {
                         userId,
                         offset,
                         size,
-                        effectiveFilter.name(),   // ✅ Enum → String
+                        effectiveFilter.name(),
                         sortDir
                 );
 
@@ -55,13 +55,13 @@ public class MyPageService {
     public PageDTO<WishlistItemDto> getMyWishlist(
             Long userId,
             PageRequestDTO pageRequest,
-            WishlistStatusFilter statusFilter      // ✅ Enum
+            WishlistStatusFilter statusFilter
     ) {
         int page = Math.max(pageRequest.getPage(), 0);
         int size = Math.max(pageRequest.getSize(), 1);
 
         int offset = page * size;
-        String sortDir = pageRequest.getSortDir();      // ASC / DESC
+        String sortDir = pageRequest.getSortDir();
 
         WishlistStatusFilter effectiveFilter =
                 statusFilter != null ? statusFilter : WishlistStatusFilter.ALL;
@@ -71,7 +71,7 @@ public class MyPageService {
                         userId,
                         offset,
                         size,
-                        effectiveFilter.name(),   // ✅ Enum → String
+                        effectiveFilter.name(),
                         sortDir
                 );
 
