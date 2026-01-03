@@ -57,6 +57,28 @@ public class JwtTokenProvider {
         return parse(token).getBody();
     }
 
+    /* ===================== ✅ refresh에서 쓰는 유틸 ===================== */
+
+    /** 토큰 유효성 검증(서명/형식/만료 포함) */
+    public boolean validateToken(String token) {
+        try {
+            parse(token); // 만료면 ExpiredJwtException
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /** subject(userId 등) 가져오기 */
+    public String getSubject(String token) {
+        return parse(token).getBody().getSubject();
+    }
+
+    /** Claims 전체 가져오기 */
+    public Claims getClaims(String token) {
+        return parse(token).getBody();
+    }
+
     /* ===================== 소셜 회원가입용 signupToken ===================== */
 
     /**

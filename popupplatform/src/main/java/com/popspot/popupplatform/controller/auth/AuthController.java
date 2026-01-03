@@ -75,7 +75,7 @@ public class AuthController {
 
         // 5) 공통 서비스로 쿠키 설정
         authCookieService.addLoginCookies(response, accessToken, refreshToken);
-        System.out.println(accessToken);
+
         return ResponseEntity.noContent().build();
     }
     @Operation(summary = "로그아웃", description = "현재 로그인된 사용자를 로그아웃 처리합니다.")
@@ -98,4 +98,34 @@ public class AuthController {
         userService.deleteUser(userDetails.getUserId());
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "토큰 재발급", description = "RefreshToken 쿠키로 AccessToken을 재발급합니다.")
+    @PostMapping("/refresh")
+    public ResponseEntity<Void> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response
+    ) {
+        // refreshToken 쿠키가 없거나 유효하지 않으면 401
+        if (refreshToken == null || !jwtTokenProvider.validateToken(refreshToken)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        // refreshToken에서 subject/claims 추출
+        String subject = jwtTokenProvider.getSubject(refreshToken); // 보통 userId 문자열
+        String role = String.valueOf(jwtTokenProvider.getClaims(refreshToken).get("role"));
+
+        Map<String, Object> claims = Map.of(
+                "userId", Long.valueOf(subject),
+                "role", role
+        );
+
+        // 새 accessToken 발급
+        String newAccessToken = jwtTokenProvider.createAccessToken(subject, claims);
+
+        // 쿠키 재세팅 (access 갱신 + refresh는 같은 값으로 다시 세팅)
+        authCookieService.addLoginCookies(response, newAccessToken, refreshToken);
+
+        return ResponseEntity.noContent().build();
+    }
+
 }
