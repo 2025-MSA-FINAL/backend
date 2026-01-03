@@ -19,10 +19,10 @@ public class AuthCookieService {
     @Value("${app.cookie.same-site:Lax}")
     private String cookieSameSite;
 
-    @Value("${app.cookie.access-max-age-seconds:1209600}")
+    @Value("${jwt.access-token-validity-seconds:1209600}")
     private long accessCookieMaxAgeSec;
 
-    @Value("${app.cookie.refresh-max-age-seconds:1209600}")
+    @Value("${jwt.refresh-token-validity-seconds:1209600}")
     private long refreshCookieMaxAgeSec;
 
     @Value("${app.cookie.signup-max-age-minutes:10}")
