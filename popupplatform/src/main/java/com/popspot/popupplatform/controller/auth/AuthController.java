@@ -9,6 +9,7 @@ import com.popspot.popupplatform.global.security.CustomUserDetails;
 import com.popspot.popupplatform.service.auth.AuthCookieService;
 import com.popspot.popupplatform.global.utils.JwtTokenProvider;
 import com.popspot.popupplatform.mapper.user.UserMapper;
+import com.popspot.popupplatform.service.auth.RefreshTokenRedisService;
 import com.popspot.popupplatform.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +33,7 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final AuthCookieService authCookieService;
     private final UserService userService;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     /**
      * 일반 로그인
@@ -73,18 +75,29 @@ public class AuthController {
         String accessToken  = jwtTokenProvider.createAccessToken(subject, claims);
         String refreshToken = jwtTokenProvider.createRefreshToken(subject, claims);
 
+        refreshTokenRedisService.save(
+                user.getUserId(),
+                refreshToken,
+                jwtTokenProvider.getRefreshTtl()
+        );
+
         // 5) 공통 서비스로 쿠키 설정
         authCookieService.addLoginCookies(response, accessToken, refreshToken);
-        System.out.println(accessToken);
+
         return ResponseEntity.noContent().build();
     }
-    @Operation(summary = "로그아웃", description = "현재 로그인된 사용자를 로그아웃 처리합니다.")
+
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletResponse response) {
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response
+    ) {
+        if (refreshToken != null && jwtTokenProvider.validateToken(refreshToken)) {
+            Long userId = Long.valueOf(jwtTokenProvider.getSubject(refreshToken));
+            refreshTokenRedisService.delete(userId);
+        }
 
-        // AccessToken + RefreshToken 삭제
         authCookieService.clearAuthCookies(response);
-
         return ResponseEntity.noContent().build();
     }
 
@@ -98,4 +111,49 @@ public class AuthController {
         userService.deleteUser(userDetails.getUserId());
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<Void> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response
+    ) {
+        // 1) 쿠키 없음 or JWT 만료/위조
+        if (refreshToken == null || !jwtTokenProvider.validateToken(refreshToken)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long userId = Long.valueOf(jwtTokenProvider.getSubject(refreshToken));
+
+        // 2) Redis 검증
+        String saved = refreshTokenRedisService.get(userId);
+        if (saved == null || !saved.equals(refreshToken)) {
+            // 탈취 / 재사용
+            return ResponseEntity.status(401).build();
+        }
+
+        // 3) 회전: 기존 refresh 삭제
+        refreshTokenRedisService.delete(userId);
+
+        // 4) 새 토큰 발급
+        Map<String, Object> claims = jwtTokenProvider.getClaims(refreshToken);
+
+        String newAccessToken =
+                jwtTokenProvider.createAccessToken(String.valueOf(userId), claims);
+
+        String newRefreshToken =
+                jwtTokenProvider.createRefreshToken(String.valueOf(userId), claims);
+
+        // 5) Redis에 새 refresh 저장
+        refreshTokenRedisService.save(
+                userId,
+                newRefreshToken,
+                jwtTokenProvider.getRefreshTtl()
+        );
+
+        // 6) 쿠키 재설정
+        authCookieService.addLoginCookies(response, newAccessToken, newRefreshToken);
+
+        return ResponseEntity.noContent().build();
+    }
+
 }
