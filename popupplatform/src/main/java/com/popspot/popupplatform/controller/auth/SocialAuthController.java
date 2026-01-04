@@ -8,6 +8,7 @@ import com.popspot.popupplatform.global.exception.code.AuthErrorCode;
 
 import com.popspot.popupplatform.global.utils.JwtTokenProvider;
 import com.popspot.popupplatform.service.auth.AuthCookieService;
+import com.popspot.popupplatform.service.auth.RefreshTokenRedisService;
 import com.popspot.popupplatform.service.auth.SocialAuthService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -28,6 +29,7 @@ public class SocialAuthController {
     private final SocialAuthService socialAuthService;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthCookieService authCookieService;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     @Operation(summary = "회원가입", description = "소셜 인증후 진행되는 회원가입")
     @PostMapping("/signup")
@@ -62,7 +64,13 @@ public class SocialAuthController {
         String accessToken  = jwtTokenProvider.createAccessToken(subject, tokenClaims);
         String refreshToken = jwtTokenProvider.createRefreshToken(subject, tokenClaims);
 
-        // ✅ 공통 서비스 사용
+        refreshTokenRedisService.save(
+                user.getUserId(),
+                refreshToken,
+                jwtTokenProvider.getRefreshTtl()
+        );
+
+        // ✅ 쿠키 세팅 + signupToken 제거
         authCookieService.addLoginCookies(response, accessToken, refreshToken);
         authCookieService.clearSignupCookie(response);
 

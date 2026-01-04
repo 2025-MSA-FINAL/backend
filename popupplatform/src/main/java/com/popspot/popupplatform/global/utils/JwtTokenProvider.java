@@ -131,4 +131,9 @@ public class JwtTokenProvider {
             throw e;
         }
     }
+
+    public Duration getRefreshTtl() {
+        return Duration.ofMillis(refreshValidityMs);
+    }
+
 }
