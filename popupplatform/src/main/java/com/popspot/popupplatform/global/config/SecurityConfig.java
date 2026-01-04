@@ -78,6 +78,22 @@ public class SecurityConfig {
                         ).authenticated()
                         .anyRequest().authenticated()
                 )
+
+                /*
+
+                    /login/oauth2/code/{registrationId}
+                    /oauth2/authorization/{registrationId}
+                    이 두 엔드포인트는 시큐리티 oauth설정으로 자동으로 만들어짐
+                    프론트에서 /oauth2/authorization/{registrationId} 호출하면
+                    registationId에 해당하는 제공자(네이버,구글,카카오) 로그인 페이지로 이동
+                    로그인 완료후에
+                    /login/oauth2/code/{registrationId}?code=XXXX&state=YYYY GET요청을 보내게 되고
+                    url에 포함된 code로 제공자(네이버,구글,카카오) 서버에 accessToken 요청
+                    accessToken 등이 포함된 OAuth2UserRequest를 spring security에서 만들어
+                    oauth2UserService에서 사용 후 요청 성공하면
+                    oauth2ScuuessHadler로 요청이감
+                    실패하면 아래 exceptionHadling을 타게됨
+                 */
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(naverOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)
