@@ -5,6 +5,7 @@ import com.popspot.popupplatform.dto.user.UserDto;
 import com.popspot.popupplatform.service.auth.AuthCookieService;
 import com.popspot.popupplatform.global.utils.JwtTokenProvider;
 import com.popspot.popupplatform.mapper.user.UserMapper;
+import com.popspot.popupplatform.service.auth.RefreshTokenRedisService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final JwtTokenProvider jwt;
     private final UserMapper userMapper;
     private final AuthCookieService authCookieService;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     @Value("${app.frontend-url}")
     private String frontend;
@@ -60,6 +62,12 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
             String accessToken  = jwt.createAccessToken(subject, claims);
             String refreshToken = jwt.createRefreshToken(subject, claims);
+
+            refreshTokenRedisService.save(
+                    user.getUserId(),
+                    refreshToken,
+                    jwt.getRefreshTtl()
+            );
 
             // ✅ 공통 서비스로 쿠키 설정
             authCookieService.addLoginCookies(res, accessToken, refreshToken);
