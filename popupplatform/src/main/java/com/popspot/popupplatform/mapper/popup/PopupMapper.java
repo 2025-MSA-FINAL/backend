@@ -4,6 +4,7 @@ import com.popspot.popupplatform.domain.popup.PopupStore;
 import com.popspot.popupplatform.dto.popup.response.PopupNearbyItemResponse;
 import com.popspot.popupplatform.dto.user.report.UserPersonaPopupCard;
 import com.popspot.popupplatform.dto.user.report.UserPopupEventDto;
+import com.popspot.popupplatform.dto.user.report.UserRecommendationCandidateDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -142,4 +143,11 @@ public interface PopupMapper {
 
     int selectPriceByPopId(@Param("popId")  Long popId);
 
+    List<UserRecommendationCandidateDto> selectUserReportRecommendationCandidates(
+            @Param("userId") Long userId,
+            @Param("gender") String gender,
+            @Param("birthYearStart") Integer birthYearStart,
+            @Param("birthYearEnd") Integer birthYearEnd,
+            @Param("limit") int limit
+    );
 }
