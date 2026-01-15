@@ -1,5 +1,3 @@
-// src/main/java/com/popspot/popupplatform/service/user/UserReportService.java
-
 package com.popspot.popupplatform.service.user;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -27,6 +25,10 @@ public class UserReportService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    // 후보/추천 개수 고정
+    private static final int RECO_CANDIDATE_LIMIT = 60;
+    private static final int RECO_FINAL_LIMIT = 6;
+
     public UserReportService(ChatClient.Builder builder,
                              UserMapper userMapper,
                              PopupMapper popupMapper) {
@@ -34,96 +36,453 @@ public class UserReportService {
         this.userMapper = userMapper;
         this.popupMapper = popupMapper;
 
+        // ✅ 유저 성향 한마디+상세 / 추천 이유 생성만 수행
         this.chatClient = builder
                 .defaultSystem("""
-                        너는 팝업 스토어 플랫폼의 데이터 분석가이자 카피라이터다.
-                        - 입력으로 유저의 행동 데이터/통계가 JSON 으로 들어온다.
-                        - 너의 역할은 이 데이터를 기반으로 '개인화된 성향 리포트'를 만들어 주는 것이다.
-                        - 차트용 수치는 그대로 유지하면서, 설명 텍스트를 사람 친화적으로, 너무 과장되지 않게 작성한다.
+                        너는 팝업 스토어 플랫폼의 '리포트 카피라이터'다.
+                        - 입력으로 유저 행동 요약(JSON)과, 서버가 확정한 추천 팝업 목록(JSON)이 들어온다.
+                        - 너의 역할은:
+                          1) 유저 성향을 "한마디(personaOneLiner)" + "상세 설명(personaDetail)"로 작성
+                          2) 추천 팝업들의 "이유(reasons)"를 1~2개씩 작성
+                        - 주의:
+                          - 추천 대상(popId), 추천 순서는 절대 바꾸지 않는다.
+                          - 없는 정보를 지어내지 않는다(추측 금지).
+                          - 이유 라벨(label)은 아래 중 하나로만 사용:
+                            ["해시태그","지역","연령대","성별","가격","진행상태","인기"]
+                          - 결과는 반드시 JSON 형식으로만 응답한다.
                         - 모든 응답은 한국어로 작성한다.
                         """)
                 .build();
     }
 
     /**
-     * 유저 리포트 메인 엔트리
+     * ✅ 유저 리포트 (3개만)
+     * 1) 유저 성향 분석 (LLM)
+     * 2) 자주 가는 지역/해시태그
+     * 3) 추천(서버 고정) + 이유(LLM)
      */
     public UserPersonaReport userReport(Long userId) {
 
-        // 1. 유저 기본 인구통계 정보 (성별 / 출생년도)
+        // 유저 기본 정보(성별/출생년도) - 추천 후보 demographic에만 사용
         UserLimitInfoDto limitInfo = userMapper.findUserLimitInfo(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 또는 비활성화된 유저입니다. userId=" + userId));
 
-        String gender = limitInfo.getUserGender();         // "M" / "F" / null 등
+        String gender = limitInfo.getUserGender();         // "M" / "F" / null
         Integer birthYear = limitInfo.getUserBirthyear();  // 1998 등
-
-        // 나이/연령대 계산
         AgeInfo ageInfo = calculateAgeInfo(birthYear);
 
-        // 2. 유저의 팝업 이용 히스토리 조회 (조회 / 찜 / 예약)
-        // Mapper는 DTO(UserPopupEventDto)를 돌려주고, Service에서 내부 이벤트로 변환
+        // 유저 행동 이벤트
         List<UserPopupEventDto> eventDtos = popupMapper.selectUserPopupEvents(userId);
-        if (eventDtos == null) {
-            eventDtos = Collections.emptyList();
-        }
+        if (eventDtos == null) eventDtos = Collections.emptyList();
 
-        // 3. 행동 스냅샷/피처 계산 (뷰/찜/예약 수, 해시태그/지역, 재방문율, 가격 성향 등)
+        // 스냅샷(해시태그/지역 TOP 포함)
         UserBehaviorSnapshot snapshot = buildBehaviorSnapshot(userId, gender, ageInfo, eventDtos);
 
-        // 4. 육각형 축(점수) 1차 계산 (데이터 기반 점수)
-        List<UserPersonaAxis> axesDraft = buildHexagonAxesFromSnapshot(snapshot);
-
-        // 5. LLM 호출해서 축 설명/요약을 더 사람스럽게 다듬기
-        PersonaLlmResult llmResult = callLlmForPersona(snapshot, axesDraft);
-
-        List<UserPersonaAxis> finalAxes =
-                llmResult != null && llmResult.axes() != null && !llmResult.axes().isEmpty()
-                        ? llmResult.axes()
-                        : axesDraft; // LLM 실패시 초안 사용
-
-        String finalSummary =
-                llmResult != null && llmResult.summary() != null
-                        ? llmResult.summary()
-                        : buildFallbackSummary(snapshot);
-
-        // 6. 추천 팝업들 조회
-
-        // 6-1) 나와 비슷한 성향(해시태그 기준) 유저들이 많이 보는 팝업
-        List<UserPersonaPopupCard> similarTastePopups =
-                recommendBySimilarTaste(userId, snapshot, 4);
-
-        // 6-2) 같은 성별 + 연령대가 많이 보는 팝업
-        List<UserPersonaPopupCard> demographicPopups =
-                recommendByDemographic(gender, birthYear, 4);
-
-        // 7. 해시태그/지역 TOP (유저 기준)
+        // 2) 자주 가는 지역/해시태그
         List<UserPersonaTagStat> topHashtags = snapshot.getTopHashtags(8);
         List<UserPersonaRegionStat> topRegions = snapshot.getTopRegions(8);
 
-        // 8. 최종 리포트 DTO 조립
+        // 3) 추천(서버 고정) + 이유(LLM)
+        List<UserRecommendedPopupCard> recommendations =
+                buildDeterministicRecommendations(userId, snapshot, gender, birthYear);
+
+        // 1) 유저 성향 분석(LLM)
+        PersonaAndReasonsResult llmResult =
+                callLlmForPersonaAndReasons(snapshot, topHashtags, topRegions, recommendations);
+
+        String personaOneLiner = (llmResult != null && llmResult.personaOneLiner != null && !llmResult.personaOneLiner.isBlank())
+                ? llmResult.personaOneLiner
+                : buildFallbackPersonaOneLiner(snapshot);
+
+        String personaDetail = (llmResult != null && llmResult.personaDetail != null && !llmResult.personaDetail.isBlank())
+                ? llmResult.personaDetail
+                : buildFallbackPersonaDetail(snapshot);
+
+        // LLM reasons 적용(실패 시 서버 fallback reasons 유지)
+        if (llmResult != null && llmResult.recommendationReasons != null && !llmResult.recommendationReasons.isEmpty()) {
+            applyLlmReasonsToRecommendations(recommendations, llmResult.recommendationReasons);
+        }
+
         return UserPersonaReport.builder()
-                .userId(userId)
-                .gender(gender)
-                .birthYear(birthYear)
-                .age(ageInfo.age())
-                // 예: "20대 초반", "30대 중반"
-                .ageGroupLabel(ageInfo.detailLabel())
-                // 예: "2025-09-01 ~ 2025-12-01 이용 기준"
-                .periodLabel(snapshot.getAnalysisPeriodLabel())
-                .totalViewCount(snapshot.getTotalViewCount())
-                .totalWishlistCount(snapshot.getTotalWishlistCount())
-                .totalReservationCount(snapshot.getTotalReservationCount())
-                .axes(finalAxes)
-                .summary(finalSummary)
-                .similarTastePopups(similarTastePopups)
-                .demographicPopups(demographicPopups)
+                .personaOneLiner(personaOneLiner)
+                .personaDetail(personaDetail)
                 .topHashtags(topHashtags)
                 .topRegions(topRegions)
+                .recommendations(recommendations)
                 .build();
     }
 
     // -------------------------------------------------------
-    // 1) 기본 나이/연령대 계산
+    // ✅ 1) 유저 성향 분석 + 추천 이유를 한 번에 받기
+    // -------------------------------------------------------
+
+    public static class PersonaAndReasonsResult {
+        public String personaOneLiner;
+        public String personaDetail;
+
+        // popId -> reasons
+        public List<RecoReasonItem> recommendationReasons;
+    }
+
+    public static class RecoReasonItem {
+        public Long popId;
+        public List<UserRecommendationReason> reasons;
+    }
+
+    private PersonaAndReasonsResult callLlmForPersonaAndReasons(UserBehaviorSnapshot snapshot,
+                                                                List<UserPersonaTagStat> topHashtags,
+                                                                List<UserPersonaRegionStat> topRegions,
+                                                                List<UserRecommendedPopupCard> recommendations) {
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        Map<String, Object> behavior = new LinkedHashMap<>();
+        behavior.put("totalViewCount", snapshot.getTotalViewCount());
+        behavior.put("totalWishlistCount", snapshot.getTotalWishlistCount());
+        behavior.put("totalReservationCount", snapshot.getTotalReservationCount());
+        behavior.put("distinctPopupCount", snapshot.getDistinctPopupCount());
+        behavior.put("revisitRate", snapshot.getRevisitRate());
+        behavior.put("nightRate", snapshot.getNightRate());
+        behavior.put("weekendRate", snapshot.getWeekendRate());
+        behavior.put("priceFreeRatio", snapshot.getPriceFreeRatio());
+        behavior.put("avgGroupSize", snapshot.getAvgGroupSize());
+
+        payload.put("behavior", behavior);
+        payload.put("topHashtags", topHashtags.stream().limit(5).toList());
+        payload.put("topRegions", topRegions.stream().limit(5).toList());
+
+        // 추천은 "서버가 이미 확정"된 결과만 전달
+        List<Map<String, Object>> recos = new ArrayList<>();
+        for (UserRecommendedPopupCard r : recommendations) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("popId", r.getPopId());
+            m.put("title", r.getTitle());
+            m.put("location", r.getLocation());
+            m.put("priceType", r.getPriceType());
+            m.put("price", r.getPrice());
+            m.put("status", r.getStatus());
+            m.put("serverScore", r.getServerScore());
+            m.put("matchLevel", r.getMatchLevel());
+            recos.add(m);
+        }
+        payload.put("recommendations", recos);
+
+        String json;
+        try {
+            json = OBJECT_MAPPER.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+
+        String prompt = """
+                아래 JSON은 유저 행동 요약과, 서버가 확정한 추천 팝업 목록입니다.
+                
+                1) 유저 성향을 다음 형식으로 작성:
+                   - personaOneLiner: 20자~35자 정도의 한마디(너무 과장 X)
+                   - personaDetail: 2~4문장 상세 설명
+                     * 반드시 근거 라벨을 문장 안에 자연스럽게 포함해 주세요.
+                     * 예: [해시태그] ... [지역] ... [예약] ...
+                
+                2) 추천 팝업(recommendations) 각각에 대해 reasons를 1~2개 작성:
+                   - label은 ["해시태그","지역","연령대","성별","가격","진행상태","인기"] 중 하나
+                   - 없는 정보 추측 금지
+                   - popId/순서 변경 금지
+                
+                응답 JSON 스키마:
+                {
+                  "personaOneLiner": "...",
+                  "personaDetail": "...",
+                  "recommendationReasons": [
+                    {
+                      "popId": 123,
+                      "reasons": [
+                        {"label":"해시태그","text":"..."},
+                        {"label":"지역","text":"..."}
+                      ]
+                    }
+                  ]
+                }
+                
+                입력 JSON:
+                %s
+                """.formatted(json);
+
+        try {
+            return chatClient.prompt()
+                    .user(prompt)
+                    .call()
+                    .entity(PersonaAndReasonsResult.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void applyLlmReasonsToRecommendations(List<UserRecommendedPopupCard> recommendations,
+                                                  List<RecoReasonItem> reasonItems) {
+        if (recommendations == null || recommendations.isEmpty()) return;
+        if (reasonItems == null || reasonItems.isEmpty()) return;
+
+        Map<Long, List<UserRecommendationReason>> map = new HashMap<>();
+        for (RecoReasonItem item : reasonItems) {
+            if (item == null || item.popId == null) continue;
+            if (item.reasons == null) continue;
+
+            List<UserRecommendationReason> clean = item.reasons.stream()
+                    .filter(r -> r != null
+                            && r.getLabel() != null && !r.getLabel().isBlank()
+                            && r.getText() != null && !r.getText().isBlank())
+                    .limit(2)
+                    .toList();
+
+            if (!clean.isEmpty()) {
+                map.put(item.popId, clean);
+            }
+        }
+
+        for (UserRecommendedPopupCard r : recommendations) {
+            List<UserRecommendationReason> reasons = map.get(r.getPopId());
+            if (reasons != null && !reasons.isEmpty()) {
+                r.setReasons(reasons);
+            }
+        }
+    }
+
+    private String buildFallbackPersonaOneLiner(UserBehaviorSnapshot s) {
+        // 데이터 없으면 기본값
+        int total = s.getTotalViewCount() + s.getTotalWishlistCount() + s.getTotalReservationCount();
+        if (total == 0) return "아직은 취향을 모으는 탐색 중";
+
+        if (s.getTotalReservationCount() > 0 && s.getRevisitRate() >= 0.5) return "취향 확실한 계획형 방문러";
+        if (s.getTotalReservationCount() > 0) return "마음에 들면 바로 예약하는 타입";
+        if (s.getTotalWishlistCount() > s.getTotalViewCount()) return "찜으로 꼼꼼히 추리는 타입";
+        return "가볍게 둘러보다 꽂히면 움직이는 타입";
+    }
+
+    private String buildFallbackPersonaDetail(UserBehaviorSnapshot s) {
+        StringBuilder sb = new StringBuilder();
+
+        int total = s.getTotalViewCount() + s.getTotalWishlistCount() + s.getTotalReservationCount();
+        if (total == 0) {
+            sb.append("아직 충분한 이용 기록이 없어 성향 분석이 간단하게 제공돼요. ");
+            sb.append("[해시태그] 관심 키워드를 조금 더 모으면 추천 정확도가 올라가요.");
+            return sb.toString();
+        }
+
+        sb.append("[활동] 최근 기록을 보면 조회 ")
+                .append(s.getTotalViewCount())
+                .append("회, 찜 ")
+                .append(s.getTotalWishlistCount())
+                .append("회, 예약 ")
+                .append(s.getTotalReservationCount())
+                .append("회로 나타나요. ");
+
+        if (!s.getTopHashtags(1).isEmpty()) {
+            sb.append("[해시태그] '").append(s.getTopHashtags(1).get(0).tag()).append("' 관련 콘텐츠를 자주 봐요. ");
+        }
+        if (!s.getTopRegions(1).isEmpty()) {
+            sb.append("[지역] ").append(s.getTopRegions(1).get(0).region()).append(" 주변 방문이 많아요. ");
+        }
+
+        if (s.getTotalReservationCount() > 0) sb.append("[예약] 마음에 들면 실제 방문까지 이어지는 편이에요.");
+        else sb.append("[예약] 아직은 저장/탐색 위주로 취향을 고르는 단계예요.");
+
+        return sb.toString();
+    }
+
+    // -------------------------------------------------------
+    // ✅ 3) 추천: 서버가 후보군/점수/정렬 확정 (Deterministic)
+    // -------------------------------------------------------
+
+    private List<UserRecommendedPopupCard> buildDeterministicRecommendations(Long userId,
+                                                                             UserBehaviorSnapshot snapshot,
+                                                                             String gender,
+                                                                             Integer birthYear) {
+
+        Integer decadeStart = null;
+        Integer decadeEnd = null;
+        if (birthYear != null && birthYear > 0) {
+            decadeStart = (birthYear / 10) * 10;
+            decadeEnd = decadeStart + 9;
+        }
+
+        List<UserRecommendationCandidateDto> candidates =
+                popupMapper.selectUserReportRecommendationCandidates(
+                        userId,
+                        gender,
+                        decadeStart,
+                        decadeEnd,
+                        RECO_CANDIDATE_LIMIT
+                );
+
+        if (candidates == null || candidates.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<String> myTopTags = snapshot.getTopHashtags(8).stream()
+                .map(UserPersonaTagStat::tag)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Set<String> myTopRegions = snapshot.getTopRegions(5).stream()
+                .map(UserPersonaRegionStat::region)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        int maxPopularity = candidates.stream()
+                .map(UserRecommendationCandidateDto::getPopularityScore)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+
+        int maxDemographic = candidates.stream()
+                .map(UserRecommendationCandidateDto::getDemographicScore)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+
+        List<ScoredReco> scored = new ArrayList<>();
+
+        for (UserRecommendationCandidateDto c : candidates) {
+
+            int tagOverlap = countTagOverlap(myTopTags, c.getHashtagsCsv());
+            int regionMatch = isRegionMatch(myTopRegions, c.getRegion()) ? 1 : 0;
+
+            double tagScore = myTopTags.isEmpty()
+                    ? 0.0
+                    : clamp01((double) tagOverlap / Math.min(3, myTopTags.size()));
+
+            double popularityScore = maxPopularity == 0 ? 0.0 : clamp01((double) nz(c.getPopularityScore()) / maxPopularity);
+
+            double demographicScore = (gender == null || decadeStart == null)
+                    ? 0.0
+                    : (maxDemographic == 0 ? 0.0 : clamp01((double) nz(c.getDemographicScore()) / maxDemographic));
+
+            double statusBoost = statusBoost(c.getStatus());
+
+            // ✅ 서버 고정 점수(0~100)
+            int finalScore = (int) Math.round(
+                    55.0 * tagScore
+                            + 15.0 * regionMatch
+                            + 12.0 * demographicScore
+                            + 10.0 * popularityScore
+                            + 8.0 * statusBoost
+            );
+            finalScore = (int) clamp(finalScore);
+
+            String matchLevel = (finalScore >= 75) ? "HIGH" : (finalScore >= 50 ? "MID" : "LOW");
+
+            // LLM 실패 대비 서버 fallback reasons
+            List<UserRecommendationReason> fallbackReasons = buildFallbackRecoReasons(snapshot, c, tagOverlap, regionMatch);
+
+            UserRecommendedPopupCard card = UserRecommendedPopupCard.builder()
+                    .popId(c.getPopId())
+                    .thumbnailUrl(c.getThumbnailUrl())
+                    .title(c.getTitle())
+                    .location(c.getLocation())
+                    .price(c.getPrice())
+                    .priceType(c.getPriceType())
+                    .status(c.getStatus())
+                    .serverScore(finalScore)
+                    .matchLevel(matchLevel)
+                    .reasons(fallbackReasons)
+                    .build();
+
+            scored.add(new ScoredReco(finalScore, c.getPopId(), card));
+        }
+
+        // ✅ 결정적 정렬: score DESC, popId DESC
+        scored.sort((a, b) -> {
+            int cmp = Integer.compare(b.score, a.score);
+            if (cmp != 0) return cmp;
+            return Long.compare(b.popId, a.popId);
+        });
+
+        return scored.stream()
+                .limit(RECO_FINAL_LIMIT)
+                .map(s -> s.card)
+                .collect(Collectors.toList());
+    }
+
+    private record ScoredReco(int score, long popId, UserRecommendedPopupCard card) {}
+
+    private List<UserRecommendationReason> buildFallbackRecoReasons(UserBehaviorSnapshot snapshot,
+                                                                    UserRecommendationCandidateDto c,
+                                                                    int tagOverlap,
+                                                                    int regionMatch) {
+        List<UserRecommendationReason> reasons = new ArrayList<>();
+
+        if (tagOverlap > 0) {
+            reasons.add(new UserRecommendationReason("해시태그", "최근 관심 태그와 겹치는 키워드가 있어요."));
+        }
+        if (regionMatch == 1) {
+            reasons.add(new UserRecommendationReason("지역", "자주 찾는 지역과 동선이 비슷해요."));
+        }
+
+        if (reasons.isEmpty()) {
+            if ("FREE".equalsIgnoreCase(c.getPriceType())) {
+                reasons.add(new UserRecommendationReason("가격", "부담 없이 가볍게 들르기 좋아요."));
+            } else {
+                reasons.add(new UserRecommendationReason("인기", "최근 관심도가 높은 팝업 중 하나예요."));
+            }
+        }
+
+        if (reasons.size() > 2) return reasons.subList(0, 2);
+        return reasons;
+    }
+
+    private int countTagOverlap(Set<String> myTopTags, String hashtagsCsv) {
+        if (myTopTags == null || myTopTags.isEmpty()) return 0;
+        if (hashtagsCsv == null || hashtagsCsv.isBlank()) return 0;
+
+        Set<String> tags = Arrays.stream(hashtagsCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+
+        int overlap = 0;
+        for (String t : myTopTags) {
+            if (tags.contains(t)) overlap++;
+        }
+        return overlap;
+    }
+
+    private boolean isRegionMatch(Set<String> myTopRegions, String regionKey) {
+        if (myTopRegions == null || myTopRegions.isEmpty()) return false;
+        if (regionKey == null || regionKey.isBlank()) return false;
+        return myTopRegions.contains(regionKey.trim());
+    }
+
+    private double statusBoost(String status) {
+        if (status == null) return 0.0;
+        return switch (status) {
+            case "ONGOING" -> 1.0;
+            case "UPCOMING" -> 0.6;
+            default -> 0.0;
+        };
+    }
+
+    private int nz(Integer v) {
+        return v == null ? 0 : v;
+    }
+
+    private double clamp01(double v) {
+        if (v < 0) return 0;
+        if (v > 1) return 1;
+        return v;
+    }
+
+    private double clamp(double v) {
+        if (v < 0) return 0;
+        if (v > 100) return 100;
+        return v;
+    }
+
+    // -------------------------------------------------------
+    // ✅ 나이/연령대(추천 demographic용)
     // -------------------------------------------------------
 
     private AgeInfo calculateAgeInfo(Integer birthYear) {
@@ -132,26 +491,22 @@ public class UserReportService {
         }
 
         int currentYear = LocalDate.now().getYear();
-        int age = currentYear - birthYear + 1; // 한국식 나이 기준이면 +1, 아니면 빼도 됨
+        int age = currentYear - birthYear + 1;
 
-        int group = (age / 10) * 10; // 23 -> 20, 31 -> 30
+        int group = (age / 10) * 10;
         String groupLabel = group + "대";
 
         String detailLabel;
         int mod = age % 10;
-        if (mod <= 3) {
-            detailLabel = groupLabel + " 초반";
-        } else if (mod <= 6) {
-            detailLabel = groupLabel + " 중반";
-        } else {
-            detailLabel = groupLabel + " 후반";
-        }
+        if (mod <= 3) detailLabel = groupLabel + " 초반";
+        else if (mod <= 6) detailLabel = groupLabel + " 중반";
+        else detailLabel = groupLabel + " 후반";
 
         return new AgeInfo(age, group, detailLabel, groupLabel);
     }
 
     // -------------------------------------------------------
-    // 2) 히스토리 DTO -> 내부 이벤트 -> 행동 스냅샷 생성
+    // ✅ 행동 스냅샷(지역/해시태그 TOP 만들기 위해 유지)
     // -------------------------------------------------------
 
     private UserBehaviorSnapshot buildBehaviorSnapshot(Long userId,
@@ -159,7 +514,6 @@ public class UserReportService {
                                                        AgeInfo ageInfo,
                                                        List<UserPopupEventDto> eventDtos) {
 
-        // DTO → 내부 이벤트로 변환 (타입/해시태그 파싱 포함)
         List<UserPopupEvent> events = eventDtos.stream()
                 .map(dto -> {
                     UserPopupEventType type = UserPopupEventType.valueOf(dto.getEventType());
@@ -196,9 +550,7 @@ public class UserReportService {
         int wishlistCount = 0;
         int reservationCount = 0;
 
-        Map<Long, Integer> popupViewCount = new HashMap<>();
         Map<Long, Integer> popupAnyActionCount = new HashMap<>();
-
         Map<String, Double> hashtagScore = new HashMap<>();
         Map<String, Double> regionScore = new HashMap<>();
 
@@ -208,66 +560,39 @@ public class UserReportService {
         int groupVisitTotalPeople = 0;
         int groupVisitEvents = 0;
 
-        int nightActions = 0;   // 20시 이후
-        int weekendActions = 0; // 토/일
-
-        LocalDateTime minEventTime = null;
-        LocalDateTime maxEventTime = null;
+        int nightActions = 0;
+        int weekendActions = 0;
 
         for (UserPopupEvent e : events) {
 
-            // 전체 기간 범위 계산
-            if (minEventTime == null || e.timestamp().isBefore(minEventTime)) {
-                minEventTime = e.timestamp();
-            }
-            if (maxEventTime == null || e.timestamp().isAfter(maxEventTime)) {
-                maxEventTime = e.timestamp();
-            }
-
-            // 액션별 카운트
             switch (e.type()) {
                 case VIEW -> viewCount++;
                 case WISHLIST -> wishlistCount++;
                 case RESERVATION -> reservationCount++;
             }
 
-            // 팝업별 액션/뷰
             popupAnyActionCount.merge(e.popId(), 1, Integer::sum);
-            if (e.type() == UserPopupEventType.VIEW) {
-                popupViewCount.merge(e.popId(), 1, Integer::sum);
-            }
 
-            // 가격 성향
-            if ("FREE".equalsIgnoreCase(e.priceType())) {
-                freeCount++;
-            } else if ("PAID".equalsIgnoreCase(e.priceType())) {
-                paidCount++;
-            }
+            if ("FREE".equalsIgnoreCase(e.priceType())) freeCount++;
+            else if ("PAID".equalsIgnoreCase(e.priceType())) paidCount++;
 
-            // 동행 인원
             if (e.type() == UserPopupEventType.RESERVATION && e.peopleCount() != null) {
                 groupVisitTotalPeople += e.peopleCount();
                 groupVisitEvents++;
             }
 
-            // 야행성/주말 방문 여부
             int hour = e.timestamp().getHour();
-            if (hour >= 20 || hour < 6) {
-                nightActions++;
-            }
-            DayOfWeek dow = e.timestamp().getDayOfWeek();
-            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
-                weekendActions++;
-            }
+            if (hour >= 20 || hour < 6) nightActions++;
 
-            // 해시태그/지역 점수 (VIEW=1, WISHLIST=2, RESERVATION=3 가중치)
+            DayOfWeek dow = e.timestamp().getDayOfWeek();
+            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) weekendActions++;
+
             double weight = switch (e.type()) {
                 case VIEW -> 1.0;
                 case WISHLIST -> 2.0;
                 case RESERVATION -> 3.0;
             };
 
-            // 해시태그
             if (e.hashtags() != null) {
                 for (String tag : e.hashtags()) {
                     if (tag == null || tag.isBlank()) continue;
@@ -275,7 +600,6 @@ public class UserReportService {
                 }
             }
 
-            // 지역 (설계에 따라 지역 파싱 규칙은 바꿔도 됨)
             if (e.region() != null && !e.region().isBlank()) {
                 String regionKey = normalizeRegion(e.region());
                 regionScore.merge(regionKey, weight, Double::sum);
@@ -284,40 +608,30 @@ public class UserReportService {
 
         int totalActions = viewCount + wishlistCount + reservationCount;
         int distinctPopupCount = popupAnyActionCount.size();
+
         double revisitRate;
         if (hashtagScore.isEmpty()) {
             revisitRate = 0.0;
         } else {
             List<Double> sortedTagScores = hashtagScore.values().stream()
-                    .sorted(Comparator.reverseOrder())  // 점수 높은 태그부터
+                    .sorted(Comparator.reverseOrder())
                     .toList();
 
-            double totalTagScore = sortedTagScores.stream()
-                    .mapToDouble(Double::doubleValue)
-                    .sum();
+            double totalTagScore = sortedTagScores.stream().mapToDouble(Double::doubleValue).sum();
 
             int topK = Math.min(3, sortedTagScores.size());
             double topKScore = 0.0;
-            for (int i = 0; i < topK; i++) {
-                topKScore += sortedTagScores.get(i);
-            }
+            for (int i = 0; i < topK; i++) topKScore += sortedTagScores.get(i);
 
-            // 상위 K개 태그 비율 = 취향 일관성 지표
             revisitRate = (totalTagScore == 0.0) ? 0.0 : (topKScore / totalTagScore);
         }
 
         double nightRate = totalActions == 0 ? 0.0 : (double) nightActions / totalActions;
         double weekendRate = totalActions == 0 ? 0.0 : (double) weekendActions / totalActions;
 
-        double priceFreeRatio = (freeCount + paidCount) == 0
-                ? 0.0
-                : (double) freeCount / (freeCount + paidCount);
+        double priceFreeRatio = (freeCount + paidCount) == 0 ? 0.0 : (double) freeCount / (freeCount + paidCount);
+        double avgGroupSize = groupVisitEvents == 0 ? 0.0 : (double) groupVisitTotalPeople / groupVisitEvents;
 
-        double avgGroupSize = groupVisitEvents == 0
-                ? 0.0
-                : (double) groupVisitTotalPeople / groupVisitEvents;
-
-        // 상위 해시태그/지역 정렬
         List<UserPersonaTagStat> topHashtags = hashtagScore.entrySet().stream()
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
                 .map(e -> new UserPersonaTagStat(e.getKey(), e.getValue()))
@@ -327,8 +641,6 @@ public class UserReportService {
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
                 .map(e -> new UserPersonaRegionStat(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
-
-        String periodLabel = buildPeriodLabel(minEventTime, maxEventTime);
 
         return new UserBehaviorSnapshot(
                 userId,
@@ -344,341 +656,42 @@ public class UserReportService {
                 priceFreeRatio,
                 avgGroupSize,
                 topHashtags,
-                topRegions,
-                periodLabel
+                topRegions
         );
     }
 
-    private String buildPeriodLabel(LocalDateTime minEventTime, LocalDateTime maxEventTime) {
-        if (minEventTime == null || maxEventTime == null) {
-            return "최근 활동 기준";
-        }
-        LocalDate start = minEventTime.toLocalDate();
-        LocalDate end = maxEventTime.toLocalDate();
-        if (start.equals(end)) {
-            return start + " 하루 이용 기준";
-        }
-        return start + " ~ " + end;
-    }
-
     private String normalizeRegion(String rawRegion) {
-        if (rawRegion == null || rawRegion.isBlank()) {
-            return "";
-        }
-
+        if (rawRegion == null || rawRegion.isBlank()) return "";
         String[] parts = rawRegion.trim().split("\\s+");
-
-        // 토큰이 2개 이상이면 "첫 번째 + 두 번째"
-        if (parts.length >= 2) {
-            return parts[0] + " " + parts[1];
-        }
-
-        // 그 이하이면 있는 것만 그대로 반환
+        if (parts.length >= 2) return parts[0] + " " + parts[1];
         return parts[0];
     }
 
     // -------------------------------------------------------
-// 3) 스냅샷 -> 육각형 축(점수) 계산
-// -------------------------------------------------------
-
-    private List<UserPersonaAxis> buildHexagonAxesFromSnapshot(UserBehaviorSnapshot s) {
-
-        // 0~100 사이 점수로 정규화 (대략적인 기준값)
-        // 기준값, 공식은 마음대로 조정 가능
-
-        // 1. 활동성: 전체 액션과 서로 다른 팝업 수 기반
-        int totalActions = s.getTotalViewCount() + s.getTotalWishlistCount() + s.getTotalReservationCount();
-        double activityScore = clamp(100.0 * totalActions / 50.0); // 50번 이상이면 만점 근처
-        double explorationScore = clamp(100.0 * s.getDistinctPopupCount() / 20.0); // 20개 이상이면 만점 근처
-
-        // 2. 탐색 다양성: 해시태그/지역의 다양성
-        double hashtagVarietyScore = clamp(100.0 * s.getTopHashtags(999).size() / 15.0); // 15개 이상 쓰면 만점
-        double regionVarietyScore = clamp(100.0 * s.getTopRegions(999).size() / 7.0);    // 7개 이상 돌아다니면 만점
-        double exploration = (explorationScore * 0.5) + (hashtagVarietyScore * 0.3) + (regionVarietyScore * 0.2);
-
-        // 3. 계획성: 예약 비율 + 야행성/주말 비율 역가중
-        double reservationRatio = totalActions == 0 ? 0.0
-                : (double) s.getTotalReservationCount() / totalActions;
-
-        // ✅ 예약을 한 적이 전혀 없으면 계획성은 0점 고정
-        double planScore;
-        if (s.getTotalReservationCount() == 0) {
-            planScore = 0.0;
-        } else {
-            planScore = clamp(
-                    70.0 * reservationRatio                // 예약 많이 할수록 +
-                            + 15.0 * (1.0 - s.getNightRate())   // 야행성 적을수록 +
-                            + 15.0 * (1.0 - s.getWeekendRate()) // 주말 몰림 적을수록 +
-            );
-        }
-
-        // 4. 가격 민감도: 무료 비율 높을수록 "민감도"가 높다고 가정
-        // (FREE/PAID 기록이 전혀 없으면 priceFreeRatio가 0이라 score도 0이 됨)
-        double priceSensitivityScore = clamp(100.0 * s.getPriceFreeRatio());
-
-        // 5. 동행 선호(Social): 평균 인원 수로 계산 (1명 기준, 3명 이상이면 만점)
-        // (동행 예약 자체가 없으면 avgGroupSize = 0 → 음수라 clamp로 0점 처리됨)
-        double socialScore = clamp(100.0 * (s.getAvgGroupSize() - 1.0) / 2.0);
-
-        // 6. 충성도(Loyalty): 재방문 팝업 비율
-        // (재방문한 팝업이 없으면 revisitRate = 0 → 0점)
-        double loyaltyScore = clamp(100.0 * s.getRevisitRate());
-
-        List<UserPersonaAxis> axes = new ArrayList<>();
-
-        axes.add(UserPersonaAxis.builder()
-                .axisKey("ACTIVITY")
-                .axisLabel("활동성")
-                .score((int) Math.round(activityScore))
-                .description("얼마나 자주 팝업을 보고, 찜하고, 예약하는지")
-                .build());
-
-        axes.add(UserPersonaAxis.builder()
-                .axisKey("EXPLORATION")
-                .axisLabel("탐색 다양성")
-                .score((int) Math.round(exploration))
-                .description("얼마나 다양한 팝업/해시태그/지역을 경험하는지")
-                .build());
-
-        axes.add(UserPersonaAxis.builder()
-                .axisKey("PLAN")
-                .axisLabel("계획성")
-                .score((int) Math.round(planScore))
-                .description("즉흥 방문보다, 미리 예약하고 계획적으로 움직이는 정도")
-                .build());
-
-        axes.add(UserPersonaAxis.builder()
-                .axisKey("PRICE_SENSITIVITY")
-                .axisLabel("가격 민감도")
-                .score((int) Math.round(priceSensitivityScore))
-                .description("무료/저가 팝업을 선호하는 정도")
-                .build());
-
-        axes.add(UserPersonaAxis.builder()
-                .axisKey("SOCIAL")
-                .axisLabel("동행 선호")
-                .score((int) Math.round(socialScore))
-                .description("혼자보다 여러 명과 함께 방문하는 비율")
-                .build());
-
-        axes.add(UserPersonaAxis.builder()
-                .axisKey("PREFERENCE_FOCUS")
-                .axisLabel("취향 일관성")
-                .score((int) Math.round(loyaltyScore))
-                .description("비슷한 분위기나 해시태그를 가진 팝업을 반복해서 찾는 경향")
-                .build());
-
-        return axes;
-    }
-
-    private double clamp(double v) {
-        if (v < 0) return 0;
-        if (v > 100) return 100;
-        return v;
-    }
-
-    // -------------------------------------------------------
-    // 4) LLM 호출해서 축 설명/요약 다듬기
+    // 내부용 record/DTO
     // -------------------------------------------------------
 
-    private PersonaLlmResult callLlmForPersona(UserBehaviorSnapshot snapshot,
-                                               List<UserPersonaAxis> axesDraft) {
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("userId", snapshot.getUserId());
-        payload.put("gender", snapshot.getGender());
-        payload.put("age", snapshot.getAgeInfo().age());
-        payload.put("ageGroupLabel", snapshot.getAgeInfo().detailLabel());
-        payload.put("analysisPeriodLabel", snapshot.getAnalysisPeriodLabel());
-
-        Map<String, Object> counts = new LinkedHashMap<>();
-        counts.put("view", snapshot.getTotalViewCount());
-        counts.put("wishlist", snapshot.getTotalWishlistCount());
-        counts.put("reservation", snapshot.getTotalReservationCount());
-        counts.put("distinctPopups", snapshot.getDistinctPopupCount());
-        payload.put("counts", counts);
-
-        Map<String, Object> ratios = new LinkedHashMap<>();
-        ratios.put("revisitRate", snapshot.getRevisitRate());
-        ratios.put("nightRate", snapshot.getNightRate());
-        ratios.put("weekendRate", snapshot.getWeekendRate());
-        ratios.put("priceFreeRatio", snapshot.getPriceFreeRatio());
-        ratios.put("avgGroupSize", snapshot.getAvgGroupSize());
-        payload.put("ratios", ratios);
-
-        payload.put("axesDraft", axesDraft);
-        payload.put("topHashtags", snapshot.getTopHashtags(5));
-        payload.put("topRegions", snapshot.getTopRegions(5));
-
-        String json;
-        try {
-            json = OBJECT_MAPPER.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
-            return null;
-        }
-
-        // ★ 여기부터 수정된 부분
-        String prompt = """
-            아래는 한 사용자의 팝업 이용 데이터 요약(JSON)입니다.
-            
-            이 정보를 기반으로:
-            1) 이미 계산된 육각형 축(axesDraft)의 설명(description)을
-               사람 친화적인 문장으로 다듬고,
-            2) 전체 성향을 3~5문장 정도의 짧은 리포트로 요약해 주세요.
-            
-            주의사항:
-            - 수치(score)는 그대로 유지합니다.
-            - 축 이름(axisKey, axisLabel)은 변경하지 않습니다.
-            - 요약은 해당 유저의 장점/패턴을 위주로 부드럽게 써 주세요.
-            - 결과는 반드시 JSON 형식으로만 응답해 주세요.
-            
-            응답 JSON 스키마:
-            {
-              "axes": [
-                {
-                  "axisKey": "ACTIVITY",
-                  "axisLabel": "활동성",
-                  "score": 0-100,
-                  "description": "한국어 설명..."
-                },
-                ...
-              ],
-              "summary": "한국어 요약 텍스트"
-            }
-            
-            유저 데이터(JSON):
-            %s
-            """.formatted(json);
-
-        try {
-            return chatClient.prompt()
-                    .user(prompt)
-                    .call()
-                    .entity(PersonaLlmResult.class);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private String buildFallbackSummary(UserBehaviorSnapshot s) {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("최근 이용 기록을 보면 ");
-        if (s.getTotalReservationCount() > 0) {
-            sb.append("예약을 활용해 계획적으로 방문하는 편이고, ");
-        } else {
-            sb.append("주로 가볍게 둘러보며 관심 있는 팝업을 골라보는 편이고, ");
-        }
-
-        if (!s.getTopHashtags(1).isEmpty()) {
-            sb.append("특히 '")
-                    .append(s.getTopHashtags(1).get(0).tag())
-                    .append("' 관련 팝업에 관심이 많습니다. ");
-        }
-
-        if (!s.getTopRegions(1).isEmpty()) {
-            sb.append("자주 찾는 지역은 ")
-                    .append(s.getTopRegions(1).get(0).region())
-                    .append(" 주변으로 나타납니다. ");
-        }
-
-        sb.append("전반적으로 자신의 취향에 맞는 팝업을 고르는 데에 확실한 기준이 있는 사용자입니다.");
-
-        return sb.toString();
-    }
-
-    // -------------------------------------------------------
-    // 5) 추천 로직
-    // -------------------------------------------------------
-
-    /**
-     * 2번 요구사항:
-     *  - "유저와 성향이 비슷한(유저가 찜한 해시태그가 들어있는 팝업을 보거나 찜했거나 예약한 적 있는)
-     *    사람들이 찾는 팝업" (현재/예정 팝업 중에서)
-     */
-    private List<UserPersonaPopupCard> recommendBySimilarTaste(Long userId,
-                                                               UserBehaviorSnapshot snapshot,
-                                                               int limit) {
-
-        // 내가 자주 쓰는 상위 해시태그들
-        List<String> myTopTags = snapshot.getTopHashtags(5).stream()
-                .map(UserPersonaTagStat::tag)
-                .toList();
-
-        if (myTopTags.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // PopupMapper.selectSimilarTastePopups(userId, limit) 쪽에서는
-        // "사용자가 찜한 해시태그" 기준으로 이미 계산하고 있으니,
-        // 굳이 tags를 넘기지 않는 버전으로 맞춘 상태라면 이대로 사용.
-        return popupMapper.selectSimilarTastePopups(userId, limit);
-    }
-
-    /**
-     * 3번 요구사항:
-     *  - "유저의 성별과 연령대가 맞는 사람들이 많이 관심있어 하는 팝업"
-     *  - birthYear 를 가지고 10년 단위 구간(예; 1990~1999)을 만들어서 Mapper에 넘김
-     */
-    private List<UserPersonaPopupCard> recommendByDemographic(String gender,
-                                                              Integer birthYear,
-                                                              int limit) {
-
-        if (gender == null || birthYear == null || birthYear <= 0) {
-            return Collections.emptyList();
-        }
-
-        int decadeStart = (birthYear / 10) * 10; // 1998 -> 1990
-        int decadeEnd = decadeStart + 9;         // 1990 ~ 1999
-
-        return popupMapper.selectDemographicPopularPopups(
-                gender,
-                decadeStart,
-                decadeEnd,
-                limit
-        );
-    }
-
-    // -------------------------------------------------------
-    // 내부용 record / DTO (Service 안에서만 사용)
-    // -------------------------------------------------------
-
-    /**
-     * 유저 나이 정보
-     */
     private record AgeInfo(
-            Integer age,        // null 가능
-            Integer group,      // 20, 30 ...
-            String detailLabel, // "20대 초반"
-            String groupLabel   // "20대"
-    ) {
-    }
+            Integer age,
+            Integer group,
+            String detailLabel,
+            String groupLabel
+    ) {}
 
-    /**
-     * 유저의 팝업 액션 타입
-     */
     public enum UserPopupEventType {
         VIEW, WISHLIST, RESERVATION
     }
 
-    /**
-     * 유저의 개별 액션(조회/찜/예약) 이벤트
-     * -> PopupMapper.selectUserPopupEvents 에서 가져온 DTO를 변환해서 사용
-     */
     public record UserPopupEvent(
             Long popId,
             UserPopupEventType type,
             LocalDateTime timestamp,
-            String priceType,            // FREE / PAID ...
-            Integer peopleCount,         // 예약 인원 (VIEW/WISHLIST는 null)
-            String region,               // POPUPSTORE.pop_location
-            List<String> hashtags        // 이 팝업의 해시태그 이름들
-    ) {
-    }
+            String priceType,
+            Integer peopleCount,
+            String region,
+            List<String> hashtags
+    ) {}
 
-    /**
-     * 스냅샷: 유저의 행동 통계 집계 결과
-     */
     @Getter
     private static class UserBehaviorSnapshot {
 
@@ -697,10 +710,8 @@ public class UserReportService {
         private final double priceFreeRatio;
         private final double avgGroupSize;
 
-        private final List<UserPersonaTagStat> topHashtags;   // 정렬된 리스트
-        private final List<UserPersonaRegionStat> topRegions; // 정렬된 리스트
-
-        private final String analysisPeriodLabel;
+        private final List<UserPersonaTagStat> topHashtags;
+        private final List<UserPersonaRegionStat> topRegions;
 
         private UserBehaviorSnapshot(Long userId,
                                      String gender,
@@ -715,8 +726,7 @@ public class UserReportService {
                                      double priceFreeRatio,
                                      double avgGroupSize,
                                      List<UserPersonaTagStat> topHashtags,
-                                     List<UserPersonaRegionStat> topRegions,
-                                     String analysisPeriodLabel) {
+                                     List<UserPersonaRegionStat> topRegions) {
 
             this.userId = userId;
             this.gender = gender;
@@ -732,7 +742,6 @@ public class UserReportService {
             this.avgGroupSize = avgGroupSize;
             this.topHashtags = topHashtags;
             this.topRegions = topRegions;
-            this.analysisPeriodLabel = analysisPeriodLabel;
         }
 
         public static UserBehaviorSnapshot empty(Long userId, String gender, AgeInfo ageInfo) {
@@ -746,32 +755,18 @@ public class UserReportService {
                     0.0,
                     0.0,
                     Collections.emptyList(),
-                    Collections.emptyList(),
-                    "아직 충분한 이용 기록이 없어 간단한 정보만 제공돼요."
+                    Collections.emptyList()
             );
         }
 
         public List<UserPersonaTagStat> getTopHashtags(int limit) {
-            if (topHashtags.size() <= limit) {
-                return topHashtags;
-            }
+            if (topHashtags.size() <= limit) return topHashtags;
             return topHashtags.subList(0, limit);
         }
 
         public List<UserPersonaRegionStat> getTopRegions(int limit) {
-            if (topRegions.size() <= limit) {
-                return topRegions;
-            }
+            if (topRegions.size() <= limit) return topRegions;
             return topRegions.subList(0, limit);
         }
-    }
-
-    /**
-     * LLM 응답 JSON 을 매핑할 DTO
-     */
-    public record PersonaLlmResult(
-            List<UserPersonaAxis> axes,
-            String summary
-    ) {
     }
 }

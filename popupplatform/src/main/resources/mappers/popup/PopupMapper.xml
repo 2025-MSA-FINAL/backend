@@ -869,4 +869,109 @@
         WHERE pop_id = #{popId}
     </select>
 
+    <!--
+       [User Report NEW] 서버 고정 추천용 후보군 조회
+
+       목표:
+       - 서버가 후보군을 정하고(ENDED 제외, 승인/삭제 제외, 이미 본/찜/예약 제외)
+       - popularityScore(최근7일조회 + 찜*3), demographicScore(해당 성별/연령대 이벤트수) 같이 내려준다
+       - 해시태그는 CSV로 내려줘서 Java에서 교집합(tag overlap) 계산
+   -->
+    <select id="selectUserReportRecommendationCandidates"
+            resultType="com.popspot.popupplatform.dto.user.report.UserRecommendationCandidateDto">
+
+        SELECT
+        ps.pop_id         AS popId,
+        ps.pop_thumbnail  AS thumbnailUrl,
+        ps.pop_name       AS title,
+        ps.pop_location   AS location,
+        ps.pop_price      AS price,
+        ps.pop_price_type AS priceType,
+        ps.pop_status     AS status,
+        TRIM(SUBSTRING_INDEX(ps.pop_location, ' ', 2)) AS region,
+
+        -- 후보 팝업의 해시태그 CSV
+        (
+        SELECT GROUP_CONCAT(DISTINCT h.hash_name ORDER BY h.hash_name SEPARATOR ',')
+        FROM POPUP_HASHTAG ph
+        JOIN HASHTAG h ON h.hash_id = ph.hash_id
+        WHERE ph.pop_id = ps.pop_id
+        ) AS hashtagsCsv,
+
+        -- popularity score (프로젝트에서 사용하던 방식 재사용)
+        (
+        IFNULL((
+        SELECT COUNT(*)
+        FROM POPUP_VIEWED v
+        WHERE v.pop_id = ps.pop_id
+        AND v.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ), 0)
+        +
+        3 * IFNULL((
+        SELECT COUNT(*)
+        FROM USER_WISHLIST w
+        WHERE w.pop_id = ps.pop_id
+        ), 0)
+        ) AS popularityScore,
+
+        -- demographic score (성별/연령대가 없으면 0)
+        (
+        <choose>
+            <when test="gender != null and gender != '' and birthYearStart != null and birthYearEnd != null">
+                SELECT COUNT(*)
+                FROM (
+                SELECT pv.pop_id AS pop_id, u.user_gender AS g, u.user_birthyear AS byear
+                FROM POPUP_VIEWED pv JOIN USER u ON u.user_id = pv.user_id
+                UNION ALL
+                SELECT uw.pop_id AS pop_id, u.user_gender AS g, u.user_birthyear AS byear
+                FROM USER_WISHLIST uw JOIN USER u ON u.user_id = uw.user_id
+                UNION ALL
+                SELECT ur.pop_id AS pop_id, u.user_gender AS g, u.user_birthyear AS byear
+                FROM USER_RESERVATION ur JOIN USER u ON u.user_id = ur.user_id
+                ) e
+                WHERE e.pop_id = ps.pop_id
+                AND e.g = #{gender}
+                AND e.byear BETWEEN #{birthYearStart} AND #{birthYearEnd}
+            </when>
+            <otherwise>
+                SELECT 0
+            </otherwise>
+        </choose>
+        ) AS demographicScore
+
+        FROM POPUPSTORE ps
+        WHERE
+        ps.pop_is_deleted = FALSE
+        AND ps.pop_moderation_status = TRUE
+        AND ps.pop_status != 'ENDED'
+        AND ps.pop_id NOT IN (
+        SELECT pop_id FROM USER_WISHLIST WHERE user_id = #{userId}
+        UNION
+        SELECT pop_id FROM POPUP_VIEWED WHERE user_id = #{userId}
+        UNION
+        SELECT pop_id FROM USER_RESERVATION WHERE user_id = #{userId}
+        )
+
+        ORDER BY
+        -- 후보군에서는 popularity 우선으로 대강 좁히고,
+        -- 최종 선정은 Java에서 점수 산식으로 결정하므로 여기서는 안정적 정렬만
+        (
+        IFNULL((
+        SELECT COUNT(*)
+        FROM POPUP_VIEWED v
+        WHERE v.pop_id = ps.pop_id
+        AND v.pv_viewed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ), 0)
+        +
+        3 * IFNULL((
+        SELECT COUNT(*)
+        FROM USER_WISHLIST w
+        WHERE w.pop_id = ps.pop_id
+        ), 0)
+        ) DESC,
+        ps.pop_id DESC
+
+        LIMIT #{limit}
+    </select>
+
 </mapper>
