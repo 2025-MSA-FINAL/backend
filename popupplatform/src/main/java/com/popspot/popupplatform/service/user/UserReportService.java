@@ -36,21 +36,32 @@ public class UserReportService {
         this.userMapper = userMapper;
         this.popupMapper = popupMapper;
 
-        // ✅ 유저 성향 한마디+상세 / 추천 이유 생성만 수행
+        // ✅ "별칭(닉네임) + 취향 포인트 + 추천 이유"만 잘 쓰게
         this.chatClient = builder
                 .defaultSystem("""
                         너는 팝업 스토어 플랫폼의 '리포트 카피라이터'다.
-                        - 입력으로 유저 행동 요약(JSON)과, 서버가 확정한 추천 팝업 목록(JSON)이 들어온다.
-                        - 너의 역할은:
-                          1) 유저 성향을 "한마디(personaOneLiner)" + "상세 설명(personaDetail)"로 작성
-                          2) 추천 팝업들의 "이유(reasons)"를 1~2개씩 작성
-                        - 주의:
-                          - 추천 대상(popId), 추천 순서는 절대 바꾸지 않는다.
-                          - 없는 정보를 지어내지 않는다(추측 금지).
-                          - 이유 라벨(label)은 아래 중 하나로만 사용:
-                            ["해시태그","지역","연령대","성별","가격","진행상태","인기"]
-                          - 결과는 반드시 JSON 형식으로만 응답한다.
-                        - 모든 응답은 한국어로 작성한다.
+                        입력으로 유저 행동 요약(JSON)과, 서버가 확정한 추천 팝업 목록(JSON)이 들어온다.
+
+                        너의 역할:
+                        1) 유저 성향을 '별칭(nicknameTitle)' + '상세 설명(personaDetail)'로 작성
+                        2) 유저가 좋아할 만한 포인트를 3~5개 'interestPoints'로 정리
+                        3) 추천 팝업들의 이유(reasons)를 1~2개씩 작성
+
+                        절대 규칙:
+                        - 추천 대상(popId), 추천 순서는 절대 바꾸지 않는다.
+                        - 제공된 값 밖의 정보는 지어내지 않는다(추측 금지).
+                        - personaDetail/별칭에서 조회/찜/예약 "횟수 숫자"를 나열하지 않는다. (예: 43개 조회, 29회 예약 같은 표현 금지)
+                        - 문장은 과장하지 말고, 사용자 입장에서 '재밌고 공감'되게 쓴다.
+                        - 별칭은 문장형 금지(“~유저입니다” 금지). 짧은 별명처럼.
+
+                        reasons 규칙:
+                        - 이유 라벨(label)은 아래 중 하나로만 사용:
+                          ["해시태그","지역","연령대","성별","가격","진행상태","인기"]
+                        - 이유는 반드시 '구체값'을 포함해 작성한다.
+                          (예: '서울 송파구/성수동', '#주술회전', 'FREE', 'ONGOING', '서버 점수 상위권')
+
+                        출력은 반드시 JSON 형식으로만 응답한다.
+                        모든 응답은 한국어로 작성한다.
                         """)
                 .build();
     }
@@ -90,22 +101,33 @@ public class UserReportService {
         PersonaAndReasonsResult llmResult =
                 callLlmForPersonaAndReasons(snapshot, topHashtags, topRegions, recommendations);
 
-        String personaOneLiner = (llmResult != null && llmResult.personaOneLiner != null && !llmResult.personaOneLiner.isBlank())
-                ? llmResult.personaOneLiner
-                : buildFallbackPersonaOneLiner(snapshot);
+        // ✅ 별칭: 딱딱한 문장 대신 "재미있는 별명"
+        String nicknameTitle = (llmResult != null && llmResult.nicknameTitle != null && !llmResult.nicknameTitle.isBlank())
+                ? llmResult.nicknameTitle
+                : buildFallbackNicknameTitle(snapshot);
 
+        // ✅ 상세: 숫자나열 금지 → 취향/관심/동선/스타일 중심
         String personaDetail = (llmResult != null && llmResult.personaDetail != null && !llmResult.personaDetail.isBlank())
                 ? llmResult.personaDetail
                 : buildFallbackPersonaDetail(snapshot);
+
+        // ✅ 관심 포인트 (프론트에서 chips로 보여주면 "AI 제대로 쓴 느낌" 강해짐)
+        List<String> interestPoints = (llmResult != null && llmResult.interestPoints != null && !llmResult.interestPoints.isEmpty())
+                ? llmResult.interestPoints.stream().filter(s -> s != null && !s.isBlank()).limit(5).toList()
+                : buildFallbackInterestPoints(snapshot);
 
         // LLM reasons 적용(실패 시 서버 fallback reasons 유지)
         if (llmResult != null && llmResult.recommendationReasons != null && !llmResult.recommendationReasons.isEmpty()) {
             applyLlmReasonsToRecommendations(recommendations, llmResult.recommendationReasons);
         }
 
+        // ✅ UserPersonaReport DTO에 필드가 이미 있다면 아래처럼 맞춰서 넣어
+        // - 지금 너가 화면에 뿌리는 게 personaOneLiner/personaDetail이라면
+        //   nicknameTitle을 personaOneLiner에 넣는 방식으로 연결해도 됨.
         return UserPersonaReport.builder()
-                .personaOneLiner(personaOneLiner)
+                .personaOneLiner(nicknameTitle)     // ✅ 기존 필드 재활용: 1줄 요약 자리에 '별칭'
                 .personaDetail(personaDetail)
+                // .interestPoints(interestPoints)   // ✅ DTO에 필드 추가했다면 사용 (없으면 주석)
                 .topHashtags(topHashtags)
                 .topRegions(topRegions)
                 .recommendations(recommendations)
@@ -117,8 +139,9 @@ public class UserReportService {
     // -------------------------------------------------------
 
     public static class PersonaAndReasonsResult {
-        public String personaOneLiner;
-        public String personaDetail;
+        public String nicknameTitle;     // ✅ NEW: MBTI처럼 별칭
+        public String personaDetail;      // ✅ 상세
+        public List<String> interestPoints; // ✅ NEW: 취향 포인트
 
         // popId -> reasons
         public List<RecoReasonItem> recommendationReasons;
@@ -136,6 +159,8 @@ public class UserReportService {
 
         Map<String, Object> payload = new LinkedHashMap<>();
 
+        // ✅ LLM이 숫자나열로 도망가지 않게: 원본 행동 수치는 보내되,
+        // prompt에서 "숫자 나열 금지"를 강제해둠
         Map<String, Object> behavior = new LinkedHashMap<>();
         behavior.put("totalViewCount", snapshot.getTotalViewCount());
         behavior.put("totalWishlistCount", snapshot.getTotalWishlistCount());
@@ -175,37 +200,79 @@ public class UserReportService {
         }
 
         String prompt = """
-                아래 JSON은 유저 행동 요약과, 서버가 확정한 추천 팝업 목록입니다.
-                
-                1) 유저 성향을 다음 형식으로 작성:
-                   - personaOneLiner: 20자~35자 정도의 한마디(너무 과장 X)
-                   - personaDetail: 2~4문장 상세 설명
-                     * 반드시 근거 라벨을 문장 안에 자연스럽게 포함해 주세요.
-                     * 예: [해시태그] ... [지역] ... [예약] ...
-                
-                2) 추천 팝업(recommendations) 각각에 대해 reasons를 1~2개 작성:
-                   - label은 ["해시태그","지역","연령대","성별","가격","진행상태","인기"] 중 하나
-                   - 없는 정보 추측 금지
-                   - popId/순서 변경 금지
-                
-                응답 JSON 스키마:
+            아래 JSON은 유저 행동 요약과, 서버가 확정한 추천 팝업 목록입니다.
+            
+            [문체 규칙 - 반드시 지키세요]
+            - 전체 문장은 100%% 존댓말로만 작성하세요. (반말 금지)
+            - 보고서 말투(“~유저입니다”, “~로 나타납니다”) 금지.
+            - 문장은 자연스럽게 이어지게 작성하고, 나열형(“~하고, ~하며, ~하고…”) 2번 이상 연속 금지.
+            - 같은 단어 반복 금지: "해당", "이 지역", "경향", "모습" 반복 금지.
+            
+            [핵심 목표]
+            - '딱딱한 리포트'가 아니라, MBTI처럼 재미있는 별칭 + 공감되는 설명을 만듭니다.
+            - 단, 없는 정보는 절대 지어내지 않습니다.
+            
+            [절대 금지]
+            - 조회/찜/예약 "횟수 숫자"를 personaDetail/별칭에 직접 쓰지 마세요.
+              (예: "총 43개 조회", "29회 예약" 같은 문장 금지)
+            - 입력 JSON에 없는 사실(특정 작품을 좋아한다 등) 추측 금지.
+            
+            1) nicknameTitle (별칭)
+            - 6~14자, 짧은 별칭(명사형)
+            - 예시: "성수 전시 헌터", "굿즈 수집가", "주말 팝업 산책러"
+            - 가능하면 topHashtags/topRegions 중 존재하는 값 1개를 '은근히' 반영 (직접 복붙 느낌 X)
+            
+            2) personaDetail (3~6문장, 자연스럽게 풍부하게)
+            - 아래 구조를 반드시 지키세요:
+              (1) 도입 1문장: 별칭을 받쳐주는 한 줄(분위기/취향)
+              (2) 패턴 2~4문장: 아래 항목 중 "존재하는 데이터"만 골라 2~4개 사용해 자연스럽게 연결
+                  - revisitRate / distinctPopupCount: 취향 고정 vs 탐색형
+                  - nightRate / weekendRate: 언제 보는지(퇴근 후/주말형 등)
+                  - priceFreeRatio: 무료 선호/가성비형 vs 유료도 OK
+                  - avgGroupSize: 동행 성향(예약 기록이 있을 때만)
+                  - topHashtags / topRegions: 관심 키워드, 자주 가는 동선 (존재하면 최소 1개 포함)
+              (3) 마무리 1문장: “다음엔 이런 팝업도 잘 맞겠다” 같은 한 줄 제안(추측 금지, 일반적 표현만)
+            
+            - "지역"은 topRegions.region 문자열을 그대로 쓰되, “서울 송파구에서…”처럼 자연스럽게 녹이세요.
+            - "해시태그"는 topHashtags.tag 문자열을 그대로 쓰되, “요즘은 #OOO 쪽에 반응이 빠르네요”처럼 자연스럽게.
+            
+            3) interestPoints
+            - 3~5개
+            - 사용자가 “내가 이런 걸 좋아하네?” 하고 바로 이해되는 문장 조각
+            - 예: "애니/전시 테마에 반응이 빠릅니다", "송파/성수 같은 동선이 잦습니다", "무료 팝업을 선호합니다"
+            - **반드시 입력 데이터로부터만** 유추 가능한 수준으로 작성
+            
+            4) 추천 팝업 reasons
+            - recommendations 배열의 각 popId에 대해 reasons 1~2개 작성
+            - label은 아래 중 하나만:
+              ["해시태그","지역","연령대","성별","가격","진행상태","인기"]
+            - text는 반드시 '구체값' 포함:
+              - 지역: 추천 팝업 location 또는 topRegions.region
+              - 해시태그: topHashtags.tag
+              - 진행상태: ONGOING/UPCOMING
+              - 가격: FREE/PAID 또는 price
+              - 인기는 serverScore/matchLevel 근거
+            
+            [응답 JSON 스키마]
+            {
+              "nicknameTitle": "...",
+              "personaDetail": "...",
+              "interestPoints": ["...","..."],
+              "recommendationReasons": [
                 {
-                  "personaOneLiner": "...",
-                  "personaDetail": "...",
-                  "recommendationReasons": [
-                    {
-                      "popId": 123,
-                      "reasons": [
-                        {"label":"해시태그","text":"..."},
-                        {"label":"지역","text":"..."}
-                      ]
-                    }
+                  "popId": 123,
+                  "reasons": [
+                    {"label":"해시태그","text":"..."},
+                    {"label":"지역","text":"..."}
                   ]
                 }
-                
-                입력 JSON:
-                %s
-                """.formatted(json);
+              ]
+            }
+            
+            입력 JSON:
+            %s
+            """.formatted(json);
+
 
         try {
             return chatClient.prompt()
@@ -247,46 +314,79 @@ public class UserReportService {
         }
     }
 
-    private String buildFallbackPersonaOneLiner(UserBehaviorSnapshot s) {
-        // 데이터 없으면 기본값
-        int total = s.getTotalViewCount() + s.getTotalWishlistCount() + s.getTotalReservationCount();
-        if (total == 0) return "아직은 취향을 모으는 탐색 중";
+    // -------------------------------------------------------
+    // ✅ 폴백: 별칭/상세/포인트 (LLM 실패시에도 재밌게)
+    // -------------------------------------------------------
 
-        if (s.getTotalReservationCount() > 0 && s.getRevisitRate() >= 0.5) return "취향 확실한 계획형 방문러";
-        if (s.getTotalReservationCount() > 0) return "마음에 들면 바로 예약하는 타입";
-        if (s.getTotalWishlistCount() > s.getTotalViewCount()) return "찜으로 꼼꼼히 추리는 타입";
-        return "가볍게 둘러보다 꽂히면 움직이는 타입";
+    private String buildFallbackNicknameTitle(UserBehaviorSnapshot s) {
+        // top tag + top region로 "별칭" 만들기
+        String tag = (!s.getTopHashtags(1).isEmpty()) ? stripHash(s.getTopHashtags(1).get(0).tag()) : null;
+        String region = (!s.getTopRegions(1).isEmpty()) ? s.getTopRegions(1).get(0).region() : null;
+
+        if (tag != null && region != null) return region + " " + tag + " 덕후";
+        if (tag != null) return tag + " 취향 수집가";
+        if (region != null) return region + " 팝업 산책러";
+
+        return "취향 탐색 중인 팝업러";
     }
 
     private String buildFallbackPersonaDetail(UserBehaviorSnapshot s) {
-        StringBuilder sb = new StringBuilder();
+        String tag = (!s.getTopHashtags(1).isEmpty()) ? s.getTopHashtags(1).get(0).tag() : null;
+        String region = (!s.getTopRegions(1).isEmpty()) ? s.getTopRegions(1).get(0).region() : null;
 
-        int total = s.getTotalViewCount() + s.getTotalWishlistCount() + s.getTotalReservationCount();
-        if (total == 0) {
-            sb.append("아직 충분한 이용 기록이 없어 성향 분석이 간단하게 제공돼요. ");
-            sb.append("[해시태그] 관심 키워드를 조금 더 모으면 추천 정확도가 올라가요.");
-            return sb.toString();
+        List<String> lines = new ArrayList<>();
+
+        if (tag != null) {
+            lines.add("요즘은 " + tag + " 같은 키워드에 특히 반응하는 편이에요.");
+        }
+        if (region != null) {
+            lines.add("동선은 " + region + " 쪽을 자주 잡는 편이라, 근처 팝업이면 더 가볍게 들를 수 있어요.");
         }
 
-        sb.append("[활동] 최근 기록을 보면 조회 ")
-                .append(s.getTotalViewCount())
-                .append("회, 찜 ")
-                .append(s.getTotalWishlistCount())
-                .append("회, 예약 ")
-                .append(s.getTotalReservationCount())
-                .append("회로 나타나요. ");
+        // 행동 스타일은 숫자 대신 '경향'으로만
+        if (s.getTotalReservationCount() > 0) {
+            lines.add("마음에 들면 저장만 하지 않고 실제 방문까지 이어지는 타입이에요.");
+        } else if (s.getTotalWishlistCount() > 0) {
+            lines.add("일단 찜해두고 천천히 고르는 ‘선별형’ 스타일이에요.");
+        } else {
+            lines.add("여러 팝업을 둘러보며 취향 지도를 넓히는 중이에요.");
+        }
 
+        // 무료/유료는 '경향'만
+        if (s.getPriceFreeRatio() >= 0.7) {
+            lines.add("부담 없는 무료 팝업 위주로 새로운 테마를 가볍게 찍먹하는 편이에요.");
+        }
+
+        // 2~4문장으로 압축
+        if (lines.size() <= 4) return String.join(" ", lines);
+        return String.join(" ", lines.subList(0, 4));
+    }
+
+    private List<String> buildFallbackInterestPoints(UserBehaviorSnapshot s) {
+        List<String> pts = new ArrayList<>();
         if (!s.getTopHashtags(1).isEmpty()) {
-            sb.append("[해시태그] '").append(s.getTopHashtags(1).get(0).tag()).append("' 관련 콘텐츠를 자주 봐요. ");
+            pts.add(stripHash(s.getTopHashtags(1).get(0).tag()) + " 테마에 관심");
         }
         if (!s.getTopRegions(1).isEmpty()) {
-            sb.append("[지역] ").append(s.getTopRegions(1).get(0).region()).append(" 주변 방문이 많아요. ");
+            pts.add(s.getTopRegions(1).get(0).region() + " 동선 선호");
+        }
+        if (s.getTotalReservationCount() > 0) {
+            pts.add("마음에 들면 방문까지 이어짐");
+        } else if (s.getTotalWishlistCount() > 0) {
+            pts.add("저장해두고 골라가는 스타일");
+        } else {
+            pts.add("탐색 중심으로 취향 확장 중");
         }
 
-        if (s.getTotalReservationCount() > 0) sb.append("[예약] 마음에 들면 실제 방문까지 이어지는 편이에요.");
-        else sb.append("[예약] 아직은 저장/탐색 위주로 취향을 고르는 단계예요.");
+        if (s.getPriceFreeRatio() >= 0.7) pts.add("무료 팝업 선호");
+        if (s.getRevisitRate() >= 0.6) pts.add("한 취향을 깊게 파는 편");
 
-        return sb.toString();
+        return pts.stream().distinct().limit(5).toList();
+    }
+
+    private String stripHash(String tag) {
+        if (tag == null) return null;
+        return tag.startsWith("#") ? tag.substring(1) : tag;
     }
 
     // -------------------------------------------------------
@@ -416,17 +516,27 @@ public class UserReportService {
         List<UserRecommendationReason> reasons = new ArrayList<>();
 
         if (tagOverlap > 0) {
-            reasons.add(new UserRecommendationReason("해시태그", "최근 관심 태그와 겹치는 키워드가 있어요."));
+            String topTag = snapshot.getTopHashtags(1).isEmpty() ? null : snapshot.getTopHashtags(1).get(0).tag();
+            if (topTag != null) {
+                reasons.add(new UserRecommendationReason("해시태그", topTag + " 취향이랑 결이 비슷해요."));
+            } else {
+                reasons.add(new UserRecommendationReason("해시태그", "최근 관심 태그와 겹치는 키워드가 있어요."));
+            }
         }
         if (regionMatch == 1) {
-            reasons.add(new UserRecommendationReason("지역", "자주 찾는 지역과 동선이 비슷해요."));
+            String topRegion = snapshot.getTopRegions(1).isEmpty() ? null : snapshot.getTopRegions(1).get(0).region();
+            if (topRegion != null) {
+                reasons.add(new UserRecommendationReason("지역", topRegion + " 동선에서 가기 좋아요."));
+            } else {
+                reasons.add(new UserRecommendationReason("지역", "자주 찾는 지역과 동선이 비슷해요."));
+            }
         }
 
         if (reasons.isEmpty()) {
             if ("FREE".equalsIgnoreCase(c.getPriceType())) {
-                reasons.add(new UserRecommendationReason("가격", "부담 없이 가볍게 들르기 좋아요."));
+                reasons.add(new UserRecommendationReason("가격", "FREE라서 부담 없이 들르기 좋아요."));
             } else {
-                reasons.add(new UserRecommendationReason("인기", "최근 관심도가 높은 팝업 중 하나예요."));
+                reasons.add(new UserRecommendationReason("인기", "서버 점수/인기 기준으로 상위권이에요."));
             }
         }
 
